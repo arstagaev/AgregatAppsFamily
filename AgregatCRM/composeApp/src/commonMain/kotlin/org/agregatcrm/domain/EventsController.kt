@@ -3,10 +3,12 @@ package org.agregatcrm.domain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.agregatcrm.data.remote.ApiConfig
 import org.agregatcrm.data.remote.EventsApi
+import org.agregatcrm.data.remote.Resource
 import org.agregatcrm.models.EventItemDto
 import org.agregatcrm.repository.EventsRepository
 import org.agregatcrm.utils.requestEventsList
@@ -16,14 +18,17 @@ class EventsController(
     private val scope: CoroutineScope,
     private val repo: EventsRepository
 ) {
-    private val _state = MutableStateFlow<List<EventItemDto>>(emptyList())
-    val state = _state.asStateFlow()
-    
+//    private val _state = MutableStateFlow<List<EventItemDto>>(emptyList())
+//    val state = _state.asStateFlow()
+    private val _resource = MutableStateFlow<Resource<List<EventItemDto>>>(Resource.Loading)
+    val resource: StateFlow<Resource<List<EventItemDto>>> = _resource
+
     fun addNewEvents(
         count: Int = requestEventsList.value.count,
         ncount: Int = requestEventsList.value.ncount,
     ) {
         Log.info("EventsController refresh")
+        _resource.value = Resource.Loading
         scope.launch(Dispatchers.Default) {
             val items = repo.loadEvents(
                 apiConfig = ApiConfig(),
@@ -36,11 +41,12 @@ class EventsController(
                 filterBy  = requestEventsList.value.filterBy,
                 filterVal = requestEventsList.value.filterVal
             )
-
-            Log.info("repo.loadEvents ${items.getOrNull()}")
-            _state.value = items.getOrNull() ?: listOf()
+            _resource.value = items
+            Log.info("repo.loadEvents ${items}")
+//            _resource.value = items.getOrNull() ?: listOf()
         }
     }
+
     fun fullRefresh(
         count: Int = requestEventsList.value.count,
         ncount: Int = requestEventsList.value.ncount,
@@ -52,6 +58,7 @@ class EventsController(
         filterVal: String = requestEventsList.value.filterVal
     ) {
         Log.info("EventsController refresh")
+        _resource.value = Resource.Loading
         scope.launch(Dispatchers.Default) {
             val items = repo.loadEvents(
                 apiConfig = ApiConfig(),
@@ -62,8 +69,9 @@ class EventsController(
                 filterBy = filterBy,
                 filterVal = filterVal
             )
-            Log.info("repo.loadEvents ${items.getOrNull()}")
-            _state.value = items.getOrNull() ?: listOf()
+            Log.info("repo.loadEvents ${items}")
+//            _state.value = items.getOrNull() ?: listOf()
+            _resource.value = items
         }
     }
 }
@@ -71,6 +79,6 @@ class EventsController(
 // helper to quickly wire
 fun provideEventsController(scope: CoroutineScope): EventsController {
     val api = EventsApi()
-    val repo = EventsRepository(api)
+    val repo = EventsRepository(api,)
     return EventsController(scope, repo)
 }

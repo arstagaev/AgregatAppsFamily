@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
 import org.agregatcrm.domain.provideEventsController
+import org.agregatcrm.ui.App
 
 class MainActivity : ComponentActivity() {
 

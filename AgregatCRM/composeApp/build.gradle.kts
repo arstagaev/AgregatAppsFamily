@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
     kotlin("plugin.serialization") version "2.2.0"
+    id("com.squareup.sqldelight") version "1.5.5" // or your current
 }
 
 kotlin {
@@ -40,7 +41,7 @@ kotlin {
             implementation("io.ktor:ktor-client-okhttp:2.3.12")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
             implementation("androidx.datastore:datastore-preferences:1.1.7") // optional if you prefer DataStore later
-
+            implementation("com.squareup.sqldelight:android-driver:1.5.5")
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -65,7 +66,14 @@ kotlin {
 //            implementation("androidx.compose.material:material-icons-core:1.6.8")
 //            implementation("androidx.compose.material:material-icons-extended:1.6.8")
             implementation("br.com.devsrsouza.compose.icons:feather:1.1.1")
+
+            implementation("com.squareup.sqldelight:runtime:1.5.5")
+            implementation("com.squareup.sqldelight:coroutines-extensions:1.5.5")
         }
+        iosMain.dependencies {
+            implementation("com.squareup.sqldelight:native-driver:1.5.5")
+        }
+
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
@@ -116,5 +124,13 @@ compose.desktop {
             packageName = "org.agregatcrm"
             packageVersion = "1.0.0"
         }
+    }
+}
+
+sqldelight {
+    database("AppDatabase") {
+        packageName = "com.agregat.db"
+        schemaOutputDirectory = file("src/commonMain/sqldelight/databases")
+        verifyMigrations = true
     }
 }

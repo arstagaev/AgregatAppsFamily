@@ -1,0 +1,20 @@
+CREATE TABLE favorites (
+  number TEXT NOT NULL PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+
+-- list all
+selectAll:
+SELECT * FROM favorites ORDER BY created_at DESC;
+
+-- check one
+selectByNumber:
+SELECT * FROM favorites WHERE number = ?;
+
+-- insert or replace timestamp
+insertOrReplace:
+INSERT OR REPLACE INTO favorites(number, created_at) VALUES (?, ?);
+
+-- delete
+deleteByNumber:
+DELETE FROM favorites WHERE number = ?;

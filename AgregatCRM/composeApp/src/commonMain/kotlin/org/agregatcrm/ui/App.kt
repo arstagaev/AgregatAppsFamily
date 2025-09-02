@@ -1,4 +1,4 @@
-package org.agregatcrm
+package org.agregatcrm.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -33,15 +34,35 @@ import compose.icons.feathericons.Eye
 import compose.icons.feathericons.EyeOff
 import compose.icons.feathericons.RefreshCw
 import kotlinx.coroutines.launch
+import org.agregatcrm.data.remote.Resource
 import org.agregatcrm.feature.OrderDialog
 import org.agregatcrm.models.EventItemDto
+import org.agregatcrm.utils.CURRENT_SCREEN
+import org.agregatcrm.utils.CurrentScreen
+import org.agregatcrm.utils.TARGET_EVENT
 import org.agregatcrm.utils.requestEventsList
+
+
 
 @Composable
 fun App(scope: CoroutineScope, controller: EventsController = provideEventsController(scope)) {
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    var curScreen by remember { CURRENT_SCREEN }
+    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xff546ff3))) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
-            EventsScreen(controller)
+            Scaffold(
+                bottomBar = {
+                    AppBottomNavBar { selected ->
+                        CURRENT_SCREEN.value = selected.screen
+                        println("Selected: ${selected.label}")
+                    }
+                }
+            ) { innerPadding ->
+                when(curScreen) {
+                    CurrentScreen.List -> EventsScreen(controller)
+                    CurrentScreen.Details -> EventDetailsScreen(TARGET_EVENT.value,)
+                    CurrentScreen.Favorites -> FavoritesScreen()
+                }
+            }
         }
     }
 }
@@ -50,15 +71,12 @@ private var showFilter = mutableStateOf(true)
 
 @Composable
 fun EventsScreen(controller: EventsController) {
-    val events by controller.state.collectAsState(initial = emptyList())
+//    val events by controller.resource.collectAsState(initial = emptyList())
+    val res by controller.resource.collectAsState()
     val scope = rememberCoroutineScope()
 
     // simple controls state
     var eventsListRequest by remember { requestEventsList }
-//    var count by remember { mutableStateOf(5) }
-//    var ncount by remember { mutableStateOf(50) }
-//    var filterBy by remember { mutableStateOf("ПодразделениеКомпании") }
-//    var filterVal by remember { mutableStateOf("Воронеж") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -69,7 +87,7 @@ fun EventsScreen(controller: EventsController) {
 //
 //        }
         // Top controls
-        Box(Modifier.fillMaxSize().weight(if (showFilter.value) 5f else 1f)) {
+        Box(Modifier.fillMaxSize().weight(if (showFilter.value) 5f else 0.7f)) {
             TopControls(
                 count = eventsListRequest.count,
                 onCountChange = { requestEventsList.value = requestEventsList.value.copy(count = it) },
@@ -101,37 +119,66 @@ fun EventsScreen(controller: EventsController) {
         }
 
         // Content
-        if (events.isEmpty() && !isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Нет данных. Нажмите Обновить.", style = MaterialTheme.typography.bodyLarge)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().weight(10f),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(events) { ev ->
-                    EventCard(ev)
+        Row(modifier = Modifier.fillMaxSize().weight(10f)) {
+            when (val r = res) {
+                is Resource.Loading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(12.dp))
+                            Text("Загрузка...")
+                        }
+                    }
                 }
-
-                item {
-                    // Load more by increasing ncount or count
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        OutlinedButton(
-                            enabled = !isLoading,
-                            onClick = {
-                                requestEventsList.value = requestEventsList.value.copy(ncount = requestEventsList.value.ncount.also { it+10 })
-                                scope.launch {
-                                    isLoading = true
-                                    controller.fullRefresh()
-                                    isLoading = false
+                is Resource.Error -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                r.causes ?: r.exception?.message ?: "Неизвестная ошибка",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Button(onClick = {
+                                scope.launch { controller.fullRefresh() }
+                            }) {
+                                Text("Повторить")
+                            }
+                        }
+                    }
+                }
+                is Resource.Success -> {
+                    val events = r.data
+                    if (events.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Нет данных", style = MaterialTheme.typography.bodyLarge)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(events) { ev ->
+                                EventCard(ev)
+                            }
+                            item {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            // increment ncount by +10 and refresh
+                                            val current = requestEventsList.value
+                                            requestEventsList.value = current.copy(ncount = current.ncount + 10)
+                                            scope.launch { controller.fullRefresh() }
+                                        }
+                                    ) { Text("Загрузить ещё (+10)") }
                                 }
                             }
-                        ) { Text("Загрузить ещё (+10)") }
+                        }
                     }
                 }
             }
@@ -181,12 +228,15 @@ private fun TopControls(
     onRefresh: () -> Unit
 ) {
     var showFullControlsInternal by remember { showFilter }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-        AnimatedVisibility(visible = showFullControlsInternal, modifier = Modifier.fillMaxSize().weight(4f)) {
-            Column {
+    Column(Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = showFullControlsInternal, //modifier = Modifier.fillMaxWidth().height(120.dp)
+        ) {
+            Column() {
+                Spacer(Modifier.height(8.dp))
                 Text("Фильтры и параметры", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth().height(90.dp).background(Color.Red), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().height(80.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NumberField(
                         label = "count",
                         value = count,
@@ -200,7 +250,7 @@ private fun TopControls(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Row(Modifier.fillMaxWidth().height(90.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().height(80.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = filterBy,
                         onValueChange = onFilterByChange,
@@ -221,7 +271,7 @@ private fun TopControls(
         }
 
         Row(
-            Modifier.fillMaxWidth().weight(1f),
+            Modifier.fillMaxWidth().height(50.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -231,10 +281,11 @@ private fun TopControls(
                     contentDescription = "Refresh"
                 )
             }
+            AssistChipRow("${requestEventsList.value.orderBy.wire}, ${
+                requestEventsList.value.orderDir.label}")
             Column {
-                AssistChipRow("сорт.:${requestEventsList.value.orderBy.wire}, по:${
-                    requestEventsList.value.orderDir.label}")
-                Text(text = "", fontSize = 8.sp, color = Color.DarkGray)
+
+//                Text(text = "", fontSize = 8.sp, color = Color.DarkGray)
             }
 
 
@@ -246,7 +297,7 @@ private fun TopControls(
             }
         }
     }
-    Divider(Modifier.padding(top = 12.dp))
+//    Divider(Modifier.padding(top = 12.dp))
 }
 
 @Composable
@@ -321,13 +372,11 @@ fun EventCard(ev: EventItemDto) {
             KeyValueRow("Автор", ev.author)
 
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Скрыть детали" else "Показать детали")
-            }
-
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
-                EventDetails(ev)
+            TextButton(onClick = {
+                TARGET_EVENT.value = ev
+                CURRENT_SCREEN.value = CurrentScreen.Details
+            }) {
+                Text("Показать детали")
             }
         }
     }
