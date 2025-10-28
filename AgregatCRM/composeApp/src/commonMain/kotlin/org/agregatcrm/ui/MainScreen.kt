@@ -1,7 +1,6 @@
 package org.agregatcrm.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,25 +22,27 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Eye
 import compose.icons.feathericons.EyeOff
 import compose.icons.feathericons.RefreshCw
 import kotlinx.coroutines.launch
+import org.agregatcrm.data.local.CMPPrefs
+import org.agregatcrm.data.local.SharedprefVariants
 import org.agregatcrm.data.remote.Resource
 import org.agregatcrm.feature.OrderDialog
+import org.agregatcrm.feature.toOrderByOption
+import org.agregatcrm.feature.toOrderDirOption
 import org.agregatcrm.models.EventItemDto
 import org.agregatcrm.utils.CURRENT_SCREEN
 import org.agregatcrm.utils.CurrentScreen
 import org.agregatcrm.utils.TARGET_EVENT
 import org.agregatcrm.utils.requestEventsList
-
+import org.koin.compose.koinInject
 
 
 @Composable
@@ -72,6 +73,7 @@ private var showFilter = mutableStateOf(true)
 @Composable
 fun EventsScreen(controller: EventsController) {
 //    val events by controller.resource.collectAsState(initial = emptyList())
+    val prefs = koinInject<CMPPrefs>()
     val res by controller.resource.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -82,6 +84,23 @@ fun EventsScreen(controller: EventsController) {
 
     var showDialogInternals by remember { mutableStateOf(showDialogOrderBy) }
 
+    LaunchedEffect(Unit) {
+        showFilter.value = prefs.getBool(SharedprefVariants.isSHOW_TOP_CONTROLS.key,true) ?: true
+
+        requestEventsList.value = requestEventsList.value.copy(
+            count = prefs.getInt(SharedprefVariants.FILTER_COUNT.key,20),
+            ncount = prefs.getInt(SharedprefVariants.FILTER_N_COUNT.key,0),
+            filterBy = prefs.getString(SharedprefVariants.FILTER_BY.key,SharedprefVariants.FILTER_BY.defaultValue.toString()) ?: "",
+            filterVal = prefs.getString(SharedprefVariants.FILTER_VAL.key,SharedprefVariants.FILTER_VAL.defaultValue.toString()) ?: "",
+
+            orderBy =  prefs.getString(SharedprefVariants.ORDER_BY.key,SharedprefVariants.ORDER_BY.defaultValue.toString()).toOrderByOption(),
+            orderDir = prefs.getString(SharedprefVariants.ORDER_DIR.key,SharedprefVariants.ORDER_DIR.defaultValue.toString()).toOrderDirOption(),
+        )
+        println(">>>>>>> "+prefs.getString(SharedprefVariants.ORDER_BY.key,SharedprefVariants.ORDER_BY.defaultValue.toString()).toOrderByOption(),)
+        println(">>>>>>> "+prefs.getString(SharedprefVariants.ORDER_DIR.key,SharedprefVariants.ORDER_DIR.defaultValue.toString()).toOrderDirOption())
+        controller.fullRefresh()
+    }
+
     Column(Modifier.fillMaxSize()) {
 //        Row(modifier = Modifier.fillMaxWidth().height(60.dp)) {
 //
@@ -90,13 +109,25 @@ fun EventsScreen(controller: EventsController) {
         Box(Modifier.fillMaxSize().weight(if (showFilter.value) 5f else 0.7f)) {
             TopControls(
                 count = eventsListRequest.count,
-                onCountChange = { requestEventsList.value = requestEventsList.value.copy(count = it) },
+                onCountChange = {
+                    requestEventsList.value = requestEventsList.value.copy(count = it)
+
+                },
                 ncount = eventsListRequest.ncount,
-                onNCountChange = { requestEventsList.value = requestEventsList.value.copy(ncount = it) },
+                onNCountChange = {
+                    requestEventsList.value = requestEventsList.value.copy(ncount = it)
+
+                },
                 filterBy = eventsListRequest.filterBy,
-                onFilterByChange = { requestEventsList.value = requestEventsList.value.copy(filterBy = it) },
+                onFilterByChange = {
+                    requestEventsList.value = requestEventsList.value.copy(filterBy = it)
+
+                },
                 filterVal = eventsListRequest.filterVal,
-                onFilterValChange = { requestEventsList.value = requestEventsList.value.copy(filterVal = it) },
+                onFilterValChange = {
+                    requestEventsList.value = requestEventsList.value.copy(filterVal = it)
+
+                },
                 isLoading = isLoading,
                 onRefresh = {
                     isLoading = true
@@ -108,15 +139,22 @@ fun EventsScreen(controller: EventsController) {
                             error = t.message ?: "Unknown error"
                         } finally {
                             isLoading = false
+                            prefs.put(SharedprefVariants.FILTER_COUNT.key,   requestEventsList.value.count)
+                            prefs.put(SharedprefVariants.FILTER_N_COUNT.key, requestEventsList.value.ncount)
+                            prefs.put(SharedprefVariants.FILTER_BY.key,      requestEventsList.value.filterBy)
+                            prefs.put(SharedprefVariants.FILTER_VAL.key,     requestEventsList.value.filterVal)
+
+                            prefs.put(SharedprefVariants.ORDER_BY.key,     requestEventsList.value.orderBy.wire)
+                            prefs.put(SharedprefVariants.ORDER_DIR.key,     requestEventsList.value.orderDir.wire)
                         }
                     }
                 }
             )
         }
 
-        if (error != null) {
-            AssistChipRow("Ошибка: $error")
-        }
+//        if (error != null) {
+//            AssistChipRow("Ошибка: $error")
+//        }
 
         // Content
         Row(modifier = Modifier.fillMaxSize().weight(10f)) {
@@ -190,10 +228,13 @@ fun EventsScreen(controller: EventsController) {
                 currentDir = requestEventsList.value.orderDir,
                 onDismiss = { showDialogInternals.value = false },
                 onApply = { by, dir ->
-                    showDialogInternals.value = false
+
 //                    ConfigRequest.value.orderBy = by
 //                    ConfigRequest.value.orderDir = dir
                     requestEventsList.value = requestEventsList.value.copy(orderBy = by, orderDir = dir)
+
+                    prefs.put(SharedprefVariants.ORDER_BY.key,     requestEventsList.value.orderBy.wire)
+                    prefs.put(SharedprefVariants.ORDER_DIR.key,     requestEventsList.value.orderDir.wire)
                     // optionally auto-refresh:
 //                    onRefresh()
 //                    onApply(by, dir)
@@ -206,6 +247,7 @@ fun EventsScreen(controller: EventsController) {
                             error = t.message ?: "Unknown error"
                         } finally {
                             isLoading = false
+                            showDialogInternals.value = false
                         }
                     }
                 }
@@ -228,6 +270,8 @@ private fun TopControls(
     onRefresh: () -> Unit
 ) {
     var showFullControlsInternal by remember { showFilter }
+    val prefs = koinInject<CMPPrefs>()
+
     Column(Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = showFullControlsInternal, //modifier = Modifier.fillMaxWidth().height(120.dp)
@@ -281,15 +325,19 @@ private fun TopControls(
                     contentDescription = "Refresh"
                 )
             }
-            AssistChipRow("${requestEventsList.value.orderBy.wire}, ${
-                requestEventsList.value.orderDir.label}")
-            Column {
 
-//                Text(text = "", fontSize = 8.sp, color = Color.DarkGray)
-            }
+            AssistChip(
+                onClick = {
+                    showDialogOrderBy.value = !showDialogOrderBy.value
+                },
+                label = { Text("${requestEventsList.value.orderBy.wire}, ${
+                    requestEventsList.value.orderDir.label}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            )
 
-
-            IconButton(onClick = { showFilter.value = !showFilter.value }) {
+            IconButton(onClick = {
+                showFilter.value = !showFilter.value
+                prefs.put(SharedprefVariants.isSHOW_TOP_CONTROLS.key, showFilter.value)
+            }) {
                 Icon(
                     imageVector = if (showFullControlsInternal) FeatherIcons.Eye else FeatherIcons.EyeOff,
                     contentDescription = "Show or Hide"
@@ -298,16 +346,6 @@ private fun TopControls(
         }
     }
 //    Divider(Modifier.padding(top = 12.dp))
-}
-
-@Composable
-private fun AssistChipRow(text: String) {
-    AssistChip(
-        onClick = {
-            showDialogOrderBy.value = !showDialogOrderBy.value
-        },
-        label = { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-    )
 }
 
 @Composable

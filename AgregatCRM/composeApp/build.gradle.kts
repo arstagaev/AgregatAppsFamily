@@ -34,6 +34,8 @@ kotlin {
     jvm()
     
     sourceSets {
+        val ktor = "2.3.12" // keep this consistent everywhere
+
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
@@ -42,6 +44,9 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
             implementation("androidx.datastore:datastore-preferences:1.1.7") // optional if you prefer DataStore later
             implementation("com.squareup.sqldelight:android-driver:1.5.5")
+
+            // Koin for Android
+            implementation("io.insert-koin:koin-android:4.1.0")
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -52,26 +57,29 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
-
-            implementation("io.ktor:ktor-http:2.3.12")
-            implementation("io.ktor:ktor-client-core:2.3.12")
+            // ktor
+            implementation("io.ktor:ktor-http:$ktor")
+            implementation("io.ktor:ktor-client-core:$ktor")
             // Logging plugin
-            implementation("io.ktor:ktor-client-logging:2.3.12")
-            implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
-            implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
-
+            implementation("io.ktor:ktor-client-logging:$ktor")
+            implementation("io.ktor:ktor-client-content-negotiation:$ktor")
+            implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor")
+            // ktor END
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
-//            implementation("androidx.compose.material:material-icons-core:1.6.8")
-//            implementation("androidx.compose.material:material-icons-extended:1.6.8")
             implementation("br.com.devsrsouza.compose.icons:feather:1.1.1")
 
             implementation("com.squareup.sqldelight:runtime:1.5.5")
             implementation("com.squareup.sqldelight:coroutines-extensions:1.5.5")
+
+            // koin
+            implementation("io.insert-koin:koin-core:4.1.0")
+            implementation("io.insert-koin:koin-compose:4.1.0")
         }
         iosMain.dependencies {
             implementation("com.squareup.sqldelight:native-driver:1.5.5")
+            implementation("io.ktor:ktor-client-darwin:$ktor")  // <— REQUIRED
         }
 
         commonTest.dependencies {
@@ -106,8 +114,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlin {
+        jvmToolchain(17)
     }
 }
 
@@ -122,7 +133,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.agregatcrm"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.1"
         }
     }
 }

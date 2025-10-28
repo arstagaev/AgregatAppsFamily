@@ -17,12 +17,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         // example: fetch 20 recent for Воронеж
-        controller.fullRefresh(
-            count = 3,
-            ncount = 50,
-            filterBy = "ПодразделениеКомпании",
-            filterVal = "Воронеж"
-        )
+
         setContent {
             App(scope = lifecycle.coroutineScope, controller)
         }

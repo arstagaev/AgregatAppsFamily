@@ -7,16 +7,20 @@ import org.agregatcrm.models.EventItemDto
 
 
 data class RequestConfig(
-    var count: Int = 5,
-    var ncount: Int = 50,
+    var count: Int = 20,
+    var ncount: Int = 0,
 
     var filterBy: String = "ПодразделениеКомпании",
-    var filterVal: String = "Воронеж",
+    var filterVal: String = "Казань",
 
     var orderBy: OrderByOption = OrderByOption.DATE,
     var orderDir: OrderDirOption = OrderDirOption.ASC,
     var lastSuccessfulUpdate: String = ""
 )
+
+object CONST {
+    const val BASE_URL = "https://agrapp.agregatka.ru/"
+}
 
 var requestEventsList = mutableStateOf(RequestConfig())
 

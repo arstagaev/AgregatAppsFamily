@@ -84,6 +84,7 @@ fun OrderDialog(
 
 
 fun String?.toOrderByOption(default: OrderByOption = OrderByOption.DATE): OrderByOption {
+    println("CONVERTINGGG 1 toOrderByOption: ${this}")
     val value = this?.trim()
     return OrderByOption.values().firstOrNull {
         it.wire.equals(value, ignoreCase = true) || it.label.equals(value, ignoreCase = true)
@@ -91,6 +92,7 @@ fun String?.toOrderByOption(default: OrderByOption = OrderByOption.DATE): OrderB
 }
 
 fun String?.toOrderDirOption(default: OrderDirOption = OrderDirOption.DESC): OrderDirOption {
+    println("CONVERTINGGG 2 toOrderDirOption: ${this}")
     val value = this?.trim()
     return OrderDirOption.values().firstOrNull {
         it.wire.equals(value, ignoreCase = true) || it.label.equals(value, ignoreCase = true)
