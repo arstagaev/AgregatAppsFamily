@@ -57,6 +57,11 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+
+            implementation("com.arkivanov.decompose:decompose:3.4.0")
+            implementation("com.arkivanov.decompose:extensions-compose:3.4.0")
+            implementation("com.arkivanov.decompose:extensions-compose-experimental:3.4.0")
+
             // ktor
             implementation("io.ktor:ktor-http:$ktor")
             implementation("io.ktor:ktor-client-core:$ktor")
@@ -76,6 +81,9 @@ kotlin {
             // koin
             implementation("io.insert-koin:koin-core:4.1.0")
             implementation("io.insert-koin:koin-compose:4.1.0")
+
+            // time
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
         }
         iosMain.dependencies {
             implementation("com.squareup.sqldelight:native-driver:1.5.5")
@@ -101,7 +109,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.2"
     }
     packaging {
         resources {

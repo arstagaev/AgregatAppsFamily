@@ -23,7 +23,7 @@ data class ApiConfig(
     val token: String = TOKEN
 )
 
-internal const val TOKEN = "234234234"
+internal const val TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
 
 sealed class Resource<out R> {
     data class Success<out T>(val data: T) : Resource<T>()
@@ -90,6 +90,52 @@ class EventsApi(
 //        println("EventsApi getEvents ${response.bodyAsText()}")
         // Ответ — массив JSON объектов (список событий):
 //        return json.decodeFromString<List<EventItemDto>>(raw)
+    }
+
+    suspend fun sendMessage(
+        api: ApiConfig,
+        number: String,
+        date: String,
+        //tasklist: String, // optional
+        message: String,
+    ): Resource<List<EventItemDto>> {
+        return try {
+            val url = api.baseUrl
+            val response = client.get(url) {
+                url {
+                    parameters.append("token", api.token)
+                    parameters.append("task", "setmessage")
+                    parameters.append("type", "Документ")
+                    parameters.append("name", "Событие")
+                    parameters.append("number", "${number}")
+                    parameters.append("date", "${date}")
+                    parameters.append("message", "${message}")
+                }
+            }
+            if (!response.status.isSuccess()) {
+                // read body for diagnostics, but don’t crash if not text
+                val errBody = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+                return Resource.Error(
+                    exception = null,
+                    causes = "HTTP ${response.status.value} ${response.status.description}" +
+                            (if (errBody.isNullOrBlank()) "" else " | $errBody")
+                )
+            }
+
+            val raw = response.bodyAsText().cleanJsonStart()
+            val items = json.decodeFromString<List<EventItemDto>>(raw)
+            Resource.Success(items)
+        } catch (e: RedirectResponseException) { // 3xx with body
+            Resource.Error(e, "Redirect error: ${e.response.status}")
+        } catch (e: ClientRequestException) {     // 4xx
+            val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
+            Resource.Error(e, "Client error ${e.response.status}: ${body ?: e.message}")
+        } catch (e: ServerResponseException) {    // 5xx
+            val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
+            Resource.Error(e, "Server error ${e.response.status}: ${body ?: e.message}")
+        } catch (e: Exception) {
+            Resource.Error(e, e.message ?: "Unexpected error")
+        }
     }
 
     companion object {

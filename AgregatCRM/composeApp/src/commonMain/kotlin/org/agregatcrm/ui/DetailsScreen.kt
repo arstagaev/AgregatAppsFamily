@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,7 +34,7 @@ fun EventDetailsScreen(
     val fields = buildList {
         add("Тема" to (event.subject ?: ""))
         add("Ссылка" to (event.link ?: ""))
-        add("Дата" to (event.date ?: ""))
+        add("Дата" to ("${event.date!!.date.month}" ?: ""))
         add("ДатаМод" to (event.modifiedDate ?: ""))
         add("Состояние" to (event.state ?: ""))
         add("ВидСобытия" to (event.eventType ?: ""))
@@ -135,7 +136,7 @@ fun EventDetailsScreen(
                     text = "guid: $it",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(top = 6.dp).basicMarquee(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF262626)
                 )
             }
         }

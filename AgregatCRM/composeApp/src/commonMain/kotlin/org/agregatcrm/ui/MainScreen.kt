@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,11 @@ import compose.icons.feathericons.Eye
 import compose.icons.feathericons.EyeOff
 import compose.icons.feathericons.RefreshCw
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.format
+import kotlinx.datetime.format.FormatStringsInDatetimeFormats
+import kotlinx.datetime.format.byUnicodePattern
+import kotlinx.datetime.format.char
 import org.agregatcrm.data.local.CMPPrefs
 import org.agregatcrm.data.local.SharedprefVariants
 import org.agregatcrm.data.remote.Resource
@@ -44,6 +50,10 @@ import org.agregatcrm.utils.TARGET_EVENT
 import org.agregatcrm.utils.requestEventsList
 import org.koin.compose.koinInject
 
+@OptIn(FormatStringsInDatetimeFormats::class)
+val format = LocalDateTime.Format {
+    byUnicodePattern("dd.MM.yyyy")
+}
 
 @Composable
 fun App(scope: CoroutineScope, controller: EventsController = provideEventsController(scope)) {
@@ -60,7 +70,29 @@ fun App(scope: CoroutineScope, controller: EventsController = provideEventsContr
             ) { innerPadding ->
                 when(curScreen) {
                     CurrentScreen.List -> EventsScreen(controller)
-                    CurrentScreen.Details -> EventDetailsScreen(TARGET_EVENT.value,)
+                    CurrentScreen.Details -> EventDetailsScreen(
+                        event = TARGET_EVENT.value,
+                        onSendMessageClick = { message ->
+                            println("message: ${message}")
+                            if (TARGET_EVENT.value.date != null && TARGET_EVENT.value.number != null) {
+                                controller.sendMessage(
+                                    number = TARGET_EVENT.value.number!!,
+                                    date = TARGET_EVENT.value.date!!.format(format),
+                                    message = message
+                                )
+                            } else {
+                                println("ERROR!!! TARGET_EVENT is null MB ${TARGET_EVENT.value.toString()}")
+                            }
+//                            TARGET_EVENT.value?.let {
+//
+//                                controller.sendMessage(
+//                                    number = it.number,
+//                                    date = TARGET_EVENT.value.date,
+//                                    message = message
+//                                )
+//                            }
+
+                        })
                     CurrentScreen.Favorites -> FavoritesScreen()
                 }
             }
@@ -298,14 +330,14 @@ private fun TopControls(
                     OutlinedTextField(
                         value = filterBy,
                         onValueChange = onFilterByChange,
-                        label = { Text("filterby") },
+                        label = { Text("Фильтрация по (filterby)") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = filterVal,
                         onValueChange = onFilterValChange,
-                        label = { Text("filterval") },
+                        label = { Text("Город (filterval)") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -313,39 +345,46 @@ private fun TopControls(
             }
 
         }
-
-        Row(
-            Modifier.fillMaxWidth().height(50.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(onClick = onRefresh) {
-                Icon(
-                    imageVector = FeatherIcons.RefreshCw,
-                    contentDescription = "Refresh"
-                )
+        Column {
+            if (!showFullControlsInternal) {
+                Text(modifier = Modifier.fillMaxWidth(), text = "${filterBy}, г.${filterVal}", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
             }
 
-            AssistChip(
-                onClick = {
-                    showDialogOrderBy.value = !showDialogOrderBy.value
-                },
-                label = { Text("${requestEventsList.value.orderBy.wire}, ${
-                    requestEventsList.value.orderDir.label}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            )
+            Row(
+                Modifier.fillMaxWidth().height(50.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = FeatherIcons.RefreshCw,
+                        contentDescription = "Refresh"
+                    )
+                }
 
-            IconButton(onClick = {
-                showFilter.value = !showFilter.value
-                prefs.put(SharedprefVariants.isSHOW_TOP_CONTROLS.key, showFilter.value)
-            }) {
-                Icon(
-                    imageVector = if (showFullControlsInternal) FeatherIcons.Eye else FeatherIcons.EyeOff,
-                    contentDescription = "Show or Hide"
+                AssistChip(
+                    onClick = {
+                        showDialogOrderBy.value = !showDialogOrderBy.value
+                    },
+                    label = { Text("${requestEventsList.value.orderBy.wire}, ${
+                        requestEventsList.value.orderDir.label}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 )
+
+                IconButton(onClick = {
+                    showFilter.value = !showFilter.value
+                    prefs.put(SharedprefVariants.isSHOW_TOP_CONTROLS.key, showFilter.value)
+                }) {
+                    Icon(
+                        imageVector = if (showFullControlsInternal) FeatherIcons.Eye else FeatherIcons.EyeOff,
+                        contentDescription = "Show or Hide"
+                    )
+                }
+            }
+            if (!showFullControlsInternal) {
+                Spacer(modifier = Modifier.fillMaxWidth().height(10.dp))
             }
         }
     }
-//    Divider(Modifier.padding(top = 12.dp))
 }
 
 @Composable
@@ -387,7 +426,7 @@ fun EventCard(ev: EventItemDto) {
             }
 
             Spacer(Modifier.height(4.dp))
-            Text(ev.date ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(ev.date?.format(format) ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             Spacer(Modifier.height(8.dp))
             Text(

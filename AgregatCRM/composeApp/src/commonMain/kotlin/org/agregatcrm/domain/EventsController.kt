@@ -74,6 +74,26 @@ class EventsController(
             _resource.value = items
         }
     }
+
+    fun sendMessage(
+        message: String,
+        number: String,
+        date: String
+    ) {
+        Log.info("EventsController refresh")
+        _resource.value = Resource.Loading
+        scope.launch(Dispatchers.Default) {
+            val items = repo.sendMessage(
+                apiConfig = ApiConfig(),
+                number = number,
+                date = date,
+                message = message
+            )
+            Log.info("repo.sendMessage ${items}")
+//            _state.value = items.getOrNull() ?: listOf()
+            _resource.value = items
+        }
+    }
 }
 
 // helper to quickly wire

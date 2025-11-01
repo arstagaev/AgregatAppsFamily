@@ -1,7 +1,9 @@
 package org.agregatcrm.models
 
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.agregatcrm.utils.LocalDateTimeSerializer
 
 @Serializable
 data class EventItemDto(
@@ -13,7 +15,10 @@ data class EventItemDto(
 
     // primary meta
     @SerialName("Ссылка") val link: String? = null,
-    @SerialName("Дата") val date: String? = null,                  // "dd.MM.yyyy H:mm:ss"
+
+    @Serializable(with = LocalDateTimeSerializer::class)
+    @SerialName("Дата") val date: LocalDateTime? = null,                  // "dd.MM.yyyy H:mm:ss"
+
     @SerialName("ХозОперация") val operation: String? = null,      // "Событие"
     @SerialName("ВидСобытия") val eventType: String? = null,       // "Возврат", "Прочее", ...
     @SerialName("Состояние") val state: String? = null,            // "Запланировано", "Выполнено"

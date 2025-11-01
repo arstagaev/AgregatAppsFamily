@@ -42,6 +42,18 @@ class EventsRepository(
         filterVal = filterVal
     )
 
+    suspend fun sendMessage(
+        apiConfig: ApiConfig,
+        number: String,
+        date: String,
+        message: String,
+    ): Resource<List<EventItemDto>> = api.sendMessage(
+        api = apiConfig,
+        number = number,
+        date = date,
+        message = message
+    )
+
 //    fun favoritesFlow(): Flow<Set<String>> =
 //        queries.selectAll().asFlow().mapToList(io).map { rows ->
 //            rows.map { it.number }.toSet()
