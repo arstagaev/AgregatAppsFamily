@@ -8,7 +8,7 @@ import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
 import com.tagaev.mobileagregatcrm.utils.DefaultConfig
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.CoroutineScope
@@ -133,6 +133,9 @@ class DefaultListComponent(
     /** Loads the next page and appends to the current list. Call from "Загрузить ещё (+10)". */
     override suspend fun loadMore(increment: Int) {
         mutex.withLock {
+
+            _resource.value = Resource.Loading
+
             // Keep showing the current list while we page
             val filters: FilterState = appSettings.loadFilters()
 
@@ -171,6 +174,7 @@ class DefaultListComponent(
                     _resource.value = Resource.Success(currentItems.toList())
                 }
                 is Resource.Loading -> {
+                    _resource.value = Resource.Loading
                     // no-op; keep current content
                 }
             }
@@ -192,10 +196,10 @@ class DefaultListComponent(
     }
 
     override fun sendMessage(number: String, date: String, message: String) {
-        appScope.launch {
-            // You can react to the result if needed
-            repo.sendMessage(number, date, message)
-        }
+//        appScope.launch {
+//            // You can react to the result if needed
+//            repo.sendMessage(number, date, message)
+//        }
     }
 
     // Navigation

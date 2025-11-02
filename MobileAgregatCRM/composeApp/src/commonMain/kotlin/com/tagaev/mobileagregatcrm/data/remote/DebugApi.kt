@@ -7,7 +7,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
 import org.agregatcrm.models.cleanJsonStart
 
 object DebugApi {

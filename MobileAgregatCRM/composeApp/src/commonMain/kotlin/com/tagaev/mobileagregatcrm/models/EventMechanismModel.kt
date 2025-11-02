@@ -1,9 +1,9 @@
-package org.agregatcrm.models
+package com.tagaev.mobileagregatcrm.models
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import org.agregatcrm.utils.LocalDateTimeSerializer
+import com.tagaev.mobileagregatcrm.utils.LocalDateTimeSerializer
 
 @Serializable
 data class EventItemDto(

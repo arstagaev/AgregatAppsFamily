@@ -3,6 +3,7 @@ package com.tagaev.mobileagregatcrm.ui.mainscreen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +40,7 @@ import com.tagaev.mobileagregatcrm.utils.DefaultConfig
 import com.tagaev.mobileagregatcrm.feature.OrderDialog
 import com.tagaev.mobileagregatcrm.feature.toOrderByOption
 import com.tagaev.mobileagregatcrm.feature.toOrderDirOption
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.utils.TARGET_EVENT
 import org.koin.compose.koinInject
 
@@ -62,6 +63,7 @@ private fun FilterState.sanitize(): FilterState = copy(
 private var showDialogOrderBy = mutableStateOf(false)
 private var showFilter = mutableStateOf(true)
 private const val PREF_COMPACT_CARDS = "isCOMPACT_CARDS"
+//private const val PREF_BW_THEME = "isBW_THEME"
 
 
 @Composable
@@ -80,6 +82,7 @@ fun EventsScreen(component: ListComponent) {
     var filters by remember { mutableStateOf(appSettings.loadFilters().sanitize()) }
 
     var compactCards by remember { mutableStateOf(appSettings.getBool(PREF_COMPACT_CARDS, false)) }
+//    val isBWTheme by remember { mutableStateOf(appSettings.getBool(PREF_BW_THEME, false)) }
 
 //    LaunchedEffect(Unit) {
 //        component.setFiltersAndRefresh(filters)
@@ -318,15 +321,16 @@ private fun TopControls(
                     )
                 }
                 Row(
-                    Modifier.height(30.dp).padding(horizontal = 8.dp),
+                    Modifier.height(24.dp).padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Компактные карточки", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                    Text("Компактные карточки", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Switch(
                         checked = compact,
                         onCheckedChange = onCompactChange,
-                        enabled = !isLoading
+                        enabled = !isLoading,
+                        modifier = Modifier.scale(0.85f)
                     )
                 }
                 // Toggle row (red background) for compact cards
@@ -391,24 +395,13 @@ private fun NumberField(
         labelText = label,            // shows floating label
         modifier = modifier                // add your .weight/.height/.fillMaxWidth as needed
     )
-
-//    OutlinedTextField(
-//        value = str,
-//        onValueChange = {
-//            str = it
-//            it.toIntOrNull()?.let(onValue)
-//        },
-//        label = { Text(label) },
-//        singleLine = true,
-//        modifier = modifier
-//    )
 }
 
 @Composable
 fun EventCard(
     ev: EventItemDto,
     component: ListComponent,
-    compact: Boolean = false
+    compact: Boolean = false,
 ) {
     Card(
         modifier = Modifier
@@ -447,7 +440,7 @@ fun EventCard(
 
             if (!compact) {
                 KeyValueRow("Эпик", ev.baseDocument)
-                HorizontalDivider(modifier = Modifier.fillMaxWidth(), thickness = 2.dp, color = Color.Gray)
+                HorizontalDivider(modifier = Modifier.fillMaxWidth(), thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(8.dp))
                 KeyValueRow("Вид события", ev.eventType)
                 KeyValueRow("Организация", ev.organization)
@@ -462,15 +455,18 @@ fun EventCard(
 @Composable
 private fun StatusBadge(state: String) {
     if (state.isBlank()) return
-    val bg = when (state.lowercase()) {
+    val lower = state.lowercase()
+    val bg = when (lower) {
         "выполнено", "завершено" -> Color(0xFF4CAF50) // green
-        "выполняется" -> Color(0xFFFF9800)           // orange
-        "запланировано" -> Color(0xFFFFEB3B)         // yellow
+        "выполняется"            -> Color(0xFFFF9800) // orange
+        "запланировано"          -> Color(0xFFFFEB3B) // yellow
         else -> MaterialTheme.colorScheme.secondaryContainer
     }
+    val fg = Color.Black
     Surface(color = bg, shape = MaterialTheme.shapes.small) {
         Text(
             state,
+            color = fg,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium
         )

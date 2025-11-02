@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,11 +26,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -43,9 +46,9 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.format
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
 import kotlinx.datetime.format.byUnicodePattern
-import org.agregatcrm.models.MessageDto
-import org.agregatcrm.models.TaskDto
-import org.agregatcrm.models.UserRowDto
+import com.tagaev.mobileagregatcrm.models.MessageDto
+import com.tagaev.mobileagregatcrm.models.TaskDto
+import com.tagaev.mobileagregatcrm.models.UserRowDto
 import com.tagaev.mobileagregatcrm.utils.TARGET_EVENT
 
 @Composable
@@ -54,11 +57,25 @@ fun DetailsScreen(
     onRequestRefresh: () -> Unit = {}
 ) {
 
-    var event by remember { TARGET_EVENT }
+    var event by TARGET_EVENT
     var usersExpanded by rememberSaveable("details_users_expanded") { mutableStateOf(false) }
     var tasksExpanded by rememberSaveable("details_tasks_expanded") { mutableStateOf(false) }
     var messagesExpanded by rememberSaveable("details_messages_expanded") { mutableStateOf(false) }
     var messageDraft by remember { mutableStateOf("") }
+
+    // Sending state from component
+    val sendState by component.sendState.collectAsState()
+
+    // Clear input (and optionally show feedback) after successful send
+    LaunchedEffect(Unit) {
+        component.events.collect { ev ->
+            when (ev) {
+                is MessageEvent.Sent -> {
+                    messageDraft = ""
+                }
+            }
+        }
+    }
 
     // Make a stable non-null snapshot and short-circuit UI when nothing is selected
     val e = event
@@ -71,8 +88,16 @@ fun DetailsScreen(
                 textAlign = TextAlign.Center
             )
         }
-//        return
     } else {
+        // If a new message arrives (TARGET_EVENT updated by component), auto-expand the section
+        var lastMessagesCount by rememberSaveable("details_messages_last_count") { mutableStateOf(e.messages.size) }
+        LaunchedEffect(e.messages.size) {
+            if (e.messages.size > lastMessagesCount) {
+                messagesExpanded = true
+                lastMessagesCount = e.messages.size
+            }
+        }
+
         val fields = buildList {
             add("Тема" to (e.subject ?: ""))
             add("Ссылка" to (e.link ?: ""))
@@ -98,7 +123,7 @@ fun DetailsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: "Событие"),
+                        text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: "Событие не выбрано"),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f).basicMarquee()
@@ -150,7 +175,7 @@ fun DetailsScreen(
             // messages + input
             item {
                 Section(
-                    title = "messages",
+                    title = "Сообщения",
                     expanded = messagesExpanded,
                     onToggle = { messagesExpanded = !messagesExpanded }
                 ) {
@@ -165,6 +190,14 @@ fun DetailsScreen(
                         onValueChange = { messageDraft = it },
                         label = { Text("Новое сообщение") },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                        trailingIcon = {
+                            AnimatedVisibility(visible = sendState is SendMessageUiState.Sending) {
+                                CircularProgressIndicator(
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.width(16.dp).height(16.dp)
+                                )
+                            }
+                        }
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -173,15 +206,29 @@ fun DetailsScreen(
                             onClick = {
                                 val num = e.number ?: return@OutlinedButton
                                 val dateStr = e.date?.format(format) ?: return@OutlinedButton
+                                messagesExpanded = true
                                 component.sendMessage(
                                     number = num,
                                     date = dateStr,
                                     message = messageDraft
                                 )
-                                messageDraft = ""
                             },
-                            enabled = messageDraft.isNotBlank() && e.number != null && e.date != null
-                        ) { Text("Отправить") }
+                            enabled = messageDraft.isNotBlank() && e.number != null && e.date != null && sendState !is SendMessageUiState.Sending
+                        ) {
+                            Text("Отправить")
+                        }
+                    }
+                    when (val s = sendState) {
+                        is SendMessageUiState.Error -> {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = s.message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = 10.dp)
+                            )
+                        }
+                        else -> Unit
                     }
                 }
             }
@@ -194,7 +241,7 @@ fun DetailsScreen(
                         text = "guid: $it",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(top = 6.dp).basicMarquee(),
-                        color = Color(0xFF262626)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

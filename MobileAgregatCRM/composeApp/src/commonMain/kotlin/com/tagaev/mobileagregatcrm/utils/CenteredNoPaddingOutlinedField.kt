@@ -26,20 +26,22 @@ fun CenteredNoPaddingOutlinedField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    labelText: String? = null,                  // ⬅️ label you asked for
+    labelText: String? = null,
     placeholderText: String? = null,
     enabled: Boolean = true,
     isError: Boolean = false,
     textStyle: TextStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
 ) {
     val interaction = remember { MutableInteractionSource() }
+    // Force text color from theme to avoid unreadable text in dark mode
+    val mergedStyle = textStyle.merge(TextStyle(color = MaterialTheme.colorScheme.onSurface))
 
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        textStyle = textStyle,
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        textStyle = mergedStyle,
+        cursorBrush = SolidColor(if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
         modifier = modifier,
         decorationBox = { inner ->
             DecorationBox(
@@ -55,7 +57,36 @@ fun CenteredNoPaddingOutlinedField(
                 contentPadding = if (labelText != null) PaddingValues(top = 12.dp) else PaddingValues(0.dp),
                 label = labelText?.let { { androidx.compose.material3.Text(it) } },
                 placeholder = placeholderText?.let { { androidx.compose.material3.Text(it) } },
-                colors = OutlinedTextFieldDefaults.colors(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    errorTextColor = MaterialTheme.colorScheme.onError,
+
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    errorContainerColor = MaterialTheme.colorScheme.surface,
+
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    errorCursorColor = MaterialTheme.colorScheme.error,
+
+                    // NOTE: OutlinedTextFieldDefaults.colors uses *Border* params, not *Indicator*
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    errorBorderColor = MaterialTheme.colorScheme.error,
+
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    errorLabelColor = MaterialTheme.colorScheme.error,
+
+                    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    errorPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
                 // draw the standard outlined container with label notch
                 container = {
                     OutlinedTextFieldDefaults.Container(

@@ -2,15 +2,12 @@ package com.tagaev.mobileagregatcrm.data
 
 // AppSettings.kt (common)
 import com.russhwolf.settings.Settings
-import com.russhwolf.settings.contains
-import com.russhwolf.settings.get
 import com.russhwolf.settings.serialization.decodeValueOrNull
 import com.russhwolf.settings.serialization.encodeValue
 import com.russhwolf.settings.serialization.removeValue
-import com.russhwolf.settings.set
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
 
 
 
@@ -89,8 +86,11 @@ class AppSettings(
     }
 
     fun getBool(key: String, defaultValue: Boolean) = settings.getBoolean(key = key, defaultValue = defaultValue)
-
     fun setBool(key: String, newValue: Boolean) = settings.putBoolean(key = key, value = newValue)
+
+    fun getStringOrNull(key: String) = settings.getStringOrNull(key = key)
+    fun getString(key: String, defaultValue: String) = settings.getString(key = key, defaultValue = defaultValue)
+    fun setString(key: String, newValue: String) = settings.putString(key = key, value = newValue)
 
     // ---------- Filters ----------
     fun loadFilters(): FilterState = FilterState(

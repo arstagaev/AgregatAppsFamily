@@ -1,5 +1,6 @@
 package com.tagaev.mobileagregatcrm.data.remote
 
+import com.tagaev.mobileagregatcrm.utils.CONST
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -9,7 +10,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.SentMessageResponse
 import org.agregatcrm.models.cleanJsonStart
 
 // https://api.aaaaaaaaa.ru/app/getdata.php?token=111111111&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
@@ -17,10 +19,10 @@ import org.agregatcrm.models.cleanJsonStart
 data class ApiConfig(
 //    val baseUrl: String = "http://akpp-1c.ru:86/AA/hs/mycrm/agrapp",
     val baseUrl: String = "https://agrapp.agregatka.ru",//"https://api.agregatka.ru/app/getdata.php",
-    val token: String = TOKEN
+    var token: String = CONST.TOKEN
 )
 
-internal const val TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
+//internal const val TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
 
 sealed class Resource<out R> {
     data class Success<out T>(val data: T) : Resource<T>()
@@ -69,7 +71,10 @@ class EventsApi(
             }
 
             val raw = response.bodyAsText().cleanJsonStart()
+            println("getEvents raw:${raw.length}")
             val items = json.decodeFromString<List<EventItemDto>>(raw)
+            println("getEvents size:${items.size}")
+
             Resource.Success(items)
         } catch (e: RedirectResponseException) { // 3xx with body
             Resource.Error(e, "Redirect error: ${e.response.status}")
@@ -80,7 +85,7 @@ class EventsApi(
             val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
             Resource.Error(e, "Server error ${e.response.status}: ${body ?: e.message}")
         } catch (e: Exception) {
-            Resource.Error(e, e.message ?: "Unexpected error")
+            Resource.Error(e, "Unexpected error: ${e.message}")
         }
     }
 
@@ -90,7 +95,7 @@ class EventsApi(
         date: String,
         //tasklist: String, // optional
         message: String,
-    ): Resource<List<EventItemDto>> {
+    ): Resource<SentMessageResponse> {
         return try {
             val url = api.baseUrl
             val response = client.get(url) {
@@ -115,8 +120,8 @@ class EventsApi(
             }
 
             val raw = response.bodyAsText().cleanJsonStart()
-            val items = json.decodeFromString<List<EventItemDto>>(raw)
-            Resource.Success(items)
+            val result = json.decodeFromString<SentMessageResponse>(raw)
+            Resource.Success(result)
         } catch (e: RedirectResponseException) { // 3xx with body
             Resource.Error(e, "Redirect error: ${e.response.status}")
         } catch (e: ClientRequestException) {     // 4xx

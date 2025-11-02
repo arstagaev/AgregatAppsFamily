@@ -7,6 +7,7 @@ import com.tagaev.mobileagregatcrm.data.FavoritesRepository
 import com.tagaev.mobileagregatcrm.data.db.DriverFactory
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
+import com.tagaev.mobileagregatcrm.ui.style.ThemeController
 import org.koin.dsl.module
 import org.koin.core.qualifier.named
 import kotlinx.coroutines.CoroutineScope
@@ -55,4 +56,6 @@ val commonModule = module {
     }
 
     single { AppSettings(get<Settings>(), get<Json>()) }
+
+    single { ThemeController(get()) }  // requires AppSettings in DI
 }

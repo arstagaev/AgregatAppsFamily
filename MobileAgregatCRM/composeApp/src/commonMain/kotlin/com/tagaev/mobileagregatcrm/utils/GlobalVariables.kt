@@ -3,7 +3,7 @@ package com.tagaev.mobileagregatcrm.utils
 import androidx.compose.runtime.mutableStateOf
 import com.tagaev.mobileagregatcrm.feature.OrderByOption
 import com.tagaev.mobileagregatcrm.feature.OrderDirOption
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
 
 
 data class RequestConfig(
@@ -25,6 +25,8 @@ object DefaultConfig {
 
 object CONST {
     const val BASE_URL = "https://agrapp.agregatka.ru/"
+    var TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
+    const val VERSION = "1.2"
 }
 
 var requestEventsList = mutableStateOf(RequestConfig())

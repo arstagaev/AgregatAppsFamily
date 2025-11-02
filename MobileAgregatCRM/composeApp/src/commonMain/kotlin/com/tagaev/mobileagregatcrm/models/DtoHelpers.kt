@@ -1,5 +1,8 @@
 package org.agregatcrm.models
 
+import com.tagaev.mobileagregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.UserRowDto
+
 internal fun String?.yesNoBoolean(): Boolean? = when (this?.trim()?.lowercase()) {
     "да", "yes", "y", "true", "1" -> true
     "нет", "no", "n", "false", "0" -> false

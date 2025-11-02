@@ -3,7 +3,9 @@ package com.tagaev.mobileagregatcrm.data
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
-import org.agregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.SentMessageResponse
+
 //import org.agregatcrm.utils.requestEventsList
 
 // Repository that adapts EventsApi to our app needs
@@ -35,6 +37,6 @@ class EventsRepository(
         )
     }
 
-    suspend fun sendMessage(number: String, date: String, message: String): Resource<List<EventItemDto>> =
+    suspend fun sendMessage(number: String, date: String, message: String): Resource<SentMessageResponse> =
         api.sendMessage(api = cfg, number = number, date = date, message = message)
 }
