@@ -13,8 +13,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
-import org.agregatcrm.utils.HumanLogger
-import org.agregatcrm.utils.Log
+import com.tagaev.mobileagregatcrm.utils.HumanLogger
+import com.tagaev.mobileagregatcrm.utils.Log
 
 /**
  * Make a client with:

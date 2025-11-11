@@ -10,8 +10,14 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import com.tagaev.mobileagregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.GetTokenResponse
 import com.tagaev.mobileagregatcrm.models.SentMessageResponse
+import io.ktor.client.plugins.expectSuccess
 import org.agregatcrm.models.cleanJsonStart
 
 // https://api.aaaaaaaaa.ru/app/getdata.php?token=111111111&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
@@ -19,7 +25,7 @@ import org.agregatcrm.models.cleanJsonStart
 data class ApiConfig(
 //    val baseUrl: String = "http://akpp-1c.ru:86/AA/hs/mycrm/agrapp",
     val baseUrl: String = "https://agrapp.agregatka.ru",//"https://api.agregatka.ru/app/getdata.php",
-    var token: String = CONST.TOKEN
+    var token: String
 )
 
 //internal const val TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
@@ -133,6 +139,33 @@ class EventsApi(
         } catch (e: Exception) {
             Resource.Error(e, e.message ?: "Unexpected error")
         }
+    }
+
+    // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=
+    suspend fun getToken(apiConfig: ApiConfig, username: String, password: String): Resource<GetTokenResponse> = resourceify {
+
+        val response = client.get(apiConfig.baseUrl) {
+            expectSuccess = true            // make non-2xx throw ResponseException
+            url {
+//                parameters.append("token", apiConfig.token)
+                parameters.append("task", "gettoken")
+                parameters.append("user", username)
+                parameters.append("pass", password)
+            }
+        }
+
+        // If you already installed ContentNegotiation(json), you can do:
+        // return@resourceify response.body<SentMessageResponse>()
+
+        // If the server sometimes sends a preface you strip off:
+        val raw = response.bodyAsText().cleanJsonStart()
+        val obj = json.parseToJsonElement(raw).jsonObject
+        val err = obj["error"]?.jsonPrimitive?.contentOrNull
+        if (err != null) {
+            // Map logical 200-OK errors into Resource.Error via resourceify
+            throw IllegalStateException(err)
+        }
+        json.decodeFromJsonElement<GetTokenResponse>(obj)
     }
 
     companion object {

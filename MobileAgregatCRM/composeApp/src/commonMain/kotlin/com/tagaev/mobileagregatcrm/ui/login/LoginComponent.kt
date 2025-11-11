@@ -5,12 +5,31 @@ import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import com.tagaev.mobileagregatcrm.data.EventsRepository
+import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
+import com.tagaev.mobileagregatcrm.data.remote.Resource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import okio.ByteString.Companion.encodeUtf8
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.withContext
+
+sealed interface LoginUiState {
+    data object Idle : LoginUiState
+    data object Loading : LoginUiState
+    data class Error(val message: String) : LoginUiState
+}
 
 /**
  * Contract used by LoginScreen.
  * Implemented by a Decompose component that saves creds/token and navigates onward.
  */
 interface ILoginComponent {
+    val uiState: StateFlow<LoginUiState>
+
     fun onLoginWithCredentials(user: String, pass: String)
     fun onLoginWithToken(token: String)
     fun back()
@@ -19,19 +38,88 @@ interface ILoginComponent {
 class LoginComponent(
     componentContext: ComponentContext,
     private val onLoginSuccess: () -> Unit,
-    private val onBack: () -> Unit
+    private val onBack: () -> Unit,
 ) : ILoginComponent, ComponentContext by componentContext, KoinComponent {
 
     private val settings: AppSettings by inject()
     private val apiConfig: ApiConfig by inject()
+    private val repo: EventsRepository by inject()
+    private val appScope: CoroutineScope by inject()
+    private val mutex = kotlinx.coroutines.sync.Mutex()
+
+    private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
+    override val uiState: StateFlow<LoginUiState> = _uiState
+
+    init {
+        if (!settings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() && !settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrEmpty()) {
+            onLoginWithCredentials(
+                user = settings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
+                pass = settings.getString(AppSettingsKeys.TOKEN_KEY, defaultValue = "")
+            )
+        } else {
+            println("Email or Token is empty")
+        }
+    }
 
     override fun onLoginWithCredentials(user: String, pass: String) {
-        // Persist credentials if your backend needs them (optional)
-        settings.setString("API_LOGIN", user)
-        settings.setString("API_PASSWORD", pass)
-        // If your flow exchanges creds for a token, do it here.
-        // For now, proceed to main after persisting.
-        onLoginSuccess()
+        // Prevent concurrent attempts
+        if (_uiState.value is LoginUiState.Loading) return
+
+        appScope.launch {
+            // Set loading on the MAIN thread (Compose/Decompose safe)
+            withContext(Dispatchers.Main.immediate) {
+                _uiState.value = LoginUiState.Loading
+            }
+
+            try {
+                // Hash on any thread
+                val passHash = if (pass.length == 64) {
+                    pass
+                } else {
+                    pass.encodeUtf8().sha256().hex()
+                }
+
+                settings.setString(AppSettingsKeys.EMAIL, user)
+                settings.setString(AppSettingsKeys.TOKEN_KEY, passHash)
+
+                // Call network on IO
+                val res = withContext(Dispatchers.IO) {
+                    repo.getToken(username = user, password = passHash)
+                }
+
+                when (res) {
+                    is Resource.Success -> {
+                        println("Success! We can LOGIN!")
+                        val data = res.data
+                        withContext(Dispatchers.Main.immediate) {
+                            if (!data.token.isNullOrBlank()) {
+                                settings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
+                                settings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName} \n${data.department}")
+
+                                runCatching { apiConfig.token = data.token }
+                                _uiState.value = LoginUiState.Idle
+                                onLoginSuccess() // navigate (must be MAIN)
+                            } else {
+                                _uiState.value = LoginUiState.Error("Пустой токен от сервера")
+                            }
+                        }
+                    }
+                    is Resource.Error -> {
+                        val msg = res.causes ?: res.exception?.message ?: "Ошибка авторизации"
+                        withContext(Dispatchers.Main.immediate) {
+                            _uiState.value = LoginUiState.Error(msg)
+                        }
+                    }
+                    Resource.Loading -> {
+                        // no-op: already set to Loading on MAIN
+                    }
+                }
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main.immediate) {
+                    _uiState.value = LoginUiState.Error(t.message ?: "Ошибка авторизации")
+                }
+            }
+        }
     }
 
     override fun onLoginWithToken(token: String) {
@@ -40,6 +128,7 @@ class LoginComponent(
         runCatching { apiConfig.token = token }
         onLoginSuccess()
     }
+
 
     //TODO test request get token by login and password
 

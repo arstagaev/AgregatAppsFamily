@@ -9,6 +9,7 @@ import org.koin.core.component.KoinComponent
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.value.Value
 import com.tagaev.mobileagregatcrm.data.AppSettings
+import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.ui.details.DetailsComponent
 import com.tagaev.mobileagregatcrm.ui.favorites.FavoritesComponent
@@ -48,9 +49,6 @@ interface IRootComponent {
         data class Settings(val component: ISettingsComponent) : Child
         data class Login(val component: ILoginComponent) : Child
     }
-
-
-
 }
 
 sealed interface AuthState {
@@ -86,7 +84,7 @@ class DefaultRootComponent(
     override val childStack = childStack(
             source = nav,
             serializer = null,
-            initialConfiguration = IRootComponent.Config.List,
+            initialConfiguration = IRootComponent.Config.Login,
             handleBackButton = true,
             childFactory = ::createChild,
         )
@@ -113,6 +111,8 @@ class DefaultRootComponent(
             is IRootComponent.Config.Settings ->
                 IRootComponent.Child.Settings(SettingsComponent(componentContext = ctx,
                     onLogoutAction = {
+                        appSettings.setString(AppSettingsKeys.EMAIL, "NULL_EMAIL")
+                        appSettings.setString(AppSettingsKeys.TOKEN_KEY, "NULL_TOKEN")
                         openLogin()
                     },
                     onBack = {

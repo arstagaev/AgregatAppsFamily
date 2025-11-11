@@ -1,4 +1,4 @@
-package org.agregatcrm.utils
+package com.tagaev.mobileagregatcrm.utils
 
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.http.decodeURLPart

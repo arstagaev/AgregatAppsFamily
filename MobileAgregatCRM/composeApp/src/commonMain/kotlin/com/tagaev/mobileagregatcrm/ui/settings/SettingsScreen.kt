@@ -16,7 +16,12 @@ import com.tagaev.mobileagregatcrm.ui.style.ThemeController
 import com.tagaev.mobileagregatcrm.ui.style.ThemeMode
 import com.tagaev.mobileagregatcrm.utils.CONST
 
-private const val KEY_BW_THEME = "isBW_THEME"
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Icon
+import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.Mail
+import compose.icons.feathericons.LogOut
 
 /**
  * Minimal settings screen scaffold.
@@ -31,8 +36,7 @@ fun SettingsScreen(component: ISettingsComponent) {
     val themeController = koinInject<ThemeController>()
     val currentTheme by themeController.mode.collectAsState()
 
-    // BW theme toggle (persisted)
-    var bwTheme by remember { mutableStateOf(appSettings.getBool(KEY_BW_THEME, false)) }
+    val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
 
     // Simple future settings list; add real items later
     val futureItems = remember {
@@ -44,17 +48,7 @@ fun SettingsScreen(component: ISettingsComponent) {
     }
 
     Scaffold(
-        topBar = {
-            MediumTopAppBar(
-                title = {
-                    Text(
-                        text = "Настройки",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            )
-        }
+        topBar = { }
     ) { inner ->
         Column(
             modifier = Modifier
@@ -69,14 +63,27 @@ fun SettingsScreen(component: ISettingsComponent) {
                 contentPadding = PaddingValues(vertical = 12.dp)
             ) {
                 item {
-                    Column {
-                        ListItem(
-                            headlineContent = { Text("Тема приложения") },
-                            supportingContent = { Text("") },
-                            trailingContent = {
+                    Text(
+                        text = "Настройки",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    )
+                    Divider()
+                }
 
-                            }
-                        )
+                item {
+                    Column {
+//                        ListItem(
+//                            headlineContent = {  },
+//                            supportingContent = { Text("") },
+//                            trailingContent = {
+//
+//                            }
+//                        )
+                        Text("Тема приложения")
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ThemeMode.values().forEach { mode ->
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
@@ -92,7 +99,27 @@ fun SettingsScreen(component: ISettingsComponent) {
 
                 }
 
-                // future placeholders
+//                item {
+//                    ListItem(
+//                        headlineContent = { Text("Написать разработчику") },
+//                        supportingContent = { Text("Email письмо") },
+//                        leadingContent = { Icon(FeatherIcons.Mail, contentDescription = null) },
+//                        modifier = Modifier.clickable { component.onWriteToDeveloper() }
+//                    )
+//                    Divider()
+//                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text("Выйти") },
+                        supportingContent = { Text("Завершить сессию") },
+                        leadingContent = { Icon(FeatherIcons.LogOut, contentDescription = null) },
+                        modifier = Modifier.clickable { component.onLogout() }
+                    )
+                    Divider()
+                }
+
+//                // future placeholders
 //                items(futureItems) { label ->
 //                    ListItem(
 //                        headlineContent = { Text(label) },
@@ -105,27 +132,23 @@ fun SettingsScreen(component: ISettingsComponent) {
             Divider()
 
             // Footer: version + actions
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Version: if you want a real value, write it into AppSettings under APP_VERSION at startup
+                if (personalData.isNotBlank()) {
+                    Text(
+                        text = personalData,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 Text(
                     text = "Версия: ${CONST.VERSION}",
                     style = MaterialTheme.typography.bodyMedium
                 )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { component.onWriteToDeveloper() }) {
-                        Text("Написать разработчику")
-                    }
-                    Button(onClick = { component.onLogout() }) {
-                        Text("Выйти")
-                    }
-                }
             }
         }
     }

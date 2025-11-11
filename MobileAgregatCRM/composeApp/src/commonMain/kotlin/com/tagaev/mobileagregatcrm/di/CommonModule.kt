@@ -3,6 +3,7 @@ package com.tagaev.mobileagregatcrm.di
 import com.agregat.db.AppDatabase
 import com.russhwolf.settings.Settings
 import com.tagaev.mobileagregatcrm.data.AppSettings
+import com.tagaev.mobileagregatcrm.data.EventsRepository
 import com.tagaev.mobileagregatcrm.data.FavoritesRepository
 import com.tagaev.mobileagregatcrm.data.db.DriverFactory
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
@@ -24,38 +25,25 @@ import kotlinx.serialization.json.Json
  */
 val commonModule = module {
 
-    // Multiplatform Settings (russhwolf) – used directly in UI/logic
-//    single { Settings }
-//
-
-    // App-wide scope for background jobs from components (e.g., network calls)
+    // App scope
     single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
 
-    // --- HTTP / API layer ----------------------------------------------------
-    // Provide API config; platform can override with real values:
-    single {
-        // If you set named("ApiBaseUrl") / named("ApiToken") elsewhere, they will be picked up here.
-//        val baseUrl = getOrNull<String>(named("ApiBaseUrl")) ?: ""
-//        val token = getOrNull<String>(named("ApiToken")) ?: ""
-        ApiConfig()
-    }
+    // --- HTTP / API layer ---
+    single { ApiConfig(token = "NULL") }
     single { EventsApi() }
 
-    // --- Database layer (SQLDelight) ----------------------------------------
-    // DriverFactory is expected from platform module (android/ios)
+    // --- Repositories ---
+    single { EventsRepository(api = get(), cfg = get()) }
+
+    // --- Database (SQLDelight) ---
     single { AppDatabase(get<DriverFactory>().createDriver()) }
     single { get<AppDatabase>().favoritesQueries }
     single { FavoritesRepository(get()) }
 
-    single<Json> {
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-            explicitNulls = false
-        }
-    }
-
+    // --- Settings / JSON ---
+    single<Json> { Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false } }
     single { AppSettings(get<Settings>(), get<Json>()) }
 
-    single { ThemeController(get()) }  // requires AppSettings in DI
+    // --- Theme ---
+    single { ThemeController(get()) }
 }

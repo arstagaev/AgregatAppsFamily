@@ -11,12 +11,12 @@ interface ISettingsComponent {
 class SettingsComponent(
     componentContext: ComponentContext,
     private val onBack: () -> Unit,
-//    private val onWriteToDeveloperAction: () -> Unit,
+    private val onWriteToDeveloperAction: () -> Unit = {},
     private val onLogoutAction: () -> Unit
 ) : ISettingsComponent, ComponentContext by componentContext {
 
     override fun onWriteToDeveloper() {
-
+        onWriteToDeveloperAction()
     }
 
     override fun onLogout() = onLogoutAction()
