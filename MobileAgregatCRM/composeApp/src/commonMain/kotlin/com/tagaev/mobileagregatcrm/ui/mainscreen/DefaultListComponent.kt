@@ -12,6 +12,7 @@ import com.tagaev.mobileagregatcrm.models.EventItemDto
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -78,6 +79,7 @@ class DefaultListComponent(
             val filters: FilterState = appSettings.loadFilters()
             // Reset pagination to the first page on a full refresh
             pageSize = filters.count
+
             nextOffset = 0
 
             _resource.value = Resource.Loading
@@ -120,6 +122,8 @@ class DefaultListComponent(
                     } else {
                         _resource.value = res
                     }
+                    delay(500)
+                    _resource.value = Resource.Error(causes = res.causes)
                     println("fullRefresh> Error ${res.causes}  ${res.exception?.message}")
                 }
                 is Resource.Loading -> {
@@ -134,7 +138,7 @@ class DefaultListComponent(
     override suspend fun loadMore(increment: Int) {
         mutex.withLock {
 
-            _resource.value = Resource.Loading
+            // _resource.value = Resource.Loading  // removed eager loading state
 
             // Keep showing the current list while we page
             val filters: FilterState = appSettings.loadFilters()
@@ -143,9 +147,9 @@ class DefaultListComponent(
                 count = increment,
                 ncount = nextOffset,
                 orderBy = filters.orderBy ?: "Дата",
-                orderDir = filters.orderDir ?: "asc",
-                filterBy = filters.filterBy ?: "ПодразделениеКомпании",
-                filterVal = filters.filterVal ?: "Сочи"
+                orderDir = filters.orderDir ?: "desc",
+                filterBy = filters.filterBy ?: DefaultConfig.FILTER_BY,
+                filterVal = filters.filterVal ?: DefaultConfig.FILTER_VAL
             )
 
             when (res) {
@@ -168,10 +172,12 @@ class DefaultListComponent(
                     appSettings.saveFilters(filters.copy(ncount = nextOffset))
                 }
                 is Resource.Error -> {
-                    // Do NOT drop current list on paging error: keep showing it.
-                    // You may surface this via a toast/snackbar at the UI layer if desired.
-                    // Here we just re-emit the current list to be explicit.
+
+                    // Immediately restore the current list so the UI doesn't blank out
                     _resource.value = Resource.Success(currentItems.toList())
+
+                    // Emit a transient error so UI can show an alert dialog
+                    _resource.value = Resource.Error(res.exception, res.causes)
                 }
                 is Resource.Loading -> {
                     _resource.value = Resource.Loading

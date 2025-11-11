@@ -24,6 +24,8 @@ import compose.icons.FeatherIcons
 import compose.icons.feathericons.Eye
 import compose.icons.feathericons.EyeOff
 import compose.icons.feathericons.RefreshCw
+import androidx.compose.runtime.saveable.rememberSaveable
+import compose.icons.feathericons.AlertCircle
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.style.TextAlign
@@ -54,7 +56,7 @@ private fun FilterState.sanitize(): FilterState = copy(
     count = if (count <= 0) 10 else count,
     ncount = if (ncount < 0) 0 else ncount,
     filterBy = if (filterBy?.isBlank() == true) DefaultConfig.FILTER_BY else filterBy,
-    filterVal = if (filterVal?.isBlank() == true) DefaultConfig.FILTER_VAL else filterVal,
+    filterVal = if (filterVal?.isBlank() == true) DefaultConfig.FILTER_VAL else filterVal?.trim(),
     orderBy = (orderBy ?: "Дата"),
     orderDir = (orderDir ?: "desc")
 )
@@ -82,13 +84,22 @@ fun EventsScreen(component: ListComponent) {
     var filters by remember { mutableStateOf(appSettings.loadFilters().sanitize()) }
 
     var compactCards by remember { mutableStateOf(appSettings.getBool(PREF_COMPACT_CARDS, false)) }
+    var showErrorDialog by rememberSaveable { mutableStateOf(false) }
+    var errorText by rememberSaveable { mutableStateOf("") }
 //    val isBWTheme by remember { mutableStateOf(appSettings.getBool(PREF_BW_THEME, false)) }
 
-//    LaunchedEffect(Unit) {
-//        component.setFiltersAndRefresh(filters)
-//    }
     LaunchedEffect(compactCards) {
         appSettings.setBool(PREF_COMPACT_CARDS, compactCards)
+    }
+
+    LaunchedEffect(res) {
+        when (val r = res) {
+            is Resource.Error -> {
+                errorText = r.causes ?: r.exception?.message ?: "Неизвестная ошибка"
+                showErrorDialog = true
+            }
+            else -> Unit
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -105,14 +116,19 @@ fun EventsScreen(component: ListComponent) {
                 onFilterValChange = { filters = filters.copy(filterVal = it) },
                 isLoading = isLoading,
                 onRefresh = {
+                    // Start spinner immediately, keep it on-screen at least 1s
                     isLoading = true
                     error = null
                     scope.launch {
+                        val gate = launch { kotlinx.coroutines.delay(1000) }
                         try {
                             component.setFiltersAndRefresh(filters.sanitize())
                         } catch (t: Throwable) {
                             error = t.message ?: "Unknown error"
+                            errorText = error ?: "Unknown error"
+                            showErrorDialog = true
                         } finally {
+                            gate.join() // ensure min show time
                             isLoading = false
                         }
                     }
@@ -186,13 +202,17 @@ fun EventsScreen(component: ListComponent) {
                                             error = null
                                             filters = filters.copy(ncount = 0)
                                             scope.launch {
+                                                val gate = launch { kotlinx.coroutines.delay(1000) }
                                                 try {
                                                     component.setFiltersAndRefresh(filters.sanitize())
                                                     // Scroll list to the top after refresh
                                                     listState.animateScrollToItem(0)
                                                 } catch (t: Throwable) {
                                                     error = t.message ?: "Unknown error"
+                                                    errorText = error ?: "Unknown error"
+                                                    showErrorDialog = true
                                                 } finally {
+                                                    gate.join()
                                                     isLoading = false
                                                 }
                                             }
@@ -213,22 +233,22 @@ fun EventsScreen(component: ListComponent) {
                     }
                 }
                 is Resource.Error -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                r.causes ?: r.exception?.message ?: "Неизвестная ошибка",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Button(onClick = {
-                                scope.launch { component.fullRefresh() }
-                            }) {
-                                Text("Повторить")
-                            }
-                        }
-                    }
+//                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+//                        Column(
+//                            horizontalAlignment = Alignment.CenterHorizontally,
+//                            verticalArrangement = Arrangement.spacedBy(12.dp)
+//                        ) {
+//                            Text(
+//                                r.causes ?: r.exception?.message ?: "Неизвестная ошибка",
+//                                style = MaterialTheme.typography.bodyLarge
+//                            )
+//                            Button(onClick = {
+//                                scope.launch { component.fullRefresh() }
+//                            }) {
+//                                Text("Повторить")
+//                            }
+//                        }
+//                    }
                 }
             }
         }
@@ -243,15 +263,31 @@ fun EventsScreen(component: ListComponent) {
                     isLoading = true
                     error = null
                     scope.launch {
+                        val gate = launch { kotlinx.coroutines.delay(1000) }
                         try {
                             component.setFiltersAndRefresh(filters.sanitize())
                         } catch (t: Throwable) {
                             error = t.message ?: "Unknown error"
+                            errorText = error ?: "Unknown error"
+                            showErrorDialog = true
                         } finally {
+                            gate.join()
                             isLoading = false
                             showDialogOrderBy.value = false
                         }
                     }
+                }
+            )
+        }
+
+        if (showErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { showErrorDialog = false },
+                icon = { Icon(FeatherIcons.AlertCircle, contentDescription = null) },
+                title = { Text("Ошибка запроса") },
+                text = { Text(errorText.ifBlank { "Неизвестная ошибка" }) },
+                confirmButton = {
+                    TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
                 }
             )
         }
@@ -352,11 +388,18 @@ private fun TopControls(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = onRefresh) {
-                        Icon(
-                            imageVector = FeatherIcons.RefreshCw,
-                            contentDescription = "Refresh"
-                        )
+                    IconButton(onClick = onRefresh, enabled = !isLoading) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = FeatherIcons.RefreshCw,
+                                contentDescription = "Refresh"
+                            )
+                        }
                     }
                     AssistChip(
                         onClick = onOpenOrderDialog,
