@@ -1,0 +1,15 @@
+-- events_cache.sq
+CREATE TABLE events_cache (
+  key TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL,
+  saved_at INTEGER NOT NULL
+);
+
+selectByKey:
+SELECT json FROM events_cache WHERE key = ?;
+
+insertOrReplace:
+INSERT OR REPLACE INTO events_cache(key, json, saved_at) VALUES (?, ?, ?);
+
+deleteByKey:
+DELETE FROM events_cache WHERE key = ?;

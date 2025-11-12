@@ -29,7 +29,8 @@ object AppSettingsKeys {
     const val DETAILS_MSGS_OPEN = "DETAILS_MSGS_OPEN"
     const val DETAILS_MSG_DRAFT = "DETAILS_MSG_DRAFT"
 
-    const val EMAIL     = "test@test.com"
+    const val EMAIL     = "EMAIL"
+    const val PASS      = "PASS"
     const val TOKEN_KEY = "TOKEN_KEY"
 
     const val PERSONAL_DATA = "PERSONAL_DATA"

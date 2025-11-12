@@ -1,9 +1,11 @@
 package com.tagaev.mobileagregatcrm.ui.mainscreen
 
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.EventsRepository
 import com.tagaev.mobileagregatcrm.data.FilterState
+import com.tagaev.mobileagregatcrm.data.db.EventsCacheStore
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
@@ -32,7 +34,7 @@ interface ListComponent {
     fun openFavorites()
 }
 
-class DefaultListComponent(
+class MainListComponent(
     componentContext: ComponentContext,
     private val appSettings: AppSettings, // <- inject via Koin
     private val onOpenDetails: (String, EventItemDto?) -> Unit,
@@ -42,7 +44,10 @@ class DefaultListComponent(
     private val appScope: CoroutineScope by inject()
     private val api: EventsApi by inject()
     private val apiConfig: ApiConfig by inject()
+    private val eventsCacheStore: EventsCacheStore by inject()
     private val repo by lazy { EventsRepository(api, apiConfig) }
+
+    private val backCallback = BackCallback { /* NO HANDLE */ }
 
     // Pagination state
     private val mutex = kotlinx.coroutines.sync.Mutex()
@@ -60,8 +65,9 @@ class DefaultListComponent(
     override val resource: StateFlow<Resource<List<EventItemDto>>> get() = resourceInternal
 
     init {
+        backHandler.register(backCallback)
         // 1) Show cached list immediately if present
-        val cached = appSettings.loadEventsCache()
+        val cached = eventsCacheStore.load() //appSettings.loadEventsCache()
         if (cached.isNotEmpty()) {
             _resource.value = Resource.Success(cached)
             currentItems.clear()
@@ -104,7 +110,8 @@ class DefaultListComponent(
                     nextOffset += fresh.size
                     println("fullRefresh> ${currentItems.getOrNull(0)?.companyDepartment}  currentItems size:${currentItems.size}")
                     _resource.value = Resource.Success(currentItems.toList())
-                    appSettings.saveEventsCache(currentItems)
+                    eventsCacheStore.save(currentItems)
+//                    appSettings.saveEventsCache(currentItems)
                     // Persist new offset so subsequent app launches can continue paging
                     appSettings.saveFilters(filters.copy(ncount = nextOffset))
 
@@ -112,7 +119,7 @@ class DefaultListComponent(
                 }
                 is Resource.Error -> {
                     // Fall back to cache if available, otherwise show the error
-                    val cached = appSettings.loadEventsCache()
+                    val cached = eventsCacheStore.load()//appSettings.loadEventsCache()
                     if (cached.isNotEmpty()) {
                         currentItems.clear()
                         currentItems.addAll(cached)
@@ -219,4 +226,9 @@ class DefaultListComponent(
 //        onOpenDetails(number, snapshot)
 
     override fun openFavorites() = onOpenFavorites()
+
+    private fun updateBackCallback() {
+        // Set isEnabled to true if you want to override the back button
+        backCallback.isEnabled = true // or false
+    }
 }

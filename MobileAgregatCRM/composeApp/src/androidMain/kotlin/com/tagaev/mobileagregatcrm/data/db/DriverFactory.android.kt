@@ -1,11 +1,12 @@
 package com.tagaev.mobileagregatcrm.data.db
 
 import android.content.Context
-import com.agregat.db.AppDatabase
-import com.squareup.sqldelight.android.AndroidSqliteDriver
-import com.squareup.sqldelight.db.SqlDriver
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import com.agregat.db.Database
 
 actual class DriverFactory(private val context: Context) {
-    actual fun createDriver(): SqlDriver =
-        AndroidSqliteDriver(AppDatabase.Schema, context, "app.db")
+    actual fun createDriver(): SqlDriver {
+        return AndroidSqliteDriver(Database.Schema, context, "crm.db")
+    }
 }

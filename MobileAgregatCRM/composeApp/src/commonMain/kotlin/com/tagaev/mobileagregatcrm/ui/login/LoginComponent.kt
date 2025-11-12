@@ -51,10 +51,10 @@ class LoginComponent(
     override val uiState: StateFlow<LoginUiState> = _uiState
 
     init {
-        if (!settings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() && !settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrEmpty()) {
+        if (!settings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() && !settings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()) {
             onLoginWithCredentials(
                 user = settings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
-                pass = settings.getString(AppSettingsKeys.TOKEN_KEY, defaultValue = "")
+                pass = settings.getString(AppSettingsKeys.PASS, defaultValue = "")
             )
         } else {
             println("Email or Token is empty")
@@ -78,10 +78,10 @@ class LoginComponent(
                 } else {
                     pass.encodeUtf8().sha256().hex()
                 }
-
+                println("onLoginWithCredentials> pass${pass}")
                 settings.setString(AppSettingsKeys.EMAIL, user)
-                settings.setString(AppSettingsKeys.TOKEN_KEY, passHash)
-
+                settings.setString(AppSettingsKeys.PASS, passHash)
+                println("onLoginWithCredentials> ${passHash}")
                 // Call network on IO
                 val res = withContext(Dispatchers.IO) {
                     repo.getToken(username = user, password = passHash)

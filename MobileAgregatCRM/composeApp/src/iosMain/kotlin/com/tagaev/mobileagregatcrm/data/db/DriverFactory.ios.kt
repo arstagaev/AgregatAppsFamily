@@ -1,10 +1,11 @@
 package com.tagaev.mobileagregatcrm.data.db
 
-import com.agregat.db.AppDatabase
-import com.squareup.sqldelight.db.SqlDriver
-import com.squareup.sqldelight.drivers.native.NativeSqliteDriver
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.native.NativeSqliteDriver
+import com.agregat.db.Database
 
 actual class DriverFactory {
-    actual fun createDriver(): SqlDriver =
-        NativeSqliteDriver(AppDatabase.Schema, "app.db")
+    actual fun createDriver(): SqlDriver {
+        return NativeSqliteDriver(Database.Schema, "crm.db")
+    }
 }

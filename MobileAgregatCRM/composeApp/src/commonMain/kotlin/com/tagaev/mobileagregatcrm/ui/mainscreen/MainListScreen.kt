@@ -69,7 +69,7 @@ private const val PREF_COMPACT_CARDS = "isCOMPACT_CARDS"
 
 
 @Composable
-fun EventsScreen(component: ListComponent) {
+fun MainListScreen(component: ListComponent) {
     val scope = rememberCoroutineScope()
     val appSettings = koinInject<AppSettings>()
 
@@ -351,8 +351,8 @@ private fun TopControls(
                     CenteredNoPaddingOutlinedField(
                         value = filterVal,
                         onValueChange = onFilterValChange,
-                        labelText = "filterval",            // shows floating label
-                        placeholderText = "filterval",     // optional
+                        labelText = "Город",            // shows floating label
+                        placeholderText = "Город",     // optional
                         modifier = Modifier.height(40.dp).weight(1f)                // add your .weight/.height/.fillMaxWidth as needed
                     )
                 }

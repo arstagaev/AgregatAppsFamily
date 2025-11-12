@@ -16,7 +16,7 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.tagaev.mobileagregatcrm.ui.details.DetailsScreen
 import com.tagaev.mobileagregatcrm.ui.favorites.FavoritesScreen
 import com.tagaev.mobileagregatcrm.ui.login.LoginScreen
-import com.tagaev.mobileagregatcrm.ui.mainscreen.EventsScreen
+import com.tagaev.mobileagregatcrm.ui.mainscreen.MainListScreen
 import com.tagaev.mobileagregatcrm.ui.settings.SettingsScreen
 import com.tagaev.mobileagregatcrm.ui.style.AppTheme
 import com.tagaev.mobileagregatcrm.ui.style.ThemeController
@@ -52,7 +52,7 @@ fun AppRoot(root: IRootComponent) {
                 modifier = Modifier.padding(padding)
             ) { created ->
                 when (val c = created.instance) {
-                    is IRootComponent.Child.List -> EventsScreen(c.component)
+                    is IRootComponent.Child.List -> MainListScreen(c.component)
                     is IRootComponent.Child.Details -> DetailsScreen(c.component)
                     is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
                     is IRootComponent.Child.Settings -> SettingsScreen(c.component)

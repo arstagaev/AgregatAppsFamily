@@ -4,7 +4,7 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.*
 import com.tagaev.mobileagregatcrm.ui.details.DefaultDetailsComponent
 import com.tagaev.mobileagregatcrm.ui.favorites.DefaultFavoritesComponent
-import com.tagaev.mobileagregatcrm.ui.mainscreen.DefaultListComponent
+import com.tagaev.mobileagregatcrm.ui.mainscreen.MainListComponent
 import org.koin.core.component.KoinComponent
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.value.Value
@@ -19,9 +19,6 @@ import com.tagaev.mobileagregatcrm.ui.mainscreen.ListComponent
 import com.tagaev.mobileagregatcrm.ui.settings.ISettingsComponent
 import com.tagaev.mobileagregatcrm.ui.settings.SettingsComponent
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import org.koin.core.component.inject
 
 interface IRootComponent {
@@ -94,7 +91,7 @@ class DefaultRootComponent(
 
             is IRootComponent.Config.List ->
                 IRootComponent.Child.List(
-                    DefaultListComponent(
+                    MainListComponent(
                         ctx,
                         appSettings = appSettings,
                         onOpenDetails = { number, snapshot -> nav.bringToFront(IRootComponent.Config.Details) },

@@ -87,9 +87,15 @@ fun LoginScreen(component: ILoginComponent) {
     }
 
     var mode by rememberSaveable { mutableStateOf(Mode.Credentials) }
+//    var user by rememberSaveable { mutableStateOf("kolosov.a.a@my.agregatka.ru") }
+//    var pass by rememberSaveable { mutableStateOf("NfKqZXzSyew)") }
+    //malikov.a.d@teach.agregatka.ru
+    //D7Wq39EoA7__
+//    var user by rememberSaveable { mutableStateOf("malikov.a.d@teach.agregatka.ru") }
+//    var pass by rememberSaveable { mutableStateOf("D7Wq39EoA7__") }
 
-    var user by rememberSaveable { mutableStateOf("kolosov.a.a@my.agregatka.ru") }
-    var pass by rememberSaveable { mutableStateOf("NfKqZXzSyew)") }
+    var user by rememberSaveable { mutableStateOf("") }
+    var pass by rememberSaveable { mutableStateOf("") }
 
     // Persisted token
     var token by rememberSaveable {
@@ -143,16 +149,6 @@ fun LoginScreen(component: ILoginComponent) {
     ) {
         Spacer(Modifier.height(24.dp))
 
-        // App icon
-//        Surface(
-//            color = MaterialTheme.colorScheme.primaryContainer,
-//            shape = MaterialTheme.shapes.large,
-//            modifier = Modifier.size(72.dp).clip(MaterialTheme.shapes.large),
-//        ) {
-//            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-//                ImageWrapperLogo()
-//            }
-//        }
         ImageWrapperLogo()
 
         Spacer(Modifier.height(16.dp))

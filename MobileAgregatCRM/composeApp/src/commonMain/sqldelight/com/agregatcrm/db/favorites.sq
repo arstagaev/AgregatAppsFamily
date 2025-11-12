@@ -1,3 +1,4 @@
+-- favorites.sq
 CREATE TABLE favorites (
   number TEXT NOT NULL PRIMARY KEY,
   created_at INTEGER NOT NULL

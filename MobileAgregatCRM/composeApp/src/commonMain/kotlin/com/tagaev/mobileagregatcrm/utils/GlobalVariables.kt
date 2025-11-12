@@ -26,7 +26,7 @@ object DefaultConfig {
 object CONST {
     const val BASE_URL = "https://agrapp.agregatka.ru/"
     var TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
-    const val VERSION = "1.2"
+    const val VERSION = "1.3"
 }
 
 var requestEventsList = mutableStateOf(RequestConfig())
