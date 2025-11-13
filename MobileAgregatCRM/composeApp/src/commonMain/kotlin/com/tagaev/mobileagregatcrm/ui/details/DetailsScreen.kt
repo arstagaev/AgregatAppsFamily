@@ -128,7 +128,7 @@ fun DetailsScreen(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f).basicMarquee()
                     )
-                    TextButton(onClick = onRequestRefresh) { Text("Обновить") }
+//                    TextButton(onClick = onRequestRefresh) { Text("Обновить") }
                 }
                 Spacer(Modifier.height(8.dp))
                 Card {

@@ -65,6 +65,7 @@ class EventsApi(
                     parameters.append("orderdir", "${orderDir}")
                     parameters.append("filterby", "${filterBy}")
                     parameters.append("filterval", filterVal)
+                    parameters.append("viewtype", Secrets.VIEW_TYPE)
                 }
             }
             if (!response.status.isSuccess()) {

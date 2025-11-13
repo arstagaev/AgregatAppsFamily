@@ -30,6 +30,7 @@ fun CenteredNoPaddingOutlinedField(
     placeholderText: String? = null,
     enabled: Boolean = true,
     isError: Boolean = false,
+    readOnly: Boolean = false,
     textStyle: TextStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -40,6 +41,7 @@ fun CenteredNoPaddingOutlinedField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
+        readOnly = readOnly,
         textStyle = mergedStyle,
         cursorBrush = SolidColor(if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
         modifier = modifier,

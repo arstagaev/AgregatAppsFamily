@@ -89,13 +89,15 @@ fun LoginScreen(component: ILoginComponent) {
     var mode by rememberSaveable { mutableStateOf(Mode.Credentials) }
 //    var user by rememberSaveable { mutableStateOf("kolosov.a.a@my.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("NfKqZXzSyew)") }
-    //malikov.a.d@teach.agregatka.ru
-    //D7Wq39EoA7__
+
 //    var user by rememberSaveable { mutableStateOf("malikov.a.d@teach.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("D7Wq39EoA7__") }
 
-    var user by rememberSaveable { mutableStateOf("") }
-    var pass by rememberSaveable { mutableStateOf("") }
+    var user by rememberSaveable { mutableStateOf("bannikov.v.e@teach.agregatka.ru") }
+    var pass by rememberSaveable { mutableStateOf("7YO8sNvvHA4(") }
+
+//    var user by rememberSaveable { mutableStateOf("") }
+//    var pass by rememberSaveable { mutableStateOf("") }
 
     // Persisted token
     var token by rememberSaveable {
@@ -181,7 +183,7 @@ fun LoginScreen(component: ILoginComponent) {
                 OutlinedTextField(
                     value = user,
                     onValueChange = { user = it },
-                    label = { Text("Login") },
+                    label = { Text("Логин") },
                     singleLine = true,
                     colors = tfColors,
                     modifier = Modifier.fillMaxWidth(),
@@ -195,13 +197,13 @@ fun LoginScreen(component: ILoginComponent) {
                 OutlinedTextField(
                     value = pass,
                     onValueChange = { pass = it },
-                    label = { Text("Password") },
+                    label = { Text("Пароль") },
                     singleLine = true,
                     colors = tfColors,
                     modifier = Modifier.fillMaxWidth(),
                     visualTransformation = if (passVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
-                        val label = if (passVisible) "Hide" else "Show"
+                        val label = if (passVisible) "Скрыть" else "Показать"
                         TextButton(onClick = { passVisible = !passVisible }) { Text(label) }
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, keyboardType = KeyboardType.Password),
@@ -243,7 +245,7 @@ fun LoginScreen(component: ILoginComponent) {
             enabled = canLogin && uiState !is LoginUiState.Loading,
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) {
-            Text("Login", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text("Войти", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -251,7 +253,7 @@ fun LoginScreen(component: ILoginComponent) {
         // Footer: version line
         //val version = remember { appSettings.getString("APP_VERSION", "—") }
         Text(
-            text = "Version: ${CONST.VERSION}",
+            text = "Версия: ${CONST.VERSION}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

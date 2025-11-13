@@ -117,7 +117,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.4.1"
     }
     packaging {
         resources {
@@ -136,14 +136,14 @@ android {
                 "proguard-rules.pro"
             )
         }
-        debug {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
+//        debug {
+//            isMinifyEnabled = true
+//            isShrinkResources = true
+//            proguardFiles(
+//                getDefaultProguardFile("proguard-android-optimize.txt"),
+//                "proguard-rules.pro"
+//            )
+//        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -173,6 +173,11 @@ val base_url: String = providers.gradleProperty("BASE_URL").orNull
     ?: providers.environmentVariable("BASE_URL").orNull
     ?: localProps.getProperty("BASE_URL")
     ?: ""
+val viewType: String = providers.gradleProperty("VIEW_TYPE").orNull
+    ?: providers.environmentVariable("VIEW_TYPE").orNull
+    ?: localProps.getProperty("VIEW_TYPE")
+    ?: ""
+
 buildkonfig {
     packageName = "com.tagaev.secrets"   // choose any package you like
     objectName = "Secrets"
@@ -180,6 +185,7 @@ buildkonfig {
     // REQUIRED non-flavored defaults
     defaultConfigs {
         buildConfigField(STRING, "BASE_URL", base_url)
+        buildConfigField(STRING, "VIEW_TYPE", viewType)
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.
 }

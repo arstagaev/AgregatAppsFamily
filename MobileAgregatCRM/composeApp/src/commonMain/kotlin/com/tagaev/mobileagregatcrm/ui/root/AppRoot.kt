@@ -26,6 +26,10 @@ import compose.icons.feathericons.Home
 import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Star
 import org.koin.compose.koinInject
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
 
 @Composable
 fun AppRoot(root: IRootComponent) {
@@ -34,6 +38,7 @@ fun AppRoot(root: IRootComponent) {
     val themeController = koinInject<ThemeController>()
     AppTheme(controller = themeController) {
         Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
                 AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
                     AppBottomNavBar(
@@ -49,7 +54,9 @@ fun AppRoot(root: IRootComponent) {
             Children(
                 stack = root.childStack,
                 animation = stackAnimation(fade()),
-                modifier = Modifier.padding(padding)
+                modifier = Modifier
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
             ) { created ->
                 when (val c = created.instance) {
                     is IRootComponent.Child.List -> MainListScreen(c.component)
@@ -71,7 +78,7 @@ fun AppBottomNavBar(
     onFavorites: () -> Unit,
     onSettings: () -> Unit
 ) {
-    NavigationBar(Modifier.height(70.dp)) {
+    NavigationBar(Modifier.navigationBarsPadding()) {
         NavigationBarItem(
             selected = activeChild is IRootComponent.Child.List,
             onClick = onList,

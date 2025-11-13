@@ -95,7 +95,7 @@ class LoginComponent(
                             if (!data.token.isNullOrBlank()) {
                                 settings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
                                 settings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName} \n${data.department}")
-
+                                settings.setString(AppSettingsKeys.FILTER_VAL, data.department)
                                 runCatching { apiConfig.token = data.token }
                                 _uiState.value = LoginUiState.Idle
                                 onLoginSuccess() // navigate (must be MAIN)

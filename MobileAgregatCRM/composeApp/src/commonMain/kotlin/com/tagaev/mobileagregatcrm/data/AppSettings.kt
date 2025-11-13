@@ -33,6 +33,8 @@ object AppSettingsKeys {
     const val PASS      = "PASS"
     const val TOKEN_KEY = "TOKEN_KEY"
 
+    const val LAST_UPDATE = "LAST_UPDATE"
+
     const val PERSONAL_DATA = "PERSONAL_DATA"
 }
 
@@ -73,21 +75,21 @@ class AppSettings(
     private val json: Json
 ) {
     // ---------- Events cache (list) ----------
-    fun saveEventsCache(events: List<EventItemDto>) {
-        // Option A (recommended): Serialization module (stores as structured keys)
-        settings.encodeValue(
-            serializer = ListSerializer(EventItemDto.serializer()),
-            key = AppSettingsKeys.EVENTS_CACHE,
-            value = events
-        ) // encodeValue/deserialize APIs, delegates: :contentReference[oaicite:4]{index=4}
-    }
-
-    fun loadEventsCache(): List<EventItemDto> {
-        return settings.decodeValueOrNull(
-            serializer = ListSerializer(EventItemDto.serializer()),
-            key = AppSettingsKeys.EVENTS_CACHE
-        ) ?: emptyList()
-    }
+//    fun saveEventsCache(events: List<EventItemDto>) {
+//        // Option A (recommended): Serialization module (stores as structured keys)
+//        settings.encodeValue(
+//            serializer = ListSerializer(EventItemDto.serializer()),
+//            key = AppSettingsKeys.EVENTS_CACHE,
+//            value = events
+//        ) // encodeValue/deserialize APIs, delegates: :contentReference[oaicite:4]{index=4}
+//    }
+//
+//    fun loadEventsCache(): List<EventItemDto> {
+//        return settings.decodeValueOrNull(
+//            serializer = ListSerializer(EventItemDto.serializer()),
+//            key = AppSettingsKeys.EVENTS_CACHE
+//        ) ?: emptyList()
+//    }
 
     fun clearEventsCache() {
         settings.removeValue(ListSerializer(EventItemDto.serializer()), AppSettingsKeys.EVENTS_CACHE)
