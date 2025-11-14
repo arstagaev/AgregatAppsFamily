@@ -129,6 +129,7 @@ fun MainListScreen(component: ListComponent) {
     var compactCards by remember { mutableStateOf(appSettings.getBool(PREF_COMPACT_CARDS, false)) }
     var showErrorDialog by rememberSaveable { mutableStateOf(false) }
     var errorText by rememberSaveable { mutableStateOf("") }
+    var showControlsDialog by rememberSaveable { mutableStateOf(false) }
 //    val isBWTheme by remember { mutableStateOf(appSettings.getBool(PREF_BW_THEME, false)) }
 
     LaunchedEffect(compactCards) {
@@ -145,42 +146,75 @@ fun MainListScreen(component: ListComponent) {
         }
     }
 
+    val onRefresh: () -> Unit = {
+        isLoading = true
+        error = null
+        scope.launch {
+            val gate = launch { kotlinx.coroutines.delay(1000) }
+            try {
+                component.setFiltersAndRefresh(filters.sanitize())
+            } catch (t: Throwable) {
+                error = t.message ?: "Unknown error"
+                errorText = error ?: "Unknown error"
+                showErrorDialog = true
+            } finally {
+                gate.join()
+                isLoading = false
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
-        // Top controls
-        Box(Modifier.fillMaxSize().weight(if (showFilter.value) 2f else 0.7f)) {
-            TopControls(
-                count = filters.count,
-                onCountChange = { filters = filters.copy(count = it) },
-                ncount = filters.ncount,
-                onNCountChange = { filters = filters.copy(ncount = it) },
-                filterBy = filters.filterBy ?: DefaultConfig.FILTER_BY,
-                onFilterByChange = { filters = filters.copy(filterBy = it) },
-                filterVal = filters.filterVal ?: DefaultConfig.FILTER_VAL,
-                onFilterValChange = { filters = filters.copy(filterVal = it) },
-                isLoading = isLoading,
-                component= component,
-                onRefresh = {
-                    // Start spinner immediately, keep it on-screen at least 1s
-                    isLoading = true
-                    error = null
-                    scope.launch {
-                        val gate = launch { kotlinx.coroutines.delay(1000) }
-                        try {
-                            component.setFiltersAndRefresh(filters.sanitize())
-                        } catch (t: Throwable) {
-                            error = t.message ?: "Unknown error"
-                            errorText = error ?: "Unknown error"
-                            showErrorDialog = true
-                        } finally {
-                            gate.join() // ensure min show time
-                            isLoading = false
+        // Header (department + quick actions)
+        run {
+            val cityLabel = remember(filters.filterVal) {
+                CITY_OPTIONS.find { it.value == (filters.filterVal ?: "") }?.label ?: (filters.filterVal ?: "")
+            }
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Подразделение $cityLabel",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center
+                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = {
+                        if (res != Resource.Loading) {
+                            onRefresh.invoke()
+                        }
+                    }, enabled = !isLoading) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = FeatherIcons.RefreshCw,
+                                contentDescription = "Refresh"
+                            )
                         }
                     }
-                },
-                onOpenOrderDialog = { showDialogOrderBy.value = true },
-                compact = compactCards,
-                onCompactChange = { compactCards = it }
-            )
+                    AssistChip(
+                        onClick = { showDialogOrderBy.value = true },
+                        label = { Text("Сортировка", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    )
+                    AssistChip(
+                        onClick = { showControlsDialog = true },
+                        label = { Text("Параметры") }
+                    )
+                }
+            }
         }
 
         // Content
@@ -304,6 +338,20 @@ fun MainListScreen(component: ListComponent) {
             }
         }
 
+        if (showControlsDialog) {
+            ControlsDialog(
+                compact = compactCards,
+                onCompactChange = { compactCards = it },
+                isLoading = isLoading,
+                onOpenOrderDialog = { showDialogOrderBy.value = true },
+                onDismiss = { showControlsDialog = false },
+                onApply = {
+                    showControlsDialog = false
+                    onRefresh()
+                }
+            )
+        }
+
         if (showDialogOrderBy.value) {
             OrderDialog(
                 currentBy = (filters.orderBy ?: "Дата").toOrderByOption(),
@@ -343,6 +391,57 @@ fun MainListScreen(component: ListComponent) {
             )
         }
     }
+}
+
+@Composable
+private fun ControlsDialog(
+    compact: Boolean,
+    onCompactChange: (Boolean) -> Unit,
+    isLoading: Boolean,
+    onOpenOrderDialog: () -> Unit,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Фильтры и параметры") },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(24.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Компактные карточки",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Switch(
+                        checked = compact,
+                        onCheckedChange = onCompactChange,
+                        enabled = !isLoading,
+                        modifier = Modifier.scale(0.45f)
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                AssistChip(
+                    onClick = onOpenOrderDialog,
+                    label = { Text("Сортировка") }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onApply, enabled = !isLoading) { Text("Применить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
 }
 
 @Composable

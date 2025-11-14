@@ -1,5 +1,9 @@
 package com.tagaev.mobileagregatcrm.ui.details
 
+import org.koin.compose.koinInject
+import com.tagaev.mobileagregatcrm.data.AppSettings
+import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -56,6 +60,8 @@ fun DetailsScreen(
     component: DetailsComponent,
     onRequestRefresh: () -> Unit = {}
 ) {
+    val appSettings = koinInject<AppSettings>()
+    val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
 
     var event by TARGET_EVENT
     var usersExpanded by rememberSaveable("details_users_expanded") { mutableStateOf(false) }
@@ -151,7 +157,7 @@ fun DetailsScreen(
                     if (e.users.isEmpty()) {
                         MutedText("Нет пользователей")
                     } else {
-                        e.users.forEach { UserItem(it) }
+                        e.users.forEach { UserItem(it, highlightFullName = personalData) }
                     }
                 }
             }
@@ -304,9 +310,16 @@ private fun MutedText(text: String) {
 }
 
 @Composable
-private fun UserItem(u: UserRowDto) {
+private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
+    val isHighlighted = remember(u.user, highlightFullName) {
+        val name = u.user?.trim().orEmpty()
+        val target = highlightFullName?.trim().orEmpty()
+        name.isNotEmpty() && target.isNotEmpty() && name.equals(target, ignoreCase = true)
+    }
+    val nameWeight = if (isHighlighted) FontWeight.Bold else FontWeight.SemiBold
+    val displayName = (u.user ?: "—") + if (isHighlighted) " (я)" else ""
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(u.user ?: "—", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        Text(displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = nameWeight)
         val details = listOfNotNull(
             u.role?.takeIf { it.isNotBlank() }?.let { "Роль: $it" },
             u.responsible?.takeIf { it.isNotBlank() }?.let { "Ответственный: $it" }

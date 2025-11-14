@@ -27,9 +27,8 @@ object HttpClientFactory {
 
     fun create(
         json: Json = defaultJson,
-        logBodies: Boolean = true,
-        // If you already choose engines per platform in each source set,
-        // just call this without passing an engine here.
+        loggingEnabled: Boolean = true,
+        logBodies: Boolean = false,
     ): HttpClient = HttpClient {
         // JSON
         install(ContentNegotiation) { json(json) }
@@ -57,16 +56,16 @@ object HttpClientFactory {
             header(HttpHeaders.ContentType, ContentType.Application.Json)
             header(HttpHeaders.UserAgent, "KMP-CRM/1.0 (+ktor)")
         }
-        install(Logging) {
-            logger = HumanLogger()
-            level = LogLevel.ALL
-//            sanitizeHeader { header -> header.equals(HttpHeaders.Authorization, ignoreCase = true) }
-        }
-
-        // Status line & timing
-        install(ResponseObserver) {
-            onResponse { response ->
-                Log.info("HTTP ${response.status.value} ${response.request.url}")
+        if (loggingEnabled) {
+            install(Logging) {
+                logger = HumanLogger()
+                level = LogLevel.ALL // set to LogLevel.NONE if you prefer keeping the plugin installed but silent
+            }
+            // Status line & timing
+            install(ResponseObserver) {
+                onResponse { response ->
+                    Log.info("HTTP ${response.status.value} ${response.request.url}")
+                }
             }
         }
 
@@ -75,6 +74,9 @@ object HttpClientFactory {
 //            install(BodyLoggerPlugin)
 //        }
     }
+
+    fun createNoLogs(json: Json = defaultJson): HttpClient =
+        create(json = json, loggingEnabled = false, logBodies = false)
 
     private fun HttpClient.sanitizeHeader(function: Any) {
         TODO("Not yet implemented")

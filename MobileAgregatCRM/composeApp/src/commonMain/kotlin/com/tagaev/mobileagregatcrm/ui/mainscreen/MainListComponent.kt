@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.Clock
 
 
 interface ListComponent {
@@ -58,6 +59,22 @@ class MainListComponent(
     private var nextOffset: Int = 0
     private var pageSize: Int = 10
 
+    private var requestsCounter = 0
+
+    // ---- Rate limiting: at most one API request per 5 seconds ----
+    private val RATE_LIMIT_MS = 6_000L
+    private var lastApiCallAt: Long = 0L
+
+    private suspend fun awaitRateLimit() {
+        val now = getTimestamp
+        val since = now - lastApiCallAt
+        if (since in 0 until RATE_LIMIT_MS) {
+            delay(RATE_LIMIT_MS - since)
+        }
+        // mark start of a new window
+        lastApiCallAt = getTimestamp
+    }
+
     /**
      * Normalizes a city label/value into the request format:
      * - trims
@@ -82,8 +99,10 @@ class MainListComponent(
 
     init {
         backHandler.register(backCallback)
+        println("INIT")
         // 1) Show cached list immediately if present
         val cached = eventsCacheStore.load() //appSettings.loadEventsCache()
+        println("items size ${cached.size}")
         if (cached.isNotEmpty()) {
             _resource.value = Resource.Success(cached)
             currentItems.clear()
@@ -93,10 +112,12 @@ class MainListComponent(
         }
         // 2) Kick a fresh load with saved filters
         appScope.launch { fullRefresh() }
+        requestsCounter = 0
     }
 
     override suspend fun fullRefresh() {
         println("fullRefresh> 0")
+        requestsCounter++
         mutex.withLock {
             val filters: FilterState = appSettings.loadFilters()
             val cityReqVal = normalizeCityForRequest(filters.filterVal)
@@ -104,6 +125,11 @@ class MainListComponent(
             pageSize = filters.count
 
             nextOffset = 0
+
+            // Enforce max 1 request / 3s across all entry points
+            if (requestsCounter > 10) {
+                awaitRateLimit()
+            }
 
             _resource.value = Resource.Loading
 
@@ -161,6 +187,8 @@ class MainListComponent(
     /** Loads the next page and appends to the current list. Call from "Загрузить ещё (+10)". */
     override suspend fun loadMore(increment: Int) {
         mutex.withLock {
+            // Enforce max 1 request / 5s across all entry points
+            awaitRateLimit()
 
             // _resource.value = Resource.Loading  // removed eager loading state
 

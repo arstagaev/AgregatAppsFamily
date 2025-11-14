@@ -1,6 +1,7 @@
 package com.tagaev.mobileagregatcrm.ui.login
 
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import org.koin.core.component.KoinComponent
@@ -47,6 +48,8 @@ class LoginComponent(
     private val appScope: CoroutineScope by inject()
     private val mutex = kotlinx.coroutines.sync.Mutex()
 
+    private val backCallback = BackCallback { /* NO HANDLE */ }
+
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     override val uiState: StateFlow<LoginUiState> = _uiState
 
@@ -59,6 +62,8 @@ class LoginComponent(
         } else {
             println("Email or Token is empty")
         }
+
+        backHandler.register(backCallback)
     }
 
     override fun onLoginWithCredentials(user: String, pass: String) {
@@ -94,7 +99,7 @@ class LoginComponent(
                         withContext(Dispatchers.Main.immediate) {
                             if (!data.token.isNullOrBlank()) {
                                 settings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
-                                settings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName} \n${data.department}")
+                                settings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName}")
                                 settings.setString(AppSettingsKeys.FILTER_VAL, data.department)
                                 runCatching { apiConfig.token = data.token }
                                 _uiState.value = LoginUiState.Idle

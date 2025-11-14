@@ -1,6 +1,9 @@
 package com.tagaev.mobileagregatcrm.ui.settings
 
 import com.arkivanov.decompose.ComponentContext
+import com.tagaev.mobileagregatcrm.data.db.EventsCacheStore
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 interface ISettingsComponent {
     fun onWriteToDeveloper()
@@ -13,13 +16,17 @@ class SettingsComponent(
     private val onBack: () -> Unit,
     private val onWriteToDeveloperAction: () -> Unit = {},
     private val onLogoutAction: () -> Unit
-) : ISettingsComponent, ComponentContext by componentContext {
+) : ISettingsComponent, KoinComponent, ComponentContext by componentContext {
+    private val eventsCacheStore: EventsCacheStore by inject()
 
     override fun onWriteToDeveloper() {
         onWriteToDeveloperAction()
     }
 
-    override fun onLogout() = onLogoutAction()
+    override fun onLogout() {
+        eventsCacheStore.clear()
+        onLogoutAction.invoke()
+    }
 
     override fun back() = onBack()
 }
