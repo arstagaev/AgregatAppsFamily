@@ -42,12 +42,12 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import com.tagaev.mobileagregatcrm.data.AppSettings
-import com.tagaev.mobileagregatcrm.utils.CONST
 import mobileagregatcrm.composeapp.generated.resources.botlogo
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
+import com.tagaev.secrets.Secrets
 import mobileagregatcrm.composeapp.generated.resources.car1
 import mobileagregatcrm.composeapp.generated.resources.car2
 import mobileagregatcrm.composeapp.generated.resources.car3
@@ -121,8 +121,8 @@ fun LoginScreen(component: ILoginComponent) {
 //    var user by rememberSaveable { mutableStateOf("kolosov.a.a@my.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("NfKqZXzSyew)") }
 
-    var user by rememberSaveable { mutableStateOf("malikov.a.d@teach.agregatka.ru") }
-    var pass by rememberSaveable { mutableStateOf("D7Wq39EoA7__") }
+//    var user by rememberSaveable { mutableStateOf("malikov.a.d@teach.agregatka.ru") }
+//    var pass by rememberSaveable { mutableStateOf("D7Wq39EoA7__") }
 
 //    var user by rememberSaveable { mutableStateOf("bannikov.v.e@teach.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("7YO8sNvvHA4(") }
@@ -130,6 +130,12 @@ fun LoginScreen(component: ILoginComponent) {
 //    var user by rememberSaveable { mutableStateOf("") }
 //    var pass by rememberSaveable { mutableStateOf("") }
 
+    //tagaev.r
+    //Пароль:
+    //c3BzvPjgesW@
+
+    var user by rememberSaveable { mutableStateOf("tagaev.r") }
+    var pass by rememberSaveable { mutableStateOf("c3BzvPjgesW@") }
     // Persisted token
     var token by rememberSaveable {
         mutableStateOf("")
@@ -312,7 +318,7 @@ fun LoginScreen(component: ILoginComponent) {
             Text(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
-                text = "Версия: ${CONST.VERSION}",
+                text = "Версия: ${Secrets.VERSION}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -352,13 +358,19 @@ fun LoginScreen(component: ILoginComponent) {
                 rowHeight = 150.dp,
                 speedPxPerSecond = 15f // slower/faster here
             )
-            Image(
-                painter = painterResource(Res.drawable.botlogo),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .wrapContentHeight()
+            //TRR APP
+
+            ShimmerTitle(
+                text = "TRR APP",
             )
+
+//            Image(
+//                painter = painterResource(Res.drawable.botlogo),
+//                contentDescription = null,
+//                modifier = Modifier
+//                    .fillMaxWidth(0.5f)
+//                    .wrapContentHeight()
+//            )
 
             InfiniteImageTrain(
                 modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),

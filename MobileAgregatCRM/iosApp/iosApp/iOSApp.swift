@@ -2,17 +2,18 @@ import SwiftUI
 
 @main
 struct iOSApp: App {
-    init() {
-        _ = IosModuleKt.initKoinIos()
-    }
+    // init() {
+    //     _ = IosModuleKt.initKoinIos()
+    // }
     var body: some Scene {
         WindowGroup {
-            ComposeView { // your compose hosting
-                let root = OrgAgregatcrmNavigationDefaultRootComponent(
-                    componentContext: OrgArkivanovDecomposeDefaultComponentContext(lifecycle: OrgArkivanovEssentyLifecycleLifecycleRegistry())
-                )
-                OrgAgregatcrmUiAppRoot(root: root)
-            }
+            ContentView()
+            // ComposeView { // your compose hosting
+            //     let root = OrgAgregatcrmNavigationDefaultRootComponent(
+            //         componentContext: OrgArkivanovDecomposeDefaultComponentContext(lifecycle: OrgArkivanovEssentyLifecycleLifecycleRegistry())
+            //     )
+            //     OrgAgregatcrmUiAppRoot(root: root)
+            // }
         }
     }
 }

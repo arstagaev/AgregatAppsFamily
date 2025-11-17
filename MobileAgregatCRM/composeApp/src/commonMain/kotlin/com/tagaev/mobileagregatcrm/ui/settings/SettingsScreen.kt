@@ -14,11 +14,11 @@ import org.koin.compose.koinInject
 import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.ui.style.ThemeController
 import com.tagaev.mobileagregatcrm.ui.style.ThemeMode
-import com.tagaev.mobileagregatcrm.utils.CONST
 
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Icon
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
+import com.tagaev.secrets.Secrets
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Mail
 import compose.icons.feathericons.LogOut
@@ -146,7 +146,7 @@ fun SettingsScreen(component: ISettingsComponent) {
                     )
                 }
                 Text(
-                    text = "Версия: ${CONST.VERSION}",
+                    text = "Версия: ${Secrets.VERSION}",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

@@ -16,6 +16,8 @@ import com.tagaev.mobileagregatcrm.ui.favorites.FavoritesComponent
 import com.tagaev.mobileagregatcrm.ui.login.ILoginComponent
 import com.tagaev.mobileagregatcrm.ui.login.LoginComponent
 import com.tagaev.mobileagregatcrm.ui.mainscreen.ListComponent
+import com.tagaev.mobileagregatcrm.ui.qrscanner.DefaultQRScannerComponent
+import com.tagaev.mobileagregatcrm.ui.qrscanner.IQRScannerComponent
 import com.tagaev.mobileagregatcrm.ui.settings.ISettingsComponent
 import com.tagaev.mobileagregatcrm.ui.settings.SettingsComponent
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +28,7 @@ interface IRootComponent {
 
     fun openList()
     fun openDetails()
+    fun openQRScanner()
     fun openFavorites()
     fun openSettings()
     fun openLogin()
@@ -36,6 +39,7 @@ interface IRootComponent {
         data object Details : Config
         data object Favorites : Config
         data object Settings : Config
+        data object QRScanner : Config
         data object Login : Config
     }
 
@@ -44,6 +48,7 @@ interface IRootComponent {
         data class Details(val component: DetailsComponent) : Child
         data class Favorites(val component: FavoritesComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
+        data class QRScanner(val component: IQRScannerComponent) : Child
         data class Login(val component: ILoginComponent) : Child
     }
 }
@@ -56,7 +61,7 @@ sealed interface AuthState {
 
 
 class DefaultRootComponent(
-    componentContext: ComponentContext
+    componentContext: ComponentContext,
 ) : IRootComponent, ComponentContext by componentContext, KoinComponent {
 
     private val appSettings: AppSettings by inject()
@@ -102,6 +107,10 @@ class DefaultRootComponent(
             is IRootComponent.Config.Details ->
                 IRootComponent.Child.Details(DefaultDetailsComponent(ctx) { nav.pop() })
 
+            is IRootComponent.Config.QRScanner ->
+                IRootComponent.Child.QRScanner(DefaultQRScannerComponent(ctx) { nav.pop() })
+
+
             is IRootComponent.Config.Favorites ->
                 IRootComponent.Child.Favorites(DefaultFavoritesComponent(ctx) { nav.pop() })
 
@@ -126,6 +135,8 @@ class DefaultRootComponent(
 
     override fun openList() = nav.bringToFront(IRootComponent.Config.List)
     override fun openDetails() = nav.bringToFront(IRootComponent.Config.Details)
+    override fun openQRScanner() = nav.bringToFront(IRootComponent.Config.QRScanner)
+
     override fun openFavorites() = nav.bringToFront(IRootComponent.Config.Favorites)
     override fun openSettings() = nav.bringToFront(IRootComponent.Config.Settings)
     override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)

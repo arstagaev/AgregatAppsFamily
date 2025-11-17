@@ -1,6 +1,6 @@
 package com.tagaev.mobileagregatcrm.data.remote
 
-import com.tagaev.mobileagregatcrm.utils.CONST
+import com.tagaev.data.models.qrscanner.QRResponseTRS
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -17,7 +17,6 @@ import kotlinx.serialization.json.contentOrNull
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.models.GetTokenResponse
 import com.tagaev.mobileagregatcrm.models.SentMessageResponse
-import com.tagaev.secrets.Secrets
 import io.ktor.client.plugins.expectSuccess
 import org.agregatcrm.models.cleanJsonStart
 
@@ -25,7 +24,7 @@ import org.agregatcrm.models.cleanJsonStart
 // https://api.agregatka.ru/app/getdata.php?token=234234234&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
 data class ApiConfig(
 //    val baseUrl: String = "http://akpp-1c.ru:86/AA/hs/mycrm/agrapp",
-    val baseUrl: String = Secrets.BASE_URL, // "https://agrapp.agregatka.ru",//"https://api.agregatka.ru/app/getdata.php",
+    val baseUrl: String = "https://agrapp.agregatka.ru", //Secrets.BASE_URL, // "https://agrapp.agregatka.ru",//"https://api.agregatka.ru/app/getdata.php",
     var token: String
 )
 
@@ -65,7 +64,7 @@ class EventsApi(
                     parameters.append("orderdir", "${orderDir}")
                     parameters.append("filterby", "${filterBy}")
                     parameters.append("filterval", filterVal)
-                    parameters.append("viewtype", Secrets.VIEW_TYPE)
+                    parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
                 }
             }
             if (!response.status.isSuccess()) {
@@ -149,7 +148,6 @@ class EventsApi(
         val response = client.get(apiConfig.baseUrl) {
             expectSuccess = true            // make non-2xx throw ResponseException
             url {
-//                parameters.append("token", apiConfig.token)
                 parameters.append("task", "gettoken")
                 parameters.append("user", username)
                 parameters.append("pass", password)
@@ -168,6 +166,31 @@ class EventsApi(
             throw IllegalStateException(err)
         }
         json.decodeFromJsonElement<GetTokenResponse>(obj)
+    }
+
+    //https://agrapp.agregatka.ru/?token=ED776D6A60113D476D9469A14A724037BE040BC8FB54B9E969D169584AD41D6A&task=getqrcomlectinfo&code=TRS111405064
+    suspend fun getTRSData(apiConfig: ApiConfig, decodedCode: String) : Resource<QRResponseTRS> = resourceify {
+        val response = client.get(apiConfig.baseUrl) {
+            expectSuccess = true            // make non-2xx throw ResponseException
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getqrcomlectinfo")
+                parameters.append("code", decodedCode)
+            }
+        }
+
+        // If you already installed ContentNegotiation(json), you can do:
+        // return@resourceify response.body<SentMessageResponse>()
+
+        // If the server sometimes sends a preface you strip off:
+        val raw = response.bodyAsText().cleanJsonStart()
+        val obj = json.parseToJsonElement(raw).jsonObject
+        val err = obj["error"]?.jsonPrimitive?.contentOrNull
+        if (err != null) {
+            // Map logical 200-OK errors into Resource.Error via resourceify
+            throw IllegalStateException(err)
+        }
+        json.decodeFromJsonElement<QRResponseTRS>(obj)
     }
 
     companion object {

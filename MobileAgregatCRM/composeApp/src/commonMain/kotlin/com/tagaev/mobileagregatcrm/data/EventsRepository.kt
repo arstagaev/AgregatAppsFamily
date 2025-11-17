@@ -1,5 +1,6 @@
 package com.tagaev.mobileagregatcrm.data
 
+import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
@@ -47,4 +48,7 @@ class EventsRepository(
 
     suspend fun sendMessage(number: String, date: String, message: String): Resource<SentMessageResponse> =
         api.sendMessage(api = cfg, number = number, date = date, message = message)
+
+    suspend fun getTRSData(decodedCode: String): Resource<QRResponseTRS> = api.getTRSData(apiConfig = cfg, decodedCode = decodedCode)
+//    suspend fun fetchTRS(decoded: String): Result<QRResponseTRS>
 }

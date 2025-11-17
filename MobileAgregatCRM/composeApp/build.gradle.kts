@@ -2,8 +2,10 @@ import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 import kotlin.apply
-
+import com.android.build.api.artifact.SingleArtifact
+import java.util.Locale
 //import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
+import org.gradle.api.file.DuplicatesStrategy
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -28,18 +30,21 @@ kotlin {
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
-            isStatic = true
+            isStatic = false
+//            linkerOpts("-lsqlite3")
+            // 👇 this is the important line
+            binaryOption("bundleId", "com.tagaev.mobileagregatcrm.shared")
         }
     }
 
     sourceSets {
-        val ktor = "2.3.12" // keep this consistent everywhere
+        val ktor = "3.3.2" // keep this consistent everywhere
 
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
 
-            implementation("io.ktor:ktor-client-okhttp:2.3.12")
+            implementation("io.ktor:ktor-client-okhttp:${ktor}")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
             implementation("androidx.datastore:datastore-preferences:1.1.7") // optional if you prefer DataStore later
             implementation("app.cash.sqldelight:android-driver:2.1.0")
@@ -53,8 +58,8 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
+//            implementation(compose.components.uiToolingPreview)
+//            implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
             implementation("com.arkivanov.decompose:decompose:3.4.0")
@@ -91,6 +96,11 @@ kotlin {
             implementation(libs.okio)
 
             implementation("org.slf4j:slf4j-nop:1.7.36")   // if slf4j-api is 1.7.x
+
+//            implementation("network.chaintech:qr-kit:3.1.3")
+//            implementation("io.github.kalinjul.easyqrscan:scanner:0.5.0")
+
+            implementation("io.github.g00fy2.quickie:quickie-bundled:1.11.0")
         }
         iosMain.dependencies {
             implementation("app.cash.sqldelight:native-driver:2.1.0")
@@ -98,13 +108,13 @@ kotlin {
             implementation("io.ktor:ktor-client-darwin:$ktor")  // <— REQUIRED
         }
 
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
-        jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
-//            implementation(libs.kotlinx.coroutinesSwing)
-        }
+//        commonTest.dependencies {
+//            implementation(libs.kotlin.test)
+//        }
+//        jvmMain.dependencies {
+//            implementation(compose.desktop.currentOs)
+////            implementation(libs.kotlinx.coroutinesSwing)
+//        }
     }
 }
 
@@ -116,8 +126,8 @@ android {
         applicationId = "com.tagaev.mobileagregatcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.4.2"
+        versionCode = 2
+        versionName = version//"1.4.5"
     }
     packaging {
         resources {
@@ -125,25 +135,35 @@ android {
         }
     }
     buildTypes {
-        getByName("release") {
+        // Debug: for IDE / local dev, no minify, no shrink
+        getByName("debug") {
             isMinifyEnabled = false
+            isShrinkResources = false
+            // no proguardFiles here
         }
-        release {
+
+        // Keep a very basic release as a base (AGP expects it)
+        getByName("release") {
+            // can be identical to debug, or light minification – your choice
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+
+        // Prod: your “real” minified build
+        create("prod") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // Optional: separate app id so it does not overwrite Play build
+            // applicationIdSuffix = ".prod"
         }
-//        debug {
-//            isMinifyEnabled = true
-//            isShrinkResources = true
-//            proguardFiles(
-//                getDefaultProguardFile("proguard-android-optimize.txt"),
-//                "proguard-rules.pro"
-//            )
-//        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -151,17 +171,69 @@ android {
     }
 }
 
-dependencies {
-    debugImplementation(compose.uiTooling)
+////////////////////
+//  androidComponents
+////////////////////
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        // Only care about prod (and optionally release)
+        if (variant.buildType != "prod" && variant.buildType != "release") return@onVariants
+
+        val variantCap = variant.name.replaceFirstChar {
+            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+        }
+
+        val versionNameProvider = variant.outputs.single().versionName
+        val fileNameProvider = providers.provider {
+            val vName = versionNameProvider.orElse("dev").get()
+            "MobileTRR-$vName-${variant.name}.apk"
+        }
+
+        val copyTask = tasks.register<Copy>("rename${variantCap}Apk") {
+            notCompatibleWithConfigurationCache("Finalizer wiring touches AGP internals")
+
+            val outDir = layout.buildDirectory.dir("outputs/apk-renamed/${variant.name}")
+
+            from(variant.artifacts.get(SingleArtifact.APK))
+            into(outDir)
+
+            // In case there are multiple APK outputs (splits), avoid duplicate-name crash
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+            rename { _ -> fileNameProvider.get() }
+
+            doLast {
+                val outFile = outDir.get().asFile.resolve(fileNameProvider.get())
+                println(">>> APK for ${variant.name} saved to: ${outFile.absolutePath}")
+            }
+        }
+
+        tasks.configureEach {
+            if (name == "package$variantCap") {
+                finalizedBy(copyTask)
+            }
+        }
+    }
 }
-//
+
+
+////////////////////
+//  sqldelight
+////////////////////
 sqldelight {
     databases {
         create("Database") {
             packageName.set("com.agregat.db")
         }
     }
+    // Ensure the plugin adds -lsqlite3 automatically for native targets
+    linkSqlite.set(true)
 }
+
+////////////////////
+// buildkonfig
+////////////////////
 // Load local.properties (root of the project)
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
@@ -177,6 +249,21 @@ val viewType: String = providers.gradleProperty("VIEW_TYPE").orNull
     ?: providers.environmentVariable("VIEW_TYPE").orNull
     ?: localProps.getProperty("VIEW_TYPE")
     ?: ""
+val version: String = providers.gradleProperty("VERSION").orNull
+    ?: providers.environmentVariable("VERSION").orNull
+    ?: localProps.getProperty("VERSION")
+    ?: ""
+
+// figure out which env we are building based on the Gradle tasks
+val requestedTasks = gradle.startParameter.taskNames
+
+val appEnv: String = when {
+    requestedTasks.any { it.contains("assembleProd", ignoreCase = true) ||
+            it.contains("installProd", ignoreCase = true) } -> "prod"
+    requestedTasks.any { it.contains("assembleDebug", ignoreCase = true) ||
+            it.contains("installDebug", ignoreCase = true) } -> "debug"
+    else -> (project.findProperty("APP_ENV") as String?) ?: "prod"
+}
 
 buildkonfig {
     packageName = "com.tagaev.secrets"   // choose any package you like
@@ -186,7 +273,41 @@ buildkonfig {
     defaultConfigs {
         buildConfigField(STRING, "BASE_URL", base_url)
         buildConfigField(STRING, "VIEW_TYPE", viewType)
+        buildConfigField(STRING, "VERSION", version)
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.
+    defaultConfigs {
+        buildConfigField(STRING, "APP_ENV", appEnv)
+    }
 }
 
+////////////////////
+//  custom apk tasks
+////////////////////
+
+tasks.register("buildDebugApk") {
+    group = "launchpadAPK"
+    description = "Assemble Debug APK (no install, no minify)"
+
+    // this will run the normal debug assemble, same as CLI:
+    // ./gradlew :composeApp:assembleDebug
+    dependsOn("assembleDebug")
+}
+
+tasks.register("buildProdApk") {
+    group = "launchpadAPK"
+    description = "Assemble Prod APK (minify + shrink + ProGuard, no install)"
+
+    // this will run:
+    // ./gradlew :composeApp:assembleProd
+    // and your androidComponents(renameProdApk) will still fire and print the path
+    dependsOn("assembleProd")
+}
+
+// Optional: if you sometimes *do* want to install directly from UI:
+tasks.register("installProdApk") {
+    group = "launchpadAPK"
+    description = "Assemble and install Prod APK to connected device"
+
+    dependsOn("installProd")
+}
