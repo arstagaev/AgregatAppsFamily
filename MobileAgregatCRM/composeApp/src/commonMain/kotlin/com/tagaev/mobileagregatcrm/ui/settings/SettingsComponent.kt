@@ -24,7 +24,7 @@ class SettingsComponent(
     }
 
     override fun onLogout() {
-        eventsCacheStore.clear()
+        eventsCacheStore.clearAll()
         onLogoutAction.invoke()
     }
 

@@ -2,7 +2,6 @@ package com.tagaev.mobileagregatcrm.data.db
 
 import com.agregatcrm.db.Events_cacheQueries
 import com.tagaev.mobileagregatcrm.models.EventItemDto
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -33,7 +32,10 @@ class EventsCacheStore(
             .getOrElse { emptyList() } // avoids T inference issues
     }
 
-    fun clear() {
-        queries.deleteByKey(KEY)
+    fun clearAll() {
+//        queries.deleteByKey(KEY)
+
+        queries.clearEventsCache()
     }
+
 }

@@ -56,7 +56,7 @@ data class EventItemDto(
     // blocks
     @SerialName("Пользователи") val users: List<UserRowDto> = emptyList(),
     @SerialName("СторонниеЛица") val externalUsers: List<ExternalRowDto> = emptyList(),
-    @SerialName("Товары") val products: List<ItemRowDto> = emptyList(),
+    @SerialName("Товары") val products: List<ProductsItem> = emptyList(),
     @SerialName("Автомобили") val cars: List<String> = emptyList(), // appears empty in samples
     @SerialName("tasks") val tasks: List<TaskDto> = emptyList(),
     @SerialName("messages") val messages: List<MessageDto> = emptyList()
@@ -86,12 +86,14 @@ data class ExternalRowDto(
 )
 
 @Serializable
-data class ItemRowDto(
+data class ProductsItem(
     @SerialName("НомерСтроки") val rowNo: String? = null,
     @SerialName("Номенклатура") val itemName: String? = null,
     @SerialName("Количество") val quantity: String? = null,
     @SerialName("ЕдиницаИзмерения") val unit: String? = null,
     @SerialName("Коэффициент") val coef: String? = null,
+    @SerialName("Цена") val price: String? = null,
+    @SerialName("Сумма") val sum: String? = null,
     @SerialName("ХарактеристикаНоменклатуры") val itemFeature: String? = null
 )
 

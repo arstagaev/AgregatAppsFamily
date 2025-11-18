@@ -117,8 +117,8 @@ class DefaultRootComponent(
             is IRootComponent.Config.Settings ->
                 IRootComponent.Child.Settings(SettingsComponent(componentContext = ctx,
                     onLogoutAction = {
-                        appSettings.setString(AppSettingsKeys.EMAIL, "NULL_EMAIL")
-                        appSettings.setString(AppSettingsKeys.TOKEN_KEY, "NULL_TOKEN")
+                        appSettings.setString(AppSettingsKeys.EMAIL, "")
+                        appSettings.setString(AppSettingsKeys.TOKEN_KEY, "")
                         openLogin()
                     },
                     onBack = {

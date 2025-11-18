@@ -13,3 +13,11 @@ INSERT OR REPLACE INTO events_cache(key, json, saved_at) VALUES (?, ?, ?);
 
 deleteByKey:
 DELETE FROM events_cache WHERE key = ?;
+
+-- Clear events cache table
+clearEventsCache:
+DELETE FROM events_cache;
+
+-- If you have favorites.sq (as earlier) — include this too:
+clearFavorites:
+DELETE FROM favorites;

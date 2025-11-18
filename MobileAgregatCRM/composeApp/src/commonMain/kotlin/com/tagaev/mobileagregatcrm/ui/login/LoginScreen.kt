@@ -118,6 +118,7 @@ fun LoginScreen(component: ILoginComponent) {
     }
 
     var mode by rememberSaveable { mutableStateOf(Mode.Credentials) }
+
 //    var user by rememberSaveable { mutableStateOf("kolosov.a.a@my.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("NfKqZXzSyew)") }
 
@@ -127,6 +128,9 @@ fun LoginScreen(component: ILoginComponent) {
 //    var user by rememberSaveable { mutableStateOf("bannikov.v.e@teach.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("7YO8sNvvHA4(") }
 
+    var user by rememberSaveable { mutableStateOf("tagaev.a.i@my.agregatka.ru") }
+    var pass by rememberSaveable { mutableStateOf("eVpfmkGAHWr%") }
+
 //    var user by rememberSaveable { mutableStateOf("") }
 //    var pass by rememberSaveable { mutableStateOf("") }
 
@@ -134,8 +138,8 @@ fun LoginScreen(component: ILoginComponent) {
     //Пароль:
     //c3BzvPjgesW@
 
-    var user by rememberSaveable { mutableStateOf("tagaev.r") }
-    var pass by rememberSaveable { mutableStateOf("c3BzvPjgesW@") }
+//    var user by rememberSaveable { mutableStateOf("tagaev.r") }
+//    var pass by rememberSaveable { mutableStateOf("c3BzvPjgesW@") }
     // Persisted token
     var token by rememberSaveable {
         mutableStateOf("")

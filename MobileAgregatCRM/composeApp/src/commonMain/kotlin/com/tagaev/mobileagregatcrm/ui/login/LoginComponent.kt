@@ -54,7 +54,10 @@ class LoginComponent(
     override val uiState: StateFlow<LoginUiState> = _uiState
 
     init {
-        if (!settings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() && !settings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()) {
+        if (
+            !settings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty()
+            && !settings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
+            ) {
             onLoginWithCredentials(
                 user = settings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
                 pass = settings.getString(AppSettingsKeys.PASS, defaultValue = "")

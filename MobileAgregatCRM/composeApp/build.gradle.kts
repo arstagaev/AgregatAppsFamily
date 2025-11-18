@@ -177,6 +177,7 @@ android {
 
 androidComponents {
     onVariants(selector().all()) { variant ->
+        println("onVariants>>>>> ${variant.buildType}")
         // Only care about prod (and optionally release)
         if (variant.buildType != "prod" && variant.buildType != "release") return@onVariants
 
@@ -187,7 +188,7 @@ androidComponents {
         val versionNameProvider = variant.outputs.single().versionName
         val fileNameProvider = providers.provider {
             val vName = versionNameProvider.orElse("dev").get()
-            "MobileTRR-$vName-${variant.name}.apk"
+            "MobileTRR-$version.apk"
         }
 
         val copyTask = tasks.register<Copy>("rename${variantCap}Apk") {

@@ -21,6 +21,7 @@ data class RequestConfig(
 object DefaultConfig {
     const val FILTER_BY = "ПодразделениеКомпании"
     const val FILTER_VAL = "Сочи"
+    const val MESSAGE_MAX_CHARS = 500
 }
 
 //object CONST {

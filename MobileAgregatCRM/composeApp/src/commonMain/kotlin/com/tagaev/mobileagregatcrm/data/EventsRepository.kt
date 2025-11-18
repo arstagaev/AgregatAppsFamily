@@ -23,8 +23,8 @@ class EventsRepository(
     suspend fun loadEvents(
         type: String = "Документ",
         name: String = "Событие",
-        count: Int = 1,
-        ncount: Int = 50,
+        count: Int = 10,
+        ncount: Int = 0,
         orderBy: String = "Дата",
         orderDir: String = "desc",
         filterBy: String = "ПодразделениеКомпании",

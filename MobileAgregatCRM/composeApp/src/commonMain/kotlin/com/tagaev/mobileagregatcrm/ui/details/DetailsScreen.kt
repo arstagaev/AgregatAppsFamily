@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -46,14 +47,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastSumBy
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.format
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
 import kotlinx.datetime.format.byUnicodePattern
 import com.tagaev.mobileagregatcrm.models.MessageDto
+import com.tagaev.mobileagregatcrm.models.ProductsItem
 import com.tagaev.mobileagregatcrm.models.TaskDto
 import com.tagaev.mobileagregatcrm.models.UserRowDto
+import com.tagaev.mobileagregatcrm.utils.DefaultConfig.MESSAGE_MAX_CHARS
+import com.tagaev.mobileagregatcrm.utils.SPACE_RX
 import com.tagaev.mobileagregatcrm.utils.TARGET_EVENT
+import com.tagaev.mobileagregatcrm.utils.roleRank
+import org.agregatcrm.models.isResponsible
 
 @Composable
 fun DetailsScreen(
@@ -66,6 +73,7 @@ fun DetailsScreen(
     var event by TARGET_EVENT
     var usersExpanded by rememberSaveable("details_users_expanded") { mutableStateOf(false) }
     var tasksExpanded by rememberSaveable("details_tasks_expanded") { mutableStateOf(false) }
+    var productsExpanded by rememberSaveable("products_expanded") { mutableStateOf(false) }
     var messagesExpanded by rememberSaveable("details_messages_expanded") { mutableStateOf(false) }
     var messageDraft by remember { mutableStateOf("") }
 
@@ -108,13 +116,13 @@ fun DetailsScreen(
             add("Тема" to (e.subject ?: ""))
             add("Ссылка" to (e.link ?: ""))
             add("Дата" to (e.date?.format(format) ?: ""))
-            add("ДатаМод" to (e.modifiedDate ?: ""))
+            add("Дата изменения" to (e.modifiedDate ?: ""))
             add("Состояние" to (e.state ?: ""))
             add("ВидСобытия" to (e.eventType ?: ""))
             add("ДатаНачала" to (e.startDate ?: ""))
             add("ДатаОкончания" to (e.endDate ?: ""))
             add("Организация" to (e.organization ?: ""))
-            add("Содержание" to (e.content ?: ""))
+            add("Подразделение" to (e.companyDepartment ?: ""))
         }.filter { it.second.isNotBlank() }
 
         LazyColumn(
@@ -157,9 +165,26 @@ fun DetailsScreen(
                     if (e.users.isEmpty()) {
                         MutedText("Нет пользователей")
                     } else {
-                        e.users.forEach { UserItem(it, highlightFullName = personalData) }
+                        // Optional: if your model has a boolean like isResponsible / Ответственный == "Да",
+                        // upgrade the role for sorting only:
+                        fun effectiveRole(u: UserRowDto): String? =
+                            when {
+                                (u.isResponsible == true) -> "ответственный"
+                                else -> u.role // e.g. "Делаю", "Помогаю", "Наблюдаю"
+                            }
+
+                        val sortedUsers = remember(e.users) {
+                            e.users.sortedWith(
+                                compareBy<UserRowDto>(
+                                    { roleRank(effectiveRole(it)) }              // 1) by role order
+                                ).thenBy { it.user?.lowercase() ?: "" }      // 2) tie-breaker by name
+                            )
+                        }
+
+                        sortedUsers.forEach { UserItem(it, highlightFullName = personalData) }
                     }
                 }
+
             }
 
             // tasks (+)
@@ -193,14 +218,32 @@ fun DetailsScreen(
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = messageDraft,
-                        onValueChange = { messageDraft = it },
+                        onValueChange = { input ->
+                            // hard limit (truncates pasted text)
+                            messageDraft = if (input.length <= MESSAGE_MAX_CHARS) input else input.take(MESSAGE_MAX_CHARS)
+                        },
                         label = { Text("Новое сообщение") },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp),
+                        supportingText = {
+                            val used = messageDraft.length
+                            val warn = MESSAGE_MAX_CHARS - used <= 20
+                            val color = when {
+                                used >= MESSAGE_MAX_CHARS -> MaterialTheme.colorScheme.error
+                                warn -> MaterialTheme.colorScheme.tertiary
+                                else -> LocalContentColor.current.copy(alpha = 0.7f)
+                            }
+                            Text("$used / $MESSAGE_MAX_CHARS", color = color)
+                        },
+                        isError = messageDraft.length >= MESSAGE_MAX_CHARS,
                         trailingIcon = {
                             AnimatedVisibility(visible = sendState is SendMessageUiState.Sending) {
                                 CircularProgressIndicator(
                                     strokeWidth = 2.dp,
-                                    modifier = Modifier.width(16.dp).height(16.dp)
+                                    modifier = Modifier
+                                        .width(16.dp)
+                                        .height(16.dp)
                                 )
                             }
                         }
@@ -238,7 +281,23 @@ fun DetailsScreen(
                     }
                 }
             }
-
+            item {
+                val total: Double = e.products.sumOf { p ->
+                    p.sum?.replace(SPACE_RX, "")?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
+                }
+                Section(
+                    title = "Товары (Сумма: ${total} руб.)",
+                    expanded = productsExpanded,
+                    onToggle = { productsExpanded = !productsExpanded },
+                    trailing = { TextButton(onClick = { component.addTask("TEST") }) { Text("+") } }
+                ) {
+                    if (e.products.isEmpty()) {
+                        MutedText("Нет товаров")
+                    } else {
+                        e.products.forEach { ProductItem(it) }
+                    }
+                }
+            }
             // guid footer
             item {
                 e.guid?.takeIf { it.isNotBlank() }?.let {
@@ -322,7 +381,7 @@ private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
         Text(displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = nameWeight)
         val details = listOfNotNull(
             u.role?.takeIf { it.isNotBlank() }?.let { "Роль: $it" },
-            u.responsible?.takeIf { it.isNotBlank() }?.let { "Ответственный: $it" }
+            //u.responsible?.takeIf { it.isNotBlank() }?.let { "Ответственный: $it" }
         ).joinToString("  •  ")
         if (details.isNotBlank()) {
             Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -346,6 +405,29 @@ private fun TaskItem(t: TaskDto) {
         t.comment?.takeIf { it.isNotBlank() }?.let {
             Spacer(Modifier.height(4.dp)); Text(it, style = MaterialTheme.typography.bodyMedium)
         }
+    }
+    Divider()
+}
+
+@Composable
+private fun ProductItem(t: ProductsItem) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        val line = buildList {
+            t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
+            t.quantity?.takeIf { it.isNotBlank() }?.let { add("$it ${t.unit ?: ""}") }
+//            t.unit?.takeIf { it.isNotBlank() }?.let { add("Ед. Измерения: $it") }
+            t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
+            t.sum?.takeIf { it.isNotBlank() }?.let { add("Сумма: $it") }
+
+//            t.rowNo?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
+        }.joinToString("  •  ")
+        if (line.isNotBlank()) {
+            Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+//        t.comment?.takeIf { it.isNotBlank() }?.let {
+//            Spacer(Modifier.height(4.dp)); Text(it, style = MaterialTheme.typography.bodyMedium)
+//        }
     }
     Divider()
 }
