@@ -1,14 +1,12 @@
 package com.tagaev.mobileagregatcrm.ui.root
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.stack.Children
@@ -31,8 +29,10 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import com.tagaev.mobileagregatcrm.ui.qrscanner.QRScannerScreen
+import com.tagaev.mobileagregatcrm.ui.work_order.WorkOrdersScreen
 import compose.icons.feathericons.Camera
-import compose.icons.feathericons.XSquare
+import compose.icons.feathericons.CloudLightning
+import compose.icons.feathericons.Command
 
 @Composable
 fun AppRoot(root: IRootComponent) {
@@ -48,6 +48,7 @@ fun AppRoot(root: IRootComponent) {
                         activeChild = activeChild,
                         onList = { if (activeChild !is IRootComponent.Child.List) root.openList() },
                         onDetails = { if (activeChild !is IRootComponent.Child.Details) root.openDetails() },
+                        onWorkOrder = { if (activeChild !is IRootComponent.Child.WorkOrder) root.openWorkOrders() },
                         onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
                         onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
                         onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
@@ -65,6 +66,7 @@ fun AppRoot(root: IRootComponent) {
                 when (val c = created.instance) {
                     is IRootComponent.Child.List -> MainListScreen(c.component)
                     is IRootComponent.Child.Details -> DetailsScreen(c.component)
+                    is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
                     is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
                     is IRootComponent.Child.Settings -> SettingsScreen(c.component)
                     is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
@@ -82,7 +84,8 @@ fun AppBottomNavBar(
     onDetails: () -> Unit,
     onQRScanner: () -> Unit,
     onFavorites: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onWorkOrder: () -> Unit
 ) {
     NavigationBar(Modifier.navigationBarsPadding()) {
         NavigationBarItem(
@@ -98,18 +101,27 @@ fun AppBottomNavBar(
             icon = { Icon(FeatherIcons.Box, null) },
             label = { Text("Событие") }
         )
+
+        NavigationBarItem(
+            selected = activeChild is IRootComponent.Child.WorkOrder,
+            onClick = onWorkOrder,
+            icon = { Icon(FeatherIcons.Command, null) },
+            label = { Text("Заказ-наряды") }
+        )
+
         NavigationBarItem(
             selected = activeChild is IRootComponent.Child.QRScanner,
             onClick = onQRScanner,
             icon = { Icon(FeatherIcons.Camera, null) },
             label = { Text("QR Сканер") }
         )
-        NavigationBarItem(
-            selected = activeChild is IRootComponent.Child.Favorites,
-            onClick = onFavorites,
-            icon = { Icon(FeatherIcons.Star, null) },
-            label = { Text("Избранное") }
-        )
+
+//        NavigationBarItem(
+//            selected = activeChild is IRootComponent.Child.Favorites,
+//            onClick = onFavorites,
+//            icon = { Icon(FeatherIcons.Star, null) },
+//            label = { Text("Избранное") }
+//        )
 
         NavigationBarItem(
             selected = activeChild is IRootComponent.Child.Settings,

@@ -17,6 +17,7 @@ import kotlinx.serialization.json.contentOrNull
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.models.GetTokenResponse
 import com.tagaev.mobileagregatcrm.models.SentMessageResponse
+import com.tagaev.mobileagregatcrm.models.WorkOrderDto
 import io.ktor.client.plugins.expectSuccess
 import org.agregatcrm.models.cleanJsonStart
 
@@ -49,51 +50,31 @@ class EventsApi(
         orderDir: String = "desc",
         filterBy: String = "ПодразделениеКомпании",
         filterVal: String = "Воронеж"
-    ): Resource<List<EventItemDto>> {
-        return try {
-            val url = api.baseUrl
-            val response = client.get(url) {
-                url {
-                    parameters.append("token", api.token)
-                    parameters.append("task", "getitemslist")
-                    parameters.append("type", "Документ")
-                    parameters.append("name", "Событие")
-                    parameters.append("count", "${count}")
-                    parameters.append("ncount", "${ncount}")
-                    parameters.append("orderby", "${orderBy}")
-                    parameters.append("orderdir", "${orderDir}")
-                    parameters.append("filterby", "${filterBy}")
-                    parameters.append("filterval", filterVal)
-                    parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
-                }
+    ): Resource<List<EventItemDto>> = resourceify {
+        val url = api.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", api.token)
+                parameters.append("task", "getitemslist")
+                parameters.append("type", "Документ")
+                parameters.append("name", "Событие")
+                parameters.append("count", "${count}")
+                parameters.append("ncount", "${ncount}")
+                parameters.append("orderby", "${orderBy}")
+                parameters.append("orderdir", "${orderDir}")
+                parameters.append("filterby", "${filterBy}")
+                parameters.append("filterval", filterVal)
+                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
             }
-            if (!response.status.isSuccess()) {
-                // read body for diagnostics, but don’t crash if not text
-                val errBody = runCatching { response.bodyAsText().take(2000) }.getOrNull()
-                return Resource.Error(
-                    exception = null,
-                    causes = "HTTP ${response.status.value} ${response.status.description}" +
-                            (if (errBody.isNullOrBlank()) "" else " | $errBody")
-                )
-            }
-
-            val raw = response.bodyAsText().cleanJsonStart()
-            println("getEvents raw:${raw.length}")
-            val items = json.decodeFromString<List<EventItemDto>>(raw)
-            println("getEvents size:${items.size}")
-
-            Resource.Success(items)
-        } catch (e: RedirectResponseException) { // 3xx with body
-            Resource.Error(e, "Redirect error: ${e.response.status}")
-        } catch (e: ClientRequestException) {     // 4xx
-            val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
-            Resource.Error(e, "Client error ${e.response.status}: ${body ?: e.message}")
-        } catch (e: ServerResponseException) {    // 5xx
-            val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
-            Resource.Error(e, "Server error ${e.response.status}: ${body ?: e.message}")
-        } catch (e: Exception) {
-            Resource.Error(e, "Unexpected error: ${e.message}")
         }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<EventItemDto>>(json, raw)
     }
 
     suspend fun sendMessage(
@@ -102,44 +83,42 @@ class EventsApi(
         date: String,
         //tasklist: String, // optional
         message: String,
-    ): Resource<SentMessageResponse> {
-        return try {
-            val url = api.baseUrl
-            val response = client.get(url) {
-                url {
-                    parameters.append("token", api.token)
-                    parameters.append("task", "setmessage")
-                    parameters.append("type", "Документ")
-                    parameters.append("name", "Событие")
-                    parameters.append("number", "${number}")
-                    parameters.append("date", "${date}")
-                    parameters.append("message", "${message}")
-                }
+    ): Resource<SentMessageResponse> = resourceify {
+        val url = api.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", api.token)
+                parameters.append("task", "setmessage")
+                parameters.append("type", "Документ")
+                parameters.append("name", "Событие")
+                parameters.append("number", "${number}")
+                parameters.append("date", "${date}")
+                parameters.append("message", "${message}")
             }
-            if (!response.status.isSuccess()) {
-                // read body for diagnostics, but don’t crash if not text
-                val errBody = runCatching { response.bodyAsText().take(2000) }.getOrNull()
-                return Resource.Error(
-                    exception = null,
-                    causes = "HTTP ${response.status.value} ${response.status.description}" +
-                            (if (errBody.isNullOrBlank()) "" else " | $errBody")
-                )
-            }
-
-            val raw = response.bodyAsText().cleanJsonStart()
-            val result = json.decodeFromString<SentMessageResponse>(raw)
-            Resource.Success(result)
-        } catch (e: RedirectResponseException) { // 3xx with body
-            Resource.Error(e, "Redirect error: ${e.response.status}")
-        } catch (e: ClientRequestException) {     // 4xx
-            val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
-            Resource.Error(e, "Client error ${e.response.status}: ${body ?: e.message}")
-        } catch (e: ServerResponseException) {    // 5xx
-            val body = runCatching { e.response.bodyAsText().take(2000) }.getOrNull()
-            Resource.Error(e, "Server error ${e.response.status}: ${body ?: e.message}")
-        } catch (e: Exception) {
-            Resource.Error(e, e.message ?: "Unexpected error")
         }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<SentMessageResponse>(json, raw)
+//        SentMessageResponse(status = "WOW")
+//        "LOL"
+//        try {
+//            json.decodeFromString<SentMessageResponse>(raw)
+//        } catch (e: Exception) {
+//            val warning = obj["warning"]?.jsonPrimitive?.contentOrNull
+//            if (warning != null) {
+//                // Map logical 200-OK errors into Resource.Error via resourceify
+//
+//            }
+////            Resource.Error(causes = "")
+////            throw IllegalStateException(err) as Throwable
+//            warning
+//        }
+
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=
@@ -191,6 +170,42 @@ class EventsApi(
             throw IllegalStateException(err)
         }
         json.decodeFromJsonElement<QRResponseTRS>(obj)
+    }
+
+    //
+//https://agrapp.agregatka.ru/?token=962088EF874D4133DE9BDBEEABC5F7702E6EA420941F113BD6789C03927C07EC&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%97%D0%B0%D0%BA%D0%B0%D0%B7%D0%9D%D0%B0%D1%80%D1%8F%D0%B4&count=1
+    suspend fun loadWorkOrders(apiConfig: ApiConfig): List<WorkOrderDto> {
+        val response = client.get(apiConfig.baseUrl) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+
+                parameters.append("type", "Документ")
+                parameters.append("name", "ЗаказНаряд")
+                parameters.append("count", "12")
+//                parameters.append("ncount", "${ncount}")
+//                parameters.append("orderby", "${orderBy}")
+//                parameters.append("orderdir", "${orderDir}")
+//                parameters.append("filterby", "${filterBy}")
+//                parameters.append("filterval", filterVal)
+//                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
+
+
+                // TODO: set the real task name for work orders
+//                parameters.append("task", "get_work_orders")
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            val errBody = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw IllegalStateException(
+                "HTTP ${response.status.value} ${response.status.description}" +
+                        (if (errBody.isNullOrBlank()) "" else " | $errBody")
+            )
+        }
+
+        val raw = response.bodyAsText().cleanJsonStart()
+        return json.decodeFromString<List<WorkOrderDto>>(raw)
     }
 
     companion object {

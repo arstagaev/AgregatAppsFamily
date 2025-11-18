@@ -136,10 +136,15 @@ android {
     }
     buildTypes {
         // Debug: for IDE / local dev, no minify, no shrink
+        //./gradlew assembleDebug
         getByName("debug") {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             // no proguardFiles here
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
 
         // Keep a very basic release as a base (AGP expects it)

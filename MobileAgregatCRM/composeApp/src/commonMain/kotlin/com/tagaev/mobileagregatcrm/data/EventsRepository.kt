@@ -7,6 +7,7 @@ import com.tagaev.mobileagregatcrm.data.remote.Resource
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.models.GetTokenResponse
 import com.tagaev.mobileagregatcrm.models.SentMessageResponse
+import com.tagaev.mobileagregatcrm.models.WorkOrderDto
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.getValue
@@ -50,5 +51,17 @@ class EventsRepository(
         api.sendMessage(api = cfg, number = number, date = date, message = message)
 
     suspend fun getTRSData(decodedCode: String): Resource<QRResponseTRS> = api.getTRSData(apiConfig = cfg, decodedCode = decodedCode)
+
+    suspend fun loadWorkOrders(): Resource<List<WorkOrderDto>> =
+        runCatching { api.loadWorkOrders(cfg) }
+            .fold(
+                onSuccess = { Resource.Success(it) },
+                onFailure = {
+                    Resource.Error(
+                        exception = it as Exception?,
+                        causes = it.message ?: "Ошибка загрузки заказ-нарядов"
+                    )
+                }
+            )
 //    suspend fun fetchTRS(decoded: String): Result<QRResponseTRS>
 }

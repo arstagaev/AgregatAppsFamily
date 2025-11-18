@@ -20,6 +20,7 @@ import com.tagaev.mobileagregatcrm.ui.qrscanner.DefaultQRScannerComponent
 import com.tagaev.mobileagregatcrm.ui.qrscanner.IQRScannerComponent
 import com.tagaev.mobileagregatcrm.ui.settings.ISettingsComponent
 import com.tagaev.mobileagregatcrm.ui.settings.SettingsComponent
+import com.tagaev.mobileagregatcrm.ui.work_order.WorkOrdersComponent
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.component.inject
 
@@ -28,6 +29,7 @@ interface IRootComponent {
 
     fun openList()
     fun openDetails()
+    fun openWorkOrders()
     fun openQRScanner()
     fun openFavorites()
     fun openSettings()
@@ -37,6 +39,7 @@ interface IRootComponent {
     sealed interface Config {
         data object List : Config
         data object Details : Config
+        data object WorkOrder : Config
         data object Favorites : Config
         data object Settings : Config
         data object QRScanner : Config
@@ -46,6 +49,7 @@ interface IRootComponent {
     sealed interface Child {
         data class List(val component: ListComponent) : Child
         data class Details(val component: DetailsComponent) : Child
+        data class WorkOrder(val component: WorkOrdersComponent) : Child
         data class Favorites(val component: FavoritesComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
         data class QRScanner(val component: IQRScannerComponent) : Child
@@ -53,11 +57,11 @@ interface IRootComponent {
     }
 }
 
-sealed interface AuthState {
-    data object Checking : AuthState          // short gate
-    data object Unauthenticated : AuthState   // Login flow
-    data object Authenticated : AuthState     // Main flow
-}
+//sealed interface AuthState {
+//    data object Checking : AuthState          // short gate
+//    data object Unauthenticated : AuthState   // Login flow
+//    data object Authenticated : AuthState     // Main flow
+//}
 
 
 class DefaultRootComponent(
@@ -107,6 +111,10 @@ class DefaultRootComponent(
             is IRootComponent.Config.Details ->
                 IRootComponent.Child.Details(DefaultDetailsComponent(ctx) { nav.pop() })
 
+            is IRootComponent.Config.WorkOrder ->
+                IRootComponent.Child.WorkOrder(WorkOrdersComponent(ctx) { nav.pop() })
+
+
             is IRootComponent.Config.QRScanner ->
                 IRootComponent.Child.QRScanner(DefaultQRScannerComponent(ctx) { nav.pop() })
 
@@ -135,6 +143,7 @@ class DefaultRootComponent(
 
     override fun openList() = nav.bringToFront(IRootComponent.Config.List)
     override fun openDetails() = nav.bringToFront(IRootComponent.Config.Details)
+    override fun openWorkOrders() = nav.bringToFront(IRootComponent.Config.WorkOrder)
     override fun openQRScanner() = nav.bringToFront(IRootComponent.Config.QRScanner)
 
     override fun openFavorites() = nav.bringToFront(IRootComponent.Config.Favorites)

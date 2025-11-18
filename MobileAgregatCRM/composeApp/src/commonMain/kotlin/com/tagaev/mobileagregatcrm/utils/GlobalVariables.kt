@@ -24,6 +24,9 @@ object DefaultConfig {
     const val MESSAGE_MAX_CHARS = 500
 }
 
+object ServerAnswers {
+    const val EMPTY_ANSWERS = "empty_answers"
+}
 //object CONST {
 ////    const val BASE_URL = "https://agrapp.agregatka.ru/"
 ////    var TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
