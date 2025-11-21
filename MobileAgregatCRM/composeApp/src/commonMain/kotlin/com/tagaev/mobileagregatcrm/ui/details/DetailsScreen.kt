@@ -41,13 +41,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastSumBy
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.format
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
@@ -56,9 +54,10 @@ import com.tagaev.mobileagregatcrm.models.MessageDto
 import com.tagaev.mobileagregatcrm.models.ProductsItem
 import com.tagaev.mobileagregatcrm.models.TaskDto
 import com.tagaev.mobileagregatcrm.models.UserRowDto
-import com.tagaev.mobileagregatcrm.utils.DefaultConfig.MESSAGE_MAX_CHARS
+import com.tagaev.mobileagregatcrm.utils.DefaultValuesConst.MESSAGE_MAX_CHARS
 import com.tagaev.mobileagregatcrm.utils.SPACE_RX
 import com.tagaev.mobileagregatcrm.utils.TARGET_EVENT
+import com.tagaev.mobileagregatcrm.utils.formatDDMMYYYY
 import com.tagaev.mobileagregatcrm.utils.roleRank
 import org.agregatcrm.models.isResponsible
 
@@ -115,7 +114,7 @@ fun DetailsScreen(
         val fields = buildList {
             add("Тема" to (e.subject ?: ""))
             add("Ссылка" to (e.link ?: ""))
-            add("Дата" to (e.date?.format(format) ?: ""))
+            add("Дата" to (e.date?.format(formatDDMMYYYY) ?: ""))
             add("Дата изменения" to (e.modifiedDate ?: ""))
             add("Состояние" to (e.state ?: ""))
             add("ВидСобытия" to (e.eventType ?: ""))
@@ -254,7 +253,7 @@ fun DetailsScreen(
                             modifier = Modifier.padding(horizontal = 10.dp),
                             onClick = {
                                 val num = e.number ?: return@OutlinedButton
-                                val dateStr = e.date?.format(format) ?: return@OutlinedButton
+                                val dateStr = e.date?.format(formatDDMMYYYY) ?: return@OutlinedButton
                                 messagesExpanded = true
                                 component.sendMessage(
                                     number = num,
@@ -477,7 +476,3 @@ private fun Section(
     }
 }
 
-@OptIn(FormatStringsInDatetimeFormats::class)
-val format = LocalDateTime.Format {
-    byUnicodePattern("dd.MM.yyyy")
-}

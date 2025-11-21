@@ -10,7 +10,7 @@ import com.tagaev.mobileagregatcrm.data.db.EventsCacheStore
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
-import com.tagaev.mobileagregatcrm.utils.DefaultConfig
+import com.tagaev.mobileagregatcrm.utils.DefaultValuesConst
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.utils.getTimestamp
 import com.tagaev.mobileagregatcrm.utils.getTimestampWithFormat
@@ -22,16 +22,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
-import kotlinx.datetime.Clock
 
 
 interface ListComponent {
     val resource: StateFlow<Resource<List<EventItemDto>>>
+    var dept: String
+
+
     suspend fun fullRefresh()
     /**
      * Loads the next page and appends to the current list. Call from "Загрузить ещё (+10)".
      */
-    suspend fun loadMore(increment: Int = 10)
+    suspend fun loadMore(increment: Int = 30)
     fun setFiltersAndRefresh(new: FilterState)
     fun sendMessage(number: String, date: String, message: String)
     fun openDetails(number: String, snapshot: EventItemDto?)
@@ -57,12 +59,12 @@ class MainListComponent(
     private val mutex = kotlinx.coroutines.sync.Mutex()
     private val currentItems = mutableListOf<EventItemDto>()
     private var nextOffset: Int = 0
-    private var pageSize: Int = 10
+//    private var pageSize: Int = DefaultValuesConst.COUNT
 
     private var requestsCounter = 0
 
     // ---- Rate limiting: at most one API request per 5 seconds ----
-    private val RATE_LIMIT_MS = 6_000L
+    private val RATE_LIMIT_MS = 500L
     private var lastApiCallAt: Long = 0L
 
     private suspend fun awaitRateLimit() {
@@ -81,8 +83,8 @@ class MainListComponent(
      * - replaces one or more spaces with a single underscore
      * Hyphens and other characters are preserved.
      */
-    private fun normalizeCityForRequest(raw: String?): String {
-        val fallback = DefaultConfig.FILTER_VAL
+    private fun normalizeFilterForRequest(raw: String?): String {
+        val fallback = DefaultValuesConst.FILTER_VAL
         val s = raw?.trim().orEmpty()
         if (s.isEmpty()) return fallback
         return s.replace(Regex("\\s+"), "_")
@@ -96,6 +98,7 @@ class MainListComponent(
     private val _resource = MutableStateFlow<Resource<List<EventItemDto>>>(Resource.Loading)
     val resourceInternal: StateFlow<Resource<List<EventItemDto>>> = _resource
     override val resource: StateFlow<Resource<List<EventItemDto>>> get() = resourceInternal
+    override var dept: String = appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED")
 
     init {
         backHandler.register(backCallback)
@@ -117,12 +120,13 @@ class MainListComponent(
 
     override suspend fun fullRefresh() {
         println("fullRefresh> 0")
+        dept = appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED")
         requestsCounter++
         mutex.withLock {
             val filters: FilterState = appSettings.loadFilters()
-            val cityReqVal = normalizeCityForRequest(filters.filterVal)
+            val filterReqVal = normalizeFilterForRequest(filters.filterVal)
             // Reset pagination to the first page on a full refresh
-            pageSize = filters.count
+//            pageSize = filters.count
 
             nextOffset = 0
 
@@ -134,12 +138,12 @@ class MainListComponent(
             _resource.value = Resource.Loading
 
             val res: Resource<List<EventItemDto>> = repo.loadEvents(
-                count = pageSize,
+                count = DefaultValuesConst.COUNT,
                 ncount = nextOffset,
-                orderBy = filters.orderBy ?: "Дата",
-                orderDir = filters.orderDir ?: "desc",
-                filterBy = filters.filterBy ?: DefaultConfig.FILTER_BY,
-                filterVal = cityReqVal
+                orderBy = filters.orderBy,
+                orderDir = filters.orderDir,
+                filterBy = filters.filterBy,
+                filterVal = filterReqVal
             )
             println("fullRefresh> 1")
             when (res) {
@@ -194,15 +198,15 @@ class MainListComponent(
 
             // Keep showing the current list while we page
             val filters: FilterState = appSettings.loadFilters()
-            val cityReqVal = normalizeCityForRequest(filters.filterVal)
+            val filterValNormalized = normalizeFilterForRequest(filters.filterVal)
 
             val res: Resource<List<EventItemDto>> = repo.loadEvents(
                 count = increment,
                 ncount = nextOffset,
-                orderBy = filters.orderBy ?: "Дата",
-                orderDir = filters.orderDir ?: "desc",
-                filterBy = filters.filterBy ?: DefaultConfig.FILTER_BY,
-                filterVal = cityReqVal
+                orderBy = filters.orderBy,
+                orderDir = filters.orderDir,
+                filterBy = filters.filterBy,
+                filterVal = filterValNormalized
             )
 
             when (res) {
@@ -240,25 +244,14 @@ class MainListComponent(
         }
     }
 
-    // Call this from your TopControls changes / dialogs
-    fun updateFilters(filters: FilterState, refreshNow: Boolean = true) {
-        val normalized = filters.copy(filterVal = normalizeCityForRequest(filters.filterVal))
-        appSettings.saveFilters(normalized)
-        if (refreshNow) {
-            pageSize = normalized.count
-            nextOffset = 0
-            appScope.launch { fullRefresh() }
-        }
-    }
-
     // Optional helper to change filters + persist + refresh (keeps interface unchanged)
     override fun setFiltersAndRefresh(new: FilterState) {
         val normalized = new.copy(
-            filterVal = normalizeCityForRequest(new.filterVal),
+            filterVal = normalizeFilterForRequest(new.filterVal),
             ncount = 0
         )
         appSettings.saveFilters(normalized)
-        pageSize = normalized.count
+//        pageSize = normalized.count
         nextOffset = 0
         appScope.launch { fullRefresh() }
     }

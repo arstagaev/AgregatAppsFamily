@@ -1,6 +1,5 @@
 package com.tagaev.mobileagregatcrm.ui.mainscreen
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.draw.scale
@@ -38,14 +37,13 @@ import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
 import com.tagaev.mobileagregatcrm.data.FilterState
 import com.tagaev.mobileagregatcrm.data.remote.Resource
 import com.tagaev.mobileagregatcrm.utils.CenteredNoPaddingOutlinedField
-import com.tagaev.mobileagregatcrm.utils.DefaultConfig
+import com.tagaev.mobileagregatcrm.utils.DefaultValuesConst
 import com.tagaev.mobileagregatcrm.feature.OrderDialog
+import com.tagaev.mobileagregatcrm.feature.toFilterByOption
 import com.tagaev.mobileagregatcrm.feature.toOrderByOption
 import com.tagaev.mobileagregatcrm.feature.toOrderDirOption
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.utils.TARGET_EVENT
-import compose.icons.feathericons.ArrowDown
-import compose.icons.feathericons.ArrowUp
 import org.koin.compose.koinInject
 
 
@@ -55,61 +53,18 @@ val format = LocalDateTime.Format {
 }
 
 private fun FilterState.sanitize(): FilterState = copy(
-    count = if (count <= 0) 10 else count,
+    count = if (count <= 0) DefaultValuesConst.COUNT else count,
     ncount = if (ncount < 0) 0 else ncount,
-    filterBy = if (filterBy?.isBlank() == true) DefaultConfig.FILTER_BY else filterBy,
-    filterVal = if (filterVal?.isBlank() == true) DefaultConfig.FILTER_VAL else filterVal?.trim(),
-    orderBy = (orderBy ?: "Дата"),
-    orderDir = (orderDir ?: "desc")
+    filterBy = if (filterBy?.isBlank() == true) DefaultValuesConst.FILTER_BY else filterBy,
+    filterVal = if (filterVal?.isBlank() == true) DefaultValuesConst.FILTER_VAL else filterVal?.trim(),
+    orderBy = (orderBy ?: DefaultValuesConst.ORDER_BY),
+    orderDir = (orderDir ?: DefaultValuesConst.ORDER_DIR),
+    filtertype = (filtertype ?: DefaultValuesConst.FILTER_TYPE)
 )
-
 
 private var showDialogOrderBy = mutableStateOf(false)
 private var showFilter = mutableStateOf(false)
 private const val PREF_COMPACT_CARDS = "isCOMPACT_CARDS"
-//private const val PREF_BW_THEME = "isBW_THEME"
-
-private data class CityOption(val label: String, val value: String)
-
-private val CITY_OPTIONS = listOf(
-    CityOption("Анталия", "Анталия"),
-    CityOption("Барнаул", "Барнаул"),
-    CityOption("Волгоград", "Волгоград"),
-    CityOption("Воронеж", "Воронеж"),
-    CityOption("Екатеринбург", "Екатеринбург"),
-    CityOption("Ижевск", "Ижевск"),
-    CityOption("Иркутск", "Иркутск"),
-    CityOption("Йошкар-Ола", "Йошкар-Ола"),
-    CityOption("Казань", "Казань"),
-    CityOption("Киров", "Киров"),
-    CityOption("Краснодар", "Краснодар"),
-    CityOption("Магнитогорск", "Магнитогорск"),
-    CityOption("Москва", "Москва"),
-    CityOption("Мурманск", "Мурманск"),
-    CityOption("Набережные Челны", "Набережные_Челны"),
-    CityOption("Нижневартовск", "Нижневартовск"),
-    CityOption("Нижний Новгород", "Нижний_Новгород"),
-    CityOption("Новосибирск", "Новосибирск"),
-    CityOption("Омск", "Омск"),
-    CityOption("Оренбург", "Оренбург"),
-    CityOption("Пермь", "Пермь"),
-    CityOption("Петрозаводск", "Петрозаводск"),
-    CityOption("Ростов-на-Дону", "Ростов-на-Дону"),
-    CityOption("Самара", "Самара"),
-    CityOption("Санкт-Петербург", "Санкт-Петербург"),
-    CityOption("Саратов", "Саратов"),
-    CityOption("Сочи", "Сочи"),
-    CityOption("Сургут", "Сургут"),
-    CityOption("Сыктывкар", "Сыктывкар"),
-    CityOption("Тольятти", "Тольятти"),
-    CityOption("Тюмень", "Тюмень"),
-    CityOption("Ульяновск", "Ульяновск"),
-    CityOption("Уфа", "Уфа"),
-    CityOption("Чебоксары", "Чебоксары"),
-    CityOption("Челябинск", "Челябинск"),
-    CityOption("Ярославль", "Ярославль")
-)
-
 
 @Composable
 fun MainListScreen(component: ListComponent) {
@@ -167,9 +122,9 @@ fun MainListScreen(component: ListComponent) {
     Column(Modifier.fillMaxSize()) {
         // Header (department + quick actions)
         run {
-            val cityLabel = remember(filters.filterVal) {
-                CITY_OPTIONS.find { it.value == (filters.filterVal ?: "") }?.label ?: (filters.filterVal ?: "")
-            }
+//            val cityLabel = remember(filters.filterVal) {
+//                CITY_OPTIONS.find { it.value == (filters.filterVal ?: "") }?.label ?: (filters.filterVal ?: "")
+//            }
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -177,7 +132,7 @@ fun MainListScreen(component: ListComponent) {
             ) {
                 Text(
                     modifier = Modifier.fillMaxWidth(),
-                    text = "Подразделение $cityLabel",
+                    text = "Подразделение ${component.dept}",
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center
                 )
@@ -207,7 +162,7 @@ fun MainListScreen(component: ListComponent) {
                     }
                     AssistChip(
                         onClick = { showDialogOrderBy.value = true },
-                        label = { Text("Сортировка", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        label = { Text("Настройка показа", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                     AssistChip(
                         onClick = { showControlsDialog = true },
@@ -308,7 +263,7 @@ fun MainListScreen(component: ListComponent) {
                                     // Right: load next page (+10)
                                     OutlinedButton(
                                         modifier = Modifier.scale(0.8f),
-                                        onClick = { scope.launch { component.loadMore(10) } }
+                                        onClick = { scope.launch { component.loadMore(DefaultValuesConst.COUNT) } }
                                     ) {
                                         Text("Загрузить ещё")
                                     }
@@ -354,11 +309,12 @@ fun MainListScreen(component: ListComponent) {
 
         if (showDialogOrderBy.value) {
             OrderDialog(
-                currentBy = (filters.orderBy ?: "Дата").toOrderByOption(),
-                currentDir = (filters.orderDir ?: "desc").toOrderDirOption(),
+                orderByOption = (filters.orderBy ?: DefaultValuesConst.ORDER_BY).toOrderByOption(),
+                currentDir = (filters.orderDir ?: DefaultValuesConst.ORDER_DIR).toOrderDirOption(),
+                currentFilterVal = (filters.filterVal ?: "Состояние").toFilterByOption(),
                 onDismiss = { showDialogOrderBy.value = false },
-                onApply = { by, dir ->
-                    filters = filters.copy(orderBy = by.wire, orderDir = dir.wire)
+                onApply = { orderBy, dir, filterVal ->
+                    filters = filters.copy(orderBy = orderBy.wire, orderDir = dir.wire, filterVal = filterVal.wire)
                     isLoading = true
                     error = null
                     scope.launch {
@@ -431,7 +387,7 @@ private fun ControlsDialog(
                 Spacer(Modifier.height(8.dp))
                 AssistChip(
                     onClick = onOpenOrderDialog,
-                    label = { Text("Сортировка") }
+                    label = { Text("Настройка показа") }
                 )
             }
         },
@@ -441,156 +397,6 @@ private fun ControlsDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Отмена") }
         }
-    )
-}
-
-@Composable
-private fun TopControls(
-    count: Int,
-    onCountChange: (Int) -> Unit,
-    ncount: Int,
-    onNCountChange: (Int) -> Unit,
-    filterBy: String,
-    onFilterByChange: (String) -> Unit,
-    filterVal: String,
-    onFilterValChange: (String) -> Unit,
-    isLoading: Boolean,
-    onRefresh: () -> Unit,
-    onOpenOrderDialog: () -> Unit,
-    compact: Boolean,
-    onCompactChange: (Boolean) -> Unit,
-    component: ListComponent
-) {
-    var showFullControlsInternal by remember { showFilter }
-
-    Column(Modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = showFullControlsInternal
-        ) {
-            Column {
-                Spacer(Modifier.height(8.dp))
-                Text("Фильтры и параметры", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-//                Row(
-//                    Modifier.fillMaxWidth().height(50.dp).padding(vertical = 6.dp, horizontal = 4.dp),
-//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                ) {
-//                    NumberField(
-//                        label = "count",
-//                        value = count,
-//                        onValue = onCountChange,
-//                        modifier = Modifier.weight(1f)
-//                    )
-//                    NumberField(
-//                        label = "ncount",
-//                        value = ncount,
-//                        onValue = onNCountChange,
-//                        modifier = Modifier.weight(1f)
-//                    )
-//                }
-//                Row(
-//                    Modifier.fillMaxWidth().height(50.dp).padding(vertical = 6.dp, horizontal = 4.dp),
-//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                ) {
-//                    CenteredNoPaddingOutlinedField(
-//                        value = filterBy,
-//                        onValueChange = onFilterByChange,
-//                        labelText = "filterby",            // shows floating label
-//                        placeholderText = "filterby",     // optional
-//                        modifier = Modifier.height(40.dp).weight(1f)                // add your .weight/.height/.fillMaxWidth as needed
-//                    )
-//                    CityDropdown(
-//                        label = "Город",
-//                        selectedValue = filterVal,
-//                        onSelected = onFilterValChange,
-//                        enabled = !isLoading,
-//                        modifier = Modifier.height(40.dp).weight(1f)
-//                    )
-//                }
-                Spacer(Modifier.fillMaxWidth().height(4.dp))
-                Row(
-                    Modifier.height(24.dp).padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Компактные карточки", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Switch(
-                        checked = compact,
-                        onCheckedChange = onCompactChange,
-                        enabled = !isLoading,
-                        modifier = Modifier.scale(0.45f)
-                    )
-                }
-                Spacer(Modifier.fillMaxWidth().height(4.dp))
-                // Toggle row (red background) for compact cards
-            }
-        }
-        Row {
-            Column(Modifier.padding(bottom = 3.dp)) {
-                if (!showFullControlsInternal) {
-                    val cityLabel = remember(filterVal) { CITY_OPTIONS.find { it.value == filterVal }?.label ?: filterVal }
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = "Подразделение $cityLabel",
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                Row(
-                    Modifier.fillMaxWidth().height(50.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    IconButton(onClick = onRefresh, enabled = !isLoading) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = FeatherIcons.RefreshCw,
-                                contentDescription = "Refresh"
-                            )
-                        }
-                    }
-                    AssistChip(
-                        onClick = onOpenOrderDialog,
-                        label = { Text("Сортировка", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    )
-
-                    IconButton(
-                        onClick = { showFilter.value = !showFilter.value }
-                    ) {
-                        Icon(
-                            imageVector = if (showFullControlsInternal) FeatherIcons.ArrowUp else FeatherIcons.ArrowDown,
-                            contentDescription = "Show or Hide"
-                        )
-                    }
-                }
-            }
-        }
-
-    }
-}
-
-@Composable
-private fun NumberField(
-    label: String,
-    value: Int,
-    onValue: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var str by remember(value) { mutableStateOf(value.toString()) }
-
-    CenteredNoPaddingOutlinedField(
-        value = str,
-        onValueChange = {
-            str = it
-            it.toIntOrNull()?.let(onValue)
-        },
-        labelText = label,            // shows floating label
-        modifier = modifier                // add your .weight/.height/.fillMaxWidth as needed
     )
 }
 
@@ -695,65 +501,3 @@ private fun KeyValueRow(key: String, value: String?, textSize: TextUnit = TextUn
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CityDropdown(
-    label: String,
-    selectedValue: String,
-    onSelected: (String) -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val compactTextStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
-    val compactItemTextStyle = MaterialTheme.typography.bodySmall
-    var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = remember(selectedValue) {
-        CITY_OPTIONS.find { it.value == selectedValue }?.label ?: ""
-    }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { if (enabled) expanded = !expanded },
-        modifier = modifier
-    ) {
-        CenteredNoPaddingOutlinedField(
-            value =  if (selectedLabel.isNotBlank()) selectedLabel else "",
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            labelText = label,            // shows floating label
-            placeholderText = label,     // optional
-            modifier = Modifier.menuAnchor().fillMaxWidth(),             // add your .weight/.height/.fillMaxWidth as needed
-        )
-
-//        OutlinedTextField(
-//            readOnly = true,
-//            value = if (selectedLabel.isNotBlank()) selectedLabel else "",
-//            onValueChange = {},
-//            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-//            placeholder = { Text(label, style = MaterialTheme.typography.labelSmall) },
-//            enabled = enabled,
-//            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-//            modifier = Modifier
-//                .menuAnchor()
-//                .fillMaxWidth(),
-//            singleLine = true,
-//            textStyle = compactTextStyle
-//        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            CITY_OPTIONS.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.label, style = compactItemTextStyle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    onClick = {
-                        expanded = false
-                        onSelected(option.value)
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-    }
-}

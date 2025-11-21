@@ -106,7 +106,7 @@ fun AppBottomNavBar(
             selected = activeChild is IRootComponent.Child.WorkOrder,
             onClick = onWorkOrder,
             icon = { Icon(FeatherIcons.Command, null) },
-            label = { Text("Заказ-наряды") }
+            label = { Text("Заказ\nнаряды") }
         )
 
         NavigationBarItem(

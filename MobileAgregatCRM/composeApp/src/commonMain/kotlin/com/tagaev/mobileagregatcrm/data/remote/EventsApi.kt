@@ -1,10 +1,11 @@
 package com.tagaev.mobileagregatcrm.data.remote
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
+import com.tagaev.mobileagregatcrm.feature.DocumentTypes
+import com.tagaev.mobileagregatcrm.feature.FilterByOption
+import com.tagaev.mobileagregatcrm.feature.FilterByOptionWorkOrders
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
-import io.ktor.client.plugins.RedirectResponseException
-import io.ktor.client.plugins.ServerResponseException
 import io.ktor.client.request.*
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -42,28 +43,40 @@ class EventsApi(
 ) {
     suspend fun getEvents(
         api: ApiConfig,
-        type: String = "Документ",
-        name: String = "Событие",
-        count: Int = 10,
-        ncount: Int = 0,
-        orderBy: String = "Дата",
-        orderDir: String = "desc",
-        filterBy: String = "ПодразделениеКомпании",
-        filterVal: String = "Воронеж"
+        type: String,
+        name: String,
+        count: Int,
+        ncount: Int,
+        orderBy: String,
+        orderDir: String,
+        filterBy: String,
+        filterVal: String
     ): Resource<List<EventItemDto>> = resourceify {
         val url = api.baseUrl
         val response = client.get(url) {
             url {
                 parameters.append("token", api.token)
                 parameters.append("task", "getitemslist")
-                parameters.append("type", "Документ")
-                parameters.append("name", "Событие")
-                parameters.append("count", "${count}")
-                parameters.append("ncount", "${ncount}")
-                parameters.append("orderby", "${orderBy}")
-                parameters.append("orderdir", "${orderDir}")
-                parameters.append("filterby", "${filterBy}")
-                parameters.append("filterval", filterVal)
+                parameters.append("type", type)
+                parameters.append("name", name)
+                parameters.append("count", "$count")
+                parameters.append("ncount", "$ncount")
+
+                parameters.append("orderby", orderBy)
+                parameters.append("orderdir", orderDir)
+                println("FilterByOption 0 ${filterVal} ~ ${FilterByOption.ACTIVE.wire}  ${FilterByOption.NO_ACTIVE.wire}")
+
+                if (filterVal == FilterByOption.ACTIVE.wire) {
+                    println("FilterByOption 1")
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (filterVal == FilterByOption.NO_ACTIVE.wire) {
+                    println("FilterByOption 2")
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                } else {
+                    println("FilterByOption 3")
+                }
+
+                parameters.append("filtertype", "list")
                 parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
             }
         }
@@ -82,15 +95,16 @@ class EventsApi(
         number: String,
         date: String,
         //tasklist: String, // optional
+        documentType: DocumentTypes,
         message: String,
     ): Resource<SentMessageResponse> = resourceify {
         val url = api.baseUrl
-        val response = client.get(url) {
+        val response = client.post(url) {
             url {
                 parameters.append("token", api.token)
                 parameters.append("task", "setmessage")
                 parameters.append("type", "Документ")
-                parameters.append("name", "Событие")
+                parameters.append("name", documentType.requestName)
                 parameters.append("number", "${number}")
                 parameters.append("date", "${date}")
                 parameters.append("message", "${message}")
@@ -174,7 +188,7 @@ class EventsApi(
 
     //
 //https://agrapp.agregatka.ru/?token=962088EF874D4133DE9BDBEEABC5F7702E6EA420941F113BD6789C03927C07EC&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%97%D0%B0%D0%BA%D0%B0%D0%B7%D0%9D%D0%B0%D1%80%D1%8F%D0%B4&count=1
-    suspend fun loadWorkOrders(apiConfig: ApiConfig): List<WorkOrderDto> {
+    suspend fun loadWorkOrders(apiConfig: ApiConfig, ncount: Int = 0, currentFilter: FilterByOption, city: String): List<WorkOrderDto> {
         val response = client.get(apiConfig.baseUrl) {
             url {
                 parameters.append("token", apiConfig.token)
@@ -182,10 +196,24 @@ class EventsApi(
 
                 parameters.append("type", "Документ")
                 parameters.append("name", "ЗаказНаряд")
+                parameters.append("ncount", ncount.toString())
                 parameters.append("count", "12")
+                parameters.append("filterby", FilterByOptionWorkOrders.DEPARTMENT.wire)
+
+                if (currentFilter == FilterByOption.ACTIVE) {
+                    println("FilterByOption 1")
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (currentFilter == FilterByOption.NO_ACTIVE) {
+                    println("FilterByOption 2")
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                } else {
+                    println("FilterByOption 3")
+                }
+//                parameters.append("filterval", city)
 //                parameters.append("ncount", "${ncount}")
-//                parameters.append("orderby", "${orderBy}")
-//                parameters.append("orderdir", "${orderDir}")
+//                parameters.append("orderby", OrderByOption.DATE_LAST_MODIFICATION.wire)
+//                parameters.append("orderdir", OrderDirOption.ASC.wire)
+
 //                parameters.append("filterby", "${filterBy}")
 //                parameters.append("filterval", filterVal)
 //                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)

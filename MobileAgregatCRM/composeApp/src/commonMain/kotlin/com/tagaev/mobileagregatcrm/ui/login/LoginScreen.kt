@@ -140,6 +140,7 @@ fun LoginScreen(component: ILoginComponent) {
 
 //    var user by rememberSaveable { mutableStateOf("tagaev.r") }
 //    var pass by rememberSaveable { mutableStateOf("c3BzvPjgesW@") }
+
     // Persisted token
     var token by rememberSaveable {
         mutableStateOf("")

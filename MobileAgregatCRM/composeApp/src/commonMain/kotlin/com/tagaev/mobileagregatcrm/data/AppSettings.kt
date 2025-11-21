@@ -21,6 +21,10 @@ object AppSettingsKeys {
     const val ORDER_BY = "ORDER_BY"
     const val ORDER_DIR = "ORDER_DIR"
     const val SHOW_TOP_CONTROLS = "SHOW_TOP_CONTROLS"
+    const val FILTER_TYPE = "FILTER_TYPE"
+    const val DEPARTMENT = "DEPARTMENT"
+
+    const val FILTER_STATE_WO = "FILTER_STATE_WO"
 
     // Details screen
     const val LAST_EVENT_NUMBER = "LAST_EVENT_NUMBER"
@@ -59,6 +63,7 @@ data class FilterState(
     val filterVal: String?,
     val orderBy: String?,
     val orderDir: String?,
+    val filtertype: String?,
     val showTopControls: Boolean
 )
 
@@ -110,7 +115,8 @@ class AppSettings(
         filterVal = settings.getStringOrNull(AppSettingsKeys.FILTER_VAL),
         orderBy = settings.getStringOrNull(AppSettingsKeys.ORDER_BY),
         orderDir = settings.getStringOrNull(AppSettingsKeys.ORDER_DIR),
-        showTopControls = settings.getBoolean(AppSettingsKeys.SHOW_TOP_CONTROLS, true)
+        showTopControls = settings.getBoolean(AppSettingsKeys.SHOW_TOP_CONTROLS, true),
+        filtertype = settings.getStringOrNull(AppSettingsKeys.FILTER_TYPE)
     )
 
     fun saveFilters(s: FilterState) {
@@ -121,6 +127,7 @@ class AppSettings(
         s.orderBy?.let { settings.putString(AppSettingsKeys.ORDER_BY, it) } ?: settings.remove(AppSettingsKeys.ORDER_BY)
         s.orderDir?.let { settings.putString(AppSettingsKeys.ORDER_DIR, it) } ?: settings.remove(AppSettingsKeys.ORDER_DIR)
         settings.putBoolean(AppSettingsKeys.SHOW_TOP_CONTROLS, s.showTopControls)
+        s.filtertype?.let { settings.putString(AppSettingsKeys.FILTER_TYPE, it) } ?: settings.remove(AppSettingsKeys.FILTER_TYPE)
     }
 
     // ---------- Details UI state ----------

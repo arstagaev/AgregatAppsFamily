@@ -4,35 +4,42 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.CircularProgressIndicator
 import com.tagaev.mobileagregatcrm.data.remote.Resource
+import com.tagaev.mobileagregatcrm.feature.FilterByOption
 import com.tagaev.mobileagregatcrm.models.WorkOrderDto
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.RefreshCw
+import compose.icons.feathericons.Filter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkOrdersScreen(
-    component: IWorkOrdersComponent,
+    component: WorkOrdersComponent,
     modifier: Modifier = Modifier
 ) {
     val resource by component.workOrders.collectAsState()
+    val ncount by component.ncount.collectAsState()
+    val currentFilter by component.currentFilter.collectAsState()
+
+    val isLoadingMore by component.isLoadingMore.collectAsState()
 
     var selectedOrder by remember { mutableStateOf<WorkOrderDto?>(null) }
+    var showFilterDialog by remember { mutableStateOf(false) }
 
-    // Sheet state with 3 positions: hidden, partial, expanded
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
     )
 
-    // Control sheet visibility & initial position (half-open)
     LaunchedEffect(selectedOrder) {
         if (selectedOrder != null) {
             sheetState.partialExpand()
@@ -47,6 +54,9 @@ fun WorkOrdersScreen(
             TopAppBar(
                 title = { Text("Заказ-наряды") },
                 actions = {
+                    IconButton(onClick = { showFilterDialog = true }) {
+                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                    }
                     IconButton(onClick = { component.fullRefresh() }) {
                         Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
                     }
@@ -97,7 +107,9 @@ fun WorkOrdersScreen(
                 }
 
                 is Resource.Success -> {
-                    val items = state.data.orEmpty()
+                    val allItems = state.data.orEmpty()
+                    val items = allItems // уже отфильтровано на стороне API
+
                     if (items.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -106,6 +118,27 @@ fun WorkOrdersScreen(
                             Text("Заказ-наряды не найдены")
                         }
                     } else {
+                        LiveListWrapper(
+                            items = items,
+                            maxItems = 1000,
+                            idSelector = { it.guid },
+                            contentChanged = { old, new -> old != new },
+                            modifier = Modifier.fillMaxSize(),
+                            onRefresh = { currentSize, maxSize ->
+                                component.loadMore()
+                                doRefresh(currentSize, maxSize)
+                            },
+                            onLoadMore = { currentSize, maxSize ->
+
+                            }
+                        ) { order, isChanged, isMoved ->
+                            WorkOrderCard(
+                                order = order,
+                                onClick = { selectedOrder = order }
+                            )
+                        }
+
+
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(8.dp),
@@ -115,10 +148,22 @@ fun WorkOrdersScreen(
                                 items = items,
                                 key = { it.guid ?: it.number.orEmpty() }
                             ) { order ->
-                                WorkOrderCard(
-                                    order = order,
-                                    onClick = { selectedOrder = order }
-                                )
+
+                            }
+
+                            // Пагинация: показываем кнопку "Загрузить ещё (+12)",
+                            // если полученный размер >= текущего ncount
+                            val showLoadMore = allItems.size >= ncount
+                            if (showLoadMore) {
+                                item(key = "load_more") {
+                                    LoadMoreButton(
+                                        onClick = { component.loadMore() },
+                                        isLoading = isLoadingMore,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -127,16 +172,33 @@ fun WorkOrdersScreen(
         }
     }
 
-    // Bottom sheet with details
+    if (showFilterDialog) {
+        WorkOrderFilterDialog(
+            current = currentFilter,
+            onDismiss = { showFilterDialog = false },
+            onApply = { newFilter ->
+                component.setFilter(newFilter)
+                showFilterDialog = false
+            }
+        )
+    }
+
     if (selectedOrder != null) {
+        val currentOrder = selectedOrder!! // захватываем в локальную пер. для лямбды
+
         ModalBottomSheet(
             onDismissRequest = { selectedOrder = null },
             sheetState = sheetState,
             dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             WorkOrderDetailsSheet(
-                order = selectedOrder!!,
-                onClose = { selectedOrder = null }
+                order = currentOrder,
+                onClose = { selectedOrder = null },
+                onSendMessage = { message ->
+                    val number = currentOrder.number.orEmpty()
+                    val date = currentOrder.date.orEmpty()
+                    component.sendMessage(number, date, message)
+                }
             )
         }
     }
@@ -234,7 +296,7 @@ fun WorkOrderStatusBadge(status: String?) {
     Surface(
         color = bg,
         contentColor = fg,
-        shape = MaterialTheme.shapes.small
+        shape = MaterialTheme.shapes.large
     ) {
         Text(
             text = status,
@@ -242,4 +304,80 @@ fun WorkOrderStatusBadge(status: String?) {
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
         )
     }
+}
+
+@Composable
+private fun LoadMoreButton(
+    onClick: () -> Unit,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = !isLoading,
+        modifier = modifier
+            .padding(horizontal = 8.dp)
+            .heightIn(min = 40.dp)
+    ) {
+        if (isLoading) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text("Загрузка…")
+            }
+        } else {
+            Text("Загрузить ещё")
+        }
+    }
+}
+
+@Composable
+private fun WorkOrderFilterDialog(
+    current: FilterByOption,
+    onDismiss: () -> Unit,
+    onApply: (FilterByOption) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Настройка показа", fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Фильтр по состоянию",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterByOption.values().forEach { option ->
+                        FilterChip(
+                            selected = option == current,
+                            onClick = { onApply(option) },
+                            label = {
+                                Text(
+                                    option.label,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Закрыть")
+            }
+        }
+    )
 }
