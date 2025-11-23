@@ -4,8 +4,8 @@ import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
+import com.tagaev.mobileagregatcrm.domain.WorkOrderRefineState
 import com.tagaev.mobileagregatcrm.feature.DocumentTypes
-import com.tagaev.mobileagregatcrm.feature.FilterByOption
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.models.GetTokenResponse
 import com.tagaev.mobileagregatcrm.models.SentMessageResponse
@@ -54,8 +54,8 @@ class EventsRepository(
 
     suspend fun getTRSData(decodedCode: String): Resource<QRResponseTRS> = api.getTRSData(apiConfig = cfg, decodedCode = decodedCode)
 
-    suspend fun loadWorkOrders(ncount: Int, currentFilter: FilterByOption): Resource<List<WorkOrderDto>> =
-        runCatching { api.loadWorkOrders(cfg, ncount, currentFilter, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
+    suspend fun loadWorkOrders(ncount: Int, currentRefine: WorkOrderRefineState): Resource<List<WorkOrderDto>> =
+        runCatching { api.loadWorkOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
             .fold(
                 onSuccess = { Resource.Success(it) },
                 onFailure = {
@@ -66,7 +66,7 @@ class EventsRepository(
                 }
             )
 
-    suspend fun sendMessageToOrder(
+    suspend fun sendMessageToWorkOrder(
         number: String,
         date: String,
         message: String

@@ -2,10 +2,7 @@ package com.tagaev.mobileagregatcrm.ui.work_order
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,13 +10,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.CircularProgressIndicator
-import com.tagaev.mobileagregatcrm.data.remote.Resource
-import com.tagaev.mobileagregatcrm.feature.FilterByOption
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 import com.tagaev.mobileagregatcrm.models.WorkOrderDto
-import compose.icons.FeatherIcons
-import compose.icons.feathericons.RefreshCw
-import compose.icons.feathericons.Filter
+import com.tagaev.mobileagregatcrm.ui.custom.TextC
+import com.tagaev.mobileagregatcrm.ui.master_screen.MasterScreen
+import com.tagaev.mobileagregatcrm.ui.master_screen.RefineScreen
+import com.tagaev.mobileagregatcrm.utils.formatRelativeWorkDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,192 +25,82 @@ fun WorkOrdersScreen(
     modifier: Modifier = Modifier
 ) {
     val resource by component.workOrders.collectAsState()
-    val ncount by component.ncount.collectAsState()
-    val currentFilter by component.currentFilter.collectAsState()
+    val refineState by component.refineState.collectAsState()
+    val panel by component.masterScreenPanel.collectAsState()
+    val selectedId by component.selectedOrderGuid.collectAsState()
 
-    val isLoadingMore by component.isLoadingMore.collectAsState()
+    MasterScreen(
+        title = "Заказ-наряды",
+        resource = resource,
+        emptyText = "Заказ-наряды не найдены",
+        errorText = "Не удалось загрузить заказ-наряды",
+        notFoundText = "Заказ-наряды не найдены",
+        refineState = refineState,
+        onRefresh = { component.fullRefresh() },
+        onLoadMore = { component.loadMore() },
+        onFilterChanged = { component.setRefineState(it) },
 
-    var selectedOrder by remember { mutableStateOf<WorkOrderDto?>(null) }
-    var showFilterDialog by remember { mutableStateOf(false) }
+        itemId = { it.guid.toString() },
+        isItemChanged = { old, new -> old.messages.size != new.messages.size },
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = false
-    )
-
-    LaunchedEffect(selectedOrder) {
-        if (selectedOrder != null) {
-            sheetState.partialExpand()
-        } else {
-            sheetState.hide()
-        }
-    }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = { Text("Заказ-наряды") },
-                actions = {
-                    IconButton(onClick = { showFilterDialog = true }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
-                    }
-                    IconButton(onClick = { component.fullRefresh() }) {
-                        Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
-                    }
-                }
+        listItem = { order, isChanged, onClick ->
+            WorkOrderCard(
+                order = order,
+                isChanged = isChanged,
+                onClick = onClick
             )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            when (val state = resource) {
-                is Resource.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
+        },
 
-                is Resource.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Не удалось загрузить заказ-наряды",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        state.causes?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { component.fullRefresh() }) {
-                            Text("Повторить")
-                        }
-                    }
-                }
-
-                is Resource.Success -> {
-                    val allItems = state.data.orEmpty()
-                    val items = allItems // уже отфильтровано на стороне API
-
-                    if (items.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Заказ-наряды не найдены")
-                        }
-                    } else {
-                        LiveListWrapper(
-                            items = items,
-                            maxItems = 1000,
-                            idSelector = { it.guid },
-                            contentChanged = { old, new -> old != new },
-                            modifier = Modifier.fillMaxSize(),
-                            onRefresh = { currentSize, maxSize ->
-                                component.loadMore()
-                                doRefresh(currentSize, maxSize)
-                            },
-                            onLoadMore = { currentSize, maxSize ->
-
-                            }
-                        ) { order, isChanged, isMoved ->
-                            WorkOrderCard(
-                                order = order,
-                                onClick = { selectedOrder = order }
-                            )
-                        }
-
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(
-                                items = items,
-                                key = { it.guid ?: it.number.orEmpty() }
-                            ) { order ->
-
-                            }
-
-                            // Пагинация: показываем кнопку "Загрузить ещё (+12)",
-                            // если полученный размер >= текущего ncount
-                            val showLoadMore = allItems.size >= ncount
-                            if (showLoadMore) {
-                                item(key = "load_more") {
-                                    LoadMoreButton(
-                                        onClick = { component.loadMore() },
-                                        isLoading = isLoadingMore,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showFilterDialog) {
-        WorkOrderFilterDialog(
-            current = currentFilter,
-            onDismiss = { showFilterDialog = false },
-            onApply = { newFilter ->
-                component.setFilter(newFilter)
-                showFilterDialog = false
-            }
-        )
-    }
-
-    if (selectedOrder != null) {
-        val currentOrder = selectedOrder!! // захватываем в локальную пер. для лямбды
-
-        ModalBottomSheet(
-            onDismissRequest = { selectedOrder = null },
-            sheetState = sheetState,
-            dragHandle = { BottomSheetDefaults.DragHandle() }
-        ) {
+        // Full-screen details content (not bottom-sheet)
+        detailsContent = { order, onClose ->
             WorkOrderDetailsSheet(
-                order = currentOrder,
-                onClose = { selectedOrder = null },
+                order = order,
+                onBack = onClose,
                 onSendMessage = { message ->
-                    val number = currentOrder.number.orEmpty()
-                    val date = currentOrder.date.orEmpty()
+                    val number = order.number.orEmpty()
+                    val date = order.date.orEmpty()
                     component.sendMessage(number, date, message)
                 }
             )
-        }
-    }
+        },
+
+        // Full-screen filter screen (not dialog)
+        filterScreen = { current, onDismiss, onApply ->
+            RefineScreen(
+                current = current,
+                onBack = onDismiss,
+                onApply = { newState ->
+                    onApply(newState)     // MasterDetailFilterScreen получит обновлённый стейт
+                }
+            )
+        },
+
+        panel = panel,
+        onPanelChange = {
+            component.changePanel(it)
+
+        },
+
+        selectedItemId = selectedId,
+        onSelectedItemChange = { id -> component.selectOrder(id) },
+
+        modifier = modifier
+    )
 }
+
 
 @Composable
 private fun WorkOrderCard(
     order: WorkOrderDto,
+    isChanged: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .padding(4.dp),
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -222,23 +109,35 @@ private fun WorkOrderCard(
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = order.number?.let { "№ $it" } ?: "Без номера",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.width(8.dp))
-                order.date?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(verticalAlignment = Alignment.CenterVertically,) {
+                    TextC(
+                        text = order.number?.let { "№ $it" } ?: "Без номера",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(Modifier.width(8.dp))
+//                    order.date?.let {
+//                        Text(
+//                            text = it,
+//                            style = MaterialTheme.typography.bodySmall,
+//                            color = MaterialTheme.colorScheme.onSurfaceVariant
+//                        )
+//                    }
                 }
-                Spacer(Modifier.weight(1f))
-                WorkOrderStatusBadge(order.status)
+
+                Row(verticalAlignment = Alignment.CenterVertically,) {
+//                    if (isChanged) {
+//                        CustomCircle()
+//                    }
+                    WorkOrderStatusBadge(order.status)
+                }
+
+//                Spacer(Modifier.weight(1f))
+
             }
 
             order.car?.takeIf { it.isNotBlank() }?.let {
@@ -279,6 +178,34 @@ private fun WorkOrderCard(
                     maxLines = 2
                 )
             }
+            Spacer(Modifier.fillMaxWidth().height(5.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                order.date?.let {
+                    Text(
+                        text = "созд. ${it}",
+                        style = TextStyle(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                order.messages.lastOrNull()?.let {
+                    Text(
+                        text = "изм. ${formatRelativeWorkDate(it.workDate)}",
+                        style = TextStyle(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (order.messages.lastOrNull() == null) {
+                    Text(
+                        text = "Сообщений нет",
+                        style = TextStyle(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -306,78 +233,4 @@ fun WorkOrderStatusBadge(status: String?) {
     }
 }
 
-@Composable
-private fun LoadMoreButton(
-    onClick: () -> Unit,
-    isLoading: Boolean,
-    modifier: Modifier = Modifier
-) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = !isLoading,
-        modifier = modifier
-            .padding(horizontal = 8.dp)
-            .heightIn(min = 40.dp)
-    ) {
-        if (isLoading) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                CircularProgressIndicator(
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text("Загрузка…")
-            }
-        } else {
-            Text("Загрузить ещё")
-        }
-    }
-}
 
-@Composable
-private fun WorkOrderFilterDialog(
-    current: FilterByOption,
-    onDismiss: () -> Unit,
-    onApply: (FilterByOption) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Настройка показа", fontWeight = FontWeight.SemiBold) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Фильтр по состоянию",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterByOption.values().forEach { option ->
-                        FilterChip(
-                            selected = option == current,
-                            onClick = { onApply(option) },
-                            label = {
-                                Text(
-                                    option.label,
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Закрыть")
-            }
-        }
-    )
-}

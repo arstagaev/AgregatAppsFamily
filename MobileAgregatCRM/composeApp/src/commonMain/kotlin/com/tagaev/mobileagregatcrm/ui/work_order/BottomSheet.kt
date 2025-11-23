@@ -1,5 +1,6 @@
 package com.tagaev.mobileagregatcrm.ui.work_order
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,16 +18,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.tagaev.mobileagregatcrm.domain.messages.findDraftForGuid
+import com.tagaev.mobileagregatcrm.domain.messages.upsertDraftForGuid
 import com.tagaev.mobileagregatcrm.models.WorkOrderDto
+import com.tagaev.mobileagregatcrm.ui.custom.TextC
 
 // same file: WorkOrdersScreen.kt
 @Composable
@@ -42,11 +51,24 @@ private fun SectionTitle(text: String) {
 @Composable
 fun WorkOrderDetailsSheet(
     order: WorkOrderDto,
-    onClose: () -> Unit,
-    onSendMessage: (String) -> Unit
+    onBack: () -> Unit,
+    onSendMessage: (String) -> Unit,
+    // external UI state for sending
+    isSendingMessage: Boolean = false,
+    lastSendError: String? = null,
+    onErrorDismiss: () -> Unit = {},
+    // external draft state so we can restore unsent messages per order.guid
+    initialDraft: String? = null,
+    onDraftChanged: (String) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
-    var messageDraft by remember(order.guid) { mutableStateOf("") }
+    var messageDraft by remember(order.guid, initialDraft) {
+        val base = when {
+            !initialDraft.isNullOrEmpty() -> initialDraft
+            else -> findDraftForGuid(order.guid)
+        }
+        mutableStateOf(base.orEmpty())
+    }
 
     Column(
         modifier = Modifier
@@ -55,6 +77,35 @@ fun WorkOrderDetailsSheet(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .verticalScroll(scrollState)
     ) {
+        // Loading dialog while sending
+        if (isSendingMessage) {
+            AlertDialog(
+                onDismissRequest = {}, // uncancellable while sending
+                title = { Text("Отправка комментария") },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.height(24.dp).width(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Пожалуйста, подождите…")
+                    }
+                },
+                confirmButton = {}
+            )
+        }
+
+        // Error dialog after failed send
+        if (lastSendError != null) {
+            AlertDialog(
+                onDismissRequest = onErrorDismiss,
+                title = { Text("Ошибка отправки") },
+                text = { Text(lastSendError) },
+                confirmButton = {
+                    TextButton(onClick = onErrorDismiss) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
         // 1. Организация + подразделение (две колонки)
         if (!order.organization.isNullOrBlank() || !order.branch.isNullOrBlank()) {
 
@@ -65,7 +116,7 @@ fun WorkOrderDetailsSheet(
                 if (!order.organization.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Организация:")
-                        Text(
+                        TextC(
                             text = order.organization.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -82,7 +133,7 @@ fun WorkOrderDetailsSheet(
 //                            fontWeight = FontWeight.SemiBold,
 //                            color = MaterialTheme.colorScheme.onSurfaceVariant
 //                        )
-                        Text(
+                        TextC(
                             text = order.branch.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -107,7 +158,7 @@ fun WorkOrderDetailsSheet(
 //                            color = MaterialTheme.colorScheme.onSurfaceVariant
 //                        )
                         SectionTitle("Документ:")
-                        Text(
+                        TextC(
                             text = order.link.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -118,7 +169,7 @@ fun WorkOrderDetailsSheet(
                 if (!order.customer.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Заказчик:")
-                        Text(
+                        TextC(
                             text = order.customer.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -130,7 +181,7 @@ fun WorkOrderDetailsSheet(
         // 4. Автомобиль
         order.car?.takeIf { it.isNotBlank() }?.let {
             SectionTitle("Автомобиль:")
-            Text(
+            TextC(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -154,7 +205,7 @@ fun WorkOrderDetailsSheet(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
+                        TextC(
                             text = order.gearboxType.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -168,7 +219,7 @@ fun WorkOrderDetailsSheet(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
+                        TextC(
                             text = order.engineType.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -182,7 +233,7 @@ fun WorkOrderDetailsSheet(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
+                        TextC(
                             text = order.mileage.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -196,7 +247,7 @@ fun WorkOrderDetailsSheet(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
+                        TextC(
                             text = order.carAge.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -305,7 +356,7 @@ fun WorkOrderDetailsSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(
+                        TextC(
                             text = job.work.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -356,7 +407,7 @@ fun WorkOrderDetailsSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(
+                        TextC(
                             text = product.name.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -377,7 +428,7 @@ fun WorkOrderDetailsSheet(
                             )
                         }
                         product.article?.takeIf { it.isNotBlank() }?.let { article ->
-                            Text(
+                            TextC(
                                 text = "Артикул: $article",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -434,7 +485,7 @@ fun WorkOrderDetailsSheet(
                         }
                     }
                     msg.comment?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -445,13 +496,18 @@ fun WorkOrderDetailsSheet(
         }
 
         SectionTitle("Добавить комментарий")
-        OutlinedTextField(
+        LimitedOutlinedTextField(
             value = messageDraft,
-            onValueChange = { messageDraft = it },
+            onValueChange = { newValue ->
+                messageDraft = newValue
+                onDraftChanged(newValue)
+                upsertDraftForGuid(order.guid, newValue)
+            },
+            maxChars = 500,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 80.dp),
-            placeholder = { Text("Комментарий по работам…") }
+            placeholder = "Комментарий по работам…"
         )
 
         Spacer(Modifier.height(8.dp))
@@ -462,7 +518,7 @@ fun WorkOrderDetailsSheet(
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedButton(
-                onClick = onClose,
+                onClick = onBack,
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Закрыть")
@@ -473,7 +529,7 @@ fun WorkOrderDetailsSheet(
                     val trimmed = messageDraft.trim()
                     if (trimmed.isNotEmpty()) {
                         onSendMessage(trimmed)
-                        messageDraft = ""
+                        // do not clear draft here; parent decides via initialDraft/onDraftChanged
                     }
                 },
                 modifier = Modifier.weight(1f),
@@ -486,5 +542,46 @@ fun WorkOrderDetailsSheet(
         }
 
         Spacer(Modifier.height(12.dp))
+    }
+}
+
+@Composable
+fun LimitedOutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    maxChars: Int,
+    modifier: Modifier = Modifier,
+    placeholder: String = ""
+) {
+    Column(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { raw ->
+                val clipped = if (raw.length > maxChars) raw.substring(0, maxChars) else raw
+                if (clipped != value) {
+                    onValueChange(clipped)
+                } else if (raw == value) {
+                    // no changes
+                } else {
+                    // length unchanged but content changed (e.g. replacement)
+                    onValueChange(clipped)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
+            singleLine = false,
+            maxLines = Int.MAX_VALUE
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text(
+                text = "${value.length}/$maxChars",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

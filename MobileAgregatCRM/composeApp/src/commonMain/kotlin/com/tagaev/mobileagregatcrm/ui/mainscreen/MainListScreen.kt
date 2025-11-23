@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.RefreshCw
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,13 +35,13 @@ import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
 import com.tagaev.mobileagregatcrm.data.FilterState
 import com.tagaev.mobileagregatcrm.data.remote.Resource
-import com.tagaev.mobileagregatcrm.utils.CenteredNoPaddingOutlinedField
 import com.tagaev.mobileagregatcrm.utils.DefaultValuesConst
 import com.tagaev.mobileagregatcrm.feature.OrderDialog
 import com.tagaev.mobileagregatcrm.feature.toFilterByOption
 import com.tagaev.mobileagregatcrm.feature.toOrderByOption
 import com.tagaev.mobileagregatcrm.feature.toOrderDirOption
 import com.tagaev.mobileagregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.ui.custom.TextC
 import com.tagaev.mobileagregatcrm.utils.TARGET_EVENT
 import org.koin.compose.koinInject
 
@@ -130,7 +129,7 @@ fun MainListScreen(component: ListComponent) {
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Text(
+                TextC(
                     modifier = Modifier.fillMaxWidth(),
                     text = "Подразделение ${component.dept}",
                     style = MaterialTheme.typography.titleMedium,
@@ -418,7 +417,7 @@ fun EventCard(
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             // Header: number + status at right
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(
+                TextC(
                     text = ev.number?.let { "№ $it" } ?: "Без номера",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
@@ -434,7 +433,7 @@ fun EventCard(
             )
 
             Spacer(Modifier.height(8.dp))
-            Text(
+            TextC(
                 ev.subject ?: (ev.content ?: ""),
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = if (compact) 2 else 3,

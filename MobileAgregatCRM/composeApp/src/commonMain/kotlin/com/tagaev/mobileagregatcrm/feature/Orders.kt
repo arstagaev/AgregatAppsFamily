@@ -50,16 +50,18 @@ enum class FilterByOption(val label: String, val wire: String) {
 //    DEPARTMENT("ПодразделениеКомпании", "ПодразделениеКомпании")
 }
 
+enum class OrderDirOption(val label: String, val wire: String) {
+    ASC("По возрастанию", "asc"),
+    DESC("По убыванию", "desc");
+}
+
 enum class FilterByOptionWorkOrders(val label: String, val wire: String) {
     STATE("Состояние","Состояние"),
 //    KIND("ВидСобытия", "ВидСобытия"),
     DEPARTMENT("ПодразделениеКомпании", "ПодразделениеКомпании")
 }
 
-enum class OrderDirOption(val label: String, val wire: String) {
-    ASC("По возрастанию", "asc"),
-    DESC("По убыванию", "desc");
-}
+
 
 @Composable
 fun OrderDialog(
@@ -130,7 +132,7 @@ fun OrderDialog(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> OptionChipsRow(
+fun <T> OptionChipsRow(
     options: List<T>,
     selected: T,
     onSelect: (T) -> Unit,

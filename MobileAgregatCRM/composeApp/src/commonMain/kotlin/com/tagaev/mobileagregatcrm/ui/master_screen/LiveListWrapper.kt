@@ -1,4 +1,4 @@
-package com.tagaev.mobileagregatcrm.ui.work_order
+package com.tagaev.mobileagregatcrm.ui.master_screen
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +27,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlin.collections.iterator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +37,7 @@ fun <T, Id> LiveListWrapper(
     idSelector: (T) -> Id,
     contentChanged: (old: T, new: T) -> Boolean,
     modifier: Modifier = Modifier,
+    listState: LazyListState? = null,
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onRefresh: (currentSize: Int, maxSize: Int) -> Unit,
@@ -73,24 +76,28 @@ fun <T, Id> LiveListWrapper(
         movedIds = moved
     }
 
-    val listState = rememberLazyListState()
+    val lazyState = listState ?: rememberLazyListState()
+    var isPaginating by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
 
-    // When the items list changes (after refresh/load), stop the refresh spinner
+    // When the items list changes (after refresh/load), stop the refresh spinner and reset paginating flag
     LaunchedEffect(items.size) {
         if (refreshing) refreshing = false
+        isPaginating = false
     }
 
     // Infinite scroll: when we are close to the end and haven't hit maxItems yet
-    LaunchedEffect(listState, items.size) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+    LaunchedEffect(lazyState, items.size, isLoading) {
+        snapshotFlow { lazyState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { lastVisibleIndex ->
-                val total = listState.layoutInfo.totalItemsCount
-                if (lastVisibleIndex != null && total > 0 &&
-                    lastVisibleIndex >= total - 3 &&
-                    items.size < maxItems
-                ) {
-                    onLoadMore(items.size, maxItems)
+                val total = lazyState.layoutInfo.totalItemsCount
+                // auto-load when user has scrolled into the second half of the list
+                if (lastVisibleIndex != null && total > 0) {
+                    val reachedSecondHalf = lastVisibleIndex >= total - total / 2
+                    if (reachedSecondHalf && items.size < maxItems && !isPaginating && !isLoading) {
+                        isPaginating = true
+                        onLoadMore(items.size, maxItems)
+                    }
                 }
             }
     }
@@ -106,7 +113,7 @@ fun <T, Id> LiveListWrapper(
         modifier = modifier.fillMaxSize()
     ) {
         LazyColumn(
-            state = listState,
+            state = lazyState,
             modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(

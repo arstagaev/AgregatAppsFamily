@@ -128,6 +128,7 @@ class DefaultRootComponent(
                         appSettings.setString(AppSettingsKeys.EMAIL, "")
                         appSettings.setString(AppSettingsKeys.TOKEN_KEY, "")
                         openLogin()
+                        nav.replaceAll(IRootComponent.Config.Login)
                     },
                     onBack = {
                         nav.pop()

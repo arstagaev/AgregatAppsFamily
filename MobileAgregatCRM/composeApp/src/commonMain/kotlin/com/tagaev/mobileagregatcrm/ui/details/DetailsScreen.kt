@@ -46,10 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.format
-import kotlinx.datetime.format.FormatStringsInDatetimeFormats
-import kotlinx.datetime.format.byUnicodePattern
 import com.tagaev.mobileagregatcrm.models.MessageDto
 import com.tagaev.mobileagregatcrm.models.ProductsItem
 import com.tagaev.mobileagregatcrm.models.TaskDto

@@ -3,7 +3,6 @@ package com.tagaev.mobileagregatcrm.ui.qrscanner
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.mobileagregatcrm.data.EventsRepository
-import com.tagaev.mobileagregatcrm.data.db.EventsCacheStore
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
@@ -13,7 +12,6 @@ import kotlinx.coroutines.flow.*
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.getValue
-import kotlin.time.Duration.Companion.seconds
 
 data class QRScannerViewState(
     val attempts: List<QRAttempt> = emptyList(),

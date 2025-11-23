@@ -40,6 +40,8 @@ object AppSettingsKeys {
     const val LAST_UPDATE = "LAST_UPDATE"
 
     const val PERSONAL_DATA = "PERSONAL_DATA"
+
+    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
 }
 
 //object PrefDef {

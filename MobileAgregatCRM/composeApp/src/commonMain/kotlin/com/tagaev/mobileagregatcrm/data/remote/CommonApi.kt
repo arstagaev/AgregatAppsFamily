@@ -1,6 +1,8 @@
 package com.tagaev.mobileagregatcrm.data.remote
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
+import com.tagaev.mobileagregatcrm.domain.Refiner
+import com.tagaev.mobileagregatcrm.domain.WorkOrderRefineState
 import com.tagaev.mobileagregatcrm.feature.DocumentTypes
 import com.tagaev.mobileagregatcrm.feature.FilterByOption
 import com.tagaev.mobileagregatcrm.feature.FilterByOptionWorkOrders
@@ -33,9 +35,10 @@ data class ApiConfig(
 //internal const val TOKEN = "95AA8A6F209270E6BA02F21BEAE4A2BC75B192A815707D42AFF3E0862CD82898"
 
 sealed class Resource<out R> {
-    data class Success<out T>(val data: T) : Resource<T>()
+    data class Success<out T>(val data: T, var additionalLoading: Boolean = false) : Resource<T>()
     data class Error<T>(val exception: Exception? = null, val causes: String? = null) : Resource<T>()
-    object Loading : Resource<Nothing>()
+    object Loading: Resource<Nothing>()
+//    data class Loading<out T>(val data: T? = null) : Resource<T>()
 }
 
 class EventsApi(
@@ -188,7 +191,7 @@ class EventsApi(
 
     //
 //https://agrapp.agregatka.ru/?token=962088EF874D4133DE9BDBEEABC5F7702E6EA420941F113BD6789C03927C07EC&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%97%D0%B0%D0%BA%D0%B0%D0%B7%D0%9D%D0%B0%D1%80%D1%8F%D0%B4&count=1
-    suspend fun loadWorkOrders(apiConfig: ApiConfig, ncount: Int = 0, currentFilter: FilterByOption, city: String): List<WorkOrderDto> {
+    suspend fun loadWorkOrders(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: WorkOrderRefineState, city: String): List<WorkOrderDto> {
         val response = client.get(apiConfig.baseUrl) {
             url {
                 parameters.append("token", apiConfig.token)
@@ -196,19 +199,38 @@ class EventsApi(
 
                 parameters.append("type", "Документ")
                 parameters.append("name", "ЗаказНаряд")
+
                 parameters.append("ncount", ncount.toString())
-                parameters.append("count", "12")
+                parameters.append("count", "30")
+
+//                if (currentRefine.orderBy != Refiner.OrderBy.OFF) {
+//                    parameters.append("orderby", currentRefine.orderBy.wire)
+//                    parameters.append("orderdir", currentRefine.orderDir.wire)
+//                }
+
                 parameters.append("filterby", FilterByOptionWorkOrders.DEPARTMENT.wire)
 
-                if (currentFilter == FilterByOption.ACTIVE) {
+                if (currentRefine.filter == Refiner.Filter.ACTIVE) {
                     println("FilterByOption 1")
                     parameters.append("state", FilterByOption.ACTIVE.wire)
-                } else if (currentFilter == FilterByOption.NO_ACTIVE) {
+                } else if (currentRefine.filter == Refiner.Filter.DONE) {
                     println("FilterByOption 2")
                     parameters.append("state", FilterByOption.NO_ACTIVE.wire)
                 } else {
                     println("FilterByOption 3")
                 }
+
+//                if (currentFilter == FilterByOption.ACTIVE) {
+//                    println("FilterByOption 1")
+//                    parameters.append("state", FilterByOption.ACTIVE.wire)
+//                } else if (currentFilter == FilterByOption.NO_ACTIVE) {
+//                    println("FilterByOption 2")
+//                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+//                } else {
+//                    println("FilterByOption 3")
+//                }
+
+
 //                parameters.append("filterval", city)
 //                parameters.append("ncount", "${ncount}")
 //                parameters.append("orderby", OrderByOption.DATE_LAST_MODIFICATION.wire)

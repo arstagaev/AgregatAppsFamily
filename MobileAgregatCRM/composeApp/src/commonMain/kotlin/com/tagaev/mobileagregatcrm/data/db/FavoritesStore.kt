@@ -2,7 +2,6 @@ package com.tagaev.mobileagregatcrm.data.db
 
 import com.agregatcrm.db.Favorites
 import com.agregatcrm.db.FavoritesQueries
-import kotlinx.datetime.Clock
 import kotlin.time.ExperimentalTime
 
 class FavoritesStore(

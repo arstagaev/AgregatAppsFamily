@@ -193,7 +193,7 @@ androidComponents {
         val versionNameProvider = variant.outputs.single().versionName
         val fileNameProvider = providers.provider {
             val vName = versionNameProvider.orElse("dev").get()
-            "MobileTRR-$version.apk"
+            "MobileTRR_${version}.apk"
         }
 
         val copyTask = tasks.register<Copy>("rename${variantCap}Apk") {
@@ -201,12 +201,13 @@ androidComponents {
 
             val outDir = layout.buildDirectory.dir("outputs/apk-renamed/${variant.name}")
 
-            from(variant.artifacts.get(SingleArtifact.APK))
+            from(variant.artifacts.get(SingleArtifact.APK)) {
+                // 🔴 important: only copy the APK(s), not metadata
+                include("*.apk")
+            }
             into(outDir)
 
-            // In case there are multiple APK outputs (splits), avoid duplicate-name crash
-            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
+            // You now only rename the actual APK
             rename { _ -> fileNameProvider.get() }
 
             doLast {
