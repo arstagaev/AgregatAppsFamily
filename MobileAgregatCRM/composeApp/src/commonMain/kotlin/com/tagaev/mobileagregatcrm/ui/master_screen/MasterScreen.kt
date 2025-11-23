@@ -73,6 +73,7 @@ fun <T, F> MasterScreen(
                 title = { Text(title) },
                 actions = {
                     if (panel == MasterPanel.List) {
+//                    if (true) {
                         IconButton(onClick = { onPanelChange(MasterPanel.Filter) }) {
                             Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                         }
@@ -123,13 +124,13 @@ fun <T, F> MasterScreen(
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                state.causes?.let {
-                                    Text(
-                                        text = it,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
+//                                state.causes?.let {
+//                                    Text(
+//                                        text = it,
+//                                        style = MaterialTheme.typography.bodySmall,
+//                                        color = MaterialTheme.colorScheme.error
+//                                    )
+//                                }
                                 Spacer(Modifier.height(16.dp))
                                 Button(onClick = onRefresh) {
                                     Text("Повторить")
@@ -140,13 +141,19 @@ fun <T, F> MasterScreen(
                         is Resource.Success -> {
                             val allItems = state.data.orEmpty()
 
-
-                            if (allItems.isEmpty()) {
+                            if (allItems.isEmpty() && state.additionalLoading == false) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(notFoundText)
+                                }
+                            } else if (allItems.isEmpty() && state.additionalLoading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
                                 }
                             } else {
                                 LiveListWrapper(

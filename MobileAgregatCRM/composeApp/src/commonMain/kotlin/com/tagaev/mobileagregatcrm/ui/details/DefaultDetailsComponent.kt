@@ -1,7 +1,7 @@
 package com.tagaev.mobileagregatcrm.ui.details
 
 import com.arkivanov.decompose.ComponentContext
-import com.tagaev.mobileagregatcrm.data.EventsRepository
+import com.tagaev.mobileagregatcrm.data.MainRepository
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import kotlinx.coroutines.CoroutineScope
@@ -46,7 +46,7 @@ class DefaultDetailsComponent(
     private val appScope: CoroutineScope by inject()
     private val api: EventsApi by inject()
     private val apiConfig: ApiConfig by inject()
-    private val repo by lazy { EventsRepository(api, apiConfig) }
+    private val repo by lazy { MainRepository(api, apiConfig) }
 
     private val _sendState = MutableStateFlow<SendMessageUiState>(SendMessageUiState.Idle)
     override val sendState: StateFlow<SendMessageUiState> = _sendState

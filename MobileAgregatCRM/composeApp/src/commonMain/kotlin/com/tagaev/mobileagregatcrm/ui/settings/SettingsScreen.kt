@@ -18,6 +18,7 @@ import com.tagaev.mobileagregatcrm.ui.style.ThemeMode
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Icon
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
+import com.tagaev.mobileagregatcrm.ui.custom.TextC
 import com.tagaev.secrets.Secrets
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Mail
@@ -37,6 +38,7 @@ fun SettingsScreen(component: ISettingsComponent) {
     val currentTheme by themeController.mode.collectAsState()
 
     val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
+    val departmentData = remember { appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED") }
 
     // Simple future settings list; add real items later
     val futureItems = remember {
@@ -139,8 +141,15 @@ fun SettingsScreen(component: ISettingsComponent) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (personalData.isNotBlank()) {
-                    Text(
+                    TextC(
                         text = personalData,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (departmentData.isNotBlank()) {
+                    TextC(
+                        text = "Подразделение: ${departmentData}",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )

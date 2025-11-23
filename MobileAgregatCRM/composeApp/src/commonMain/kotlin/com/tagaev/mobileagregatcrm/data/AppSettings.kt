@@ -41,6 +41,7 @@ object AppSettingsKeys {
 
     const val PERSONAL_DATA = "PERSONAL_DATA"
 
+    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
     const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
 }
 

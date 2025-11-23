@@ -1,56 +1,39 @@
-package com.tagaev.mobileagregatcrm.ui.work_order
+package com.tagaev.mobileagregatcrm.ui.events
 
-import com.tagaev.mobileagregatcrm.data.remote.Resource
-import com.tagaev.mobileagregatcrm.models.WorkOrderDto
-import com.tagaev.mobileagregatcrm.models.WorkOrderMessageDto
-import kotlinx.coroutines.flow.StateFlow
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
 import com.tagaev.mobileagregatcrm.data.MainRepository
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi.Companion.json
+import com.tagaev.mobileagregatcrm.data.remote.Resource
 import com.tagaev.mobileagregatcrm.domain.RefineState
+import com.tagaev.mobileagregatcrm.models.EventItemDto
+import com.tagaev.mobileagregatcrm.models.MessageDto
+import com.tagaev.mobileagregatcrm.models.WorkOrderDto
+import com.tagaev.mobileagregatcrm.models.WorkOrderMessageDto
 import com.tagaev.mobileagregatcrm.ui.master_screen.MasterPanel
 import com.tagaev.mobileagregatcrm.ui.master_screen.models.MessageModel
+import com.tagaev.mobileagregatcrm.ui.work_order.IListMaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.collections.orEmpty
+import kotlin.collections.plus
+import kotlin.getValue
 
-interface IListMaster {
-    val refineState: StateFlow<RefineState>
-    val ncount: StateFlow<Int>
-
-    val masterScreenPanel: StateFlow<MasterPanel>
-    val selectedItemGuid: StateFlow<String?>
-
-
-    fun setRefineState(newState: RefineState)
-    fun fullRefresh()
-    fun loadMore()
-    suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean
-
-    fun addLocalMessage(
-        orderGuid: String?,
-        message: MessageModel
-    )
-
-    fun selectItemFromList(guid: String?)
-    fun changePanel(masterDetailPanel: MasterPanel)
+interface IEventsComponent : IListMaster{
+    val events: StateFlow<Resource<List<EventItemDto>>>
 }
 
-interface IWorkOrdersComponent: IListMaster {
-    val workOrders: StateFlow<Resource<List<WorkOrderDto>>>
-}
-
-class WorkOrdersComponent(
+class EventsComponent(
     componentContext: ComponentContext,
-    private val onBack: () -> Unit,
-) : IWorkOrdersComponent,
-    ComponentContext by componentContext,
-    KoinComponent {
+    private val onBack: () -> Unit
+) : IEventsComponent, ComponentContext by componentContext, KoinComponent {
+
 
     companion object {
         private const val PAGE_SIZE = 30
@@ -60,9 +43,9 @@ class WorkOrdersComponent(
     private val repository: MainRepository by inject()
     private val appSettings: AppSettings by inject()
 
-    private val _workOrders =
-        MutableStateFlow<Resource<List<WorkOrderDto>>>(Resource.Loading)
-    override val workOrders: StateFlow<Resource<List<WorkOrderDto>>> = _workOrders
+    private val _events =
+        MutableStateFlow<Resource<List<EventItemDto>>>(Resource.Loading)
+    override val events: StateFlow<Resource<List<EventItemDto>>> = _events
 
     private val _refineState = MutableStateFlow(RefineState.Default)
     override val refineState: StateFlow<RefineState> = _refineState
@@ -81,15 +64,13 @@ class WorkOrdersComponent(
     }
 
     // simple in-memory cache of loaded work orders for future DB caching
-    private val loadedOrders = mutableListOf<WorkOrderDto>()
+    private val loadedEvents = mutableListOf<EventItemDto>()
 
     private val loadedKeys = mutableSetOf<String>()
 
-
-
     val backCallback = BackCallback { _masterScreenPanel.value = MasterPanel.List }
 
-    private fun WorkOrderDto.key(): String =
+    private fun EventItemDto.key(): String =
         guid ?: (number ?: "") + "|" + (date ?: "")
 
     init {
@@ -97,62 +78,58 @@ class WorkOrdersComponent(
         backHandler.register(backCallback)
     }
 
-//    fun insertNewMessage() {
-//        _workOrders
-//    }
-
     override fun fullRefresh() {
+        println(">>> fullRefresh")
         appScope.launch {
             //_workOrders.value = Resource.Loading
-            _workOrders.value = Resource.Success(data = loadedOrders, additionalLoading = true)
+            _events.value = Resource.Success(data = loadedEvents, additionalLoading = true)
 
 
             _refineState.value = loadRefineState()
 
-            val result = repository.loadWorkOrders(_ncount.value, refineState.value)
+            val result = repository.loadEvents(_ncount.value, refineState.value)
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()
 
                 _ncount.value = 0
-                loadedOrders.clear()
+                loadedEvents.clear()
                 loadedKeys.clear()
 
                 for (order in newItems) {
                     val key = order.key()
                     if (loadedKeys.add(key)) {
-                        loadedOrders.add(order)
+                        loadedEvents.add(order)
                     }
                 }
-                _workOrders.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+                _events.value = Resource.Success(loadedEvents.toList(), additionalLoading = false)
             } else {
-                _workOrders.value = result
+                _events.value = result
             }
         }
     }
 
     override fun loadMore() {
+        println(">>> LOAD More")
         appScope.launch {
 //            if ( _workOrders.value is Resource.Loading) return@launch
 //            _workOrders.value = Resource.Loading
-            _workOrders.value = Resource.Success(data = loadedOrders, additionalLoading = true)
+            _events.value = Resource.Success(data = loadedEvents, additionalLoading = true)
             val nextOffset = _ncount.value + PAGE_SIZE
-            val result = repository.loadWorkOrders(nextOffset, refineState.value)
+            val result = repository.loadEvents(nextOffset, refineState.value)
             if (result is Resource.Success) {
                 _ncount.value = nextOffset
                 val newItems = result.data ?: emptyList()
                 for (order in newItems) {
                     val key = order.key()
                     if (loadedKeys.add(key)) {
-                        loadedOrders.add(order)
+                        loadedEvents.add(order)
                     }
                 }
-                _workOrders.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+                _events.value = Resource.Success(loadedEvents.toList(), additionalLoading = false)
             } else {
-                _workOrders.value = result
+                _events.value = result
             }
-
-//            _isLoadingMore.value = false
         }
     }
 
@@ -163,15 +140,14 @@ class WorkOrdersComponent(
 
     override fun setRefineState(newState: RefineState) {
         _refineState.value = newState
-        saveRefineState(newState)
         fullRefresh()
+        saveRefineState(newState)
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
         println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
         if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return false
-        // call repository directly (suspend) – no extra launch here
-        val res = repository.sendMessageToWorkOrder(
+        val res = repository.sendMessageEvent(
             itemNumber,
             itemDate.substringBefore(' '),
             message
@@ -186,7 +162,27 @@ class WorkOrdersComponent(
             false
         }
     }
+    // ---------- Work Orders refine state ----------
 
+    fun loadRefineState(): RefineState {
+        val raw = appSettings.getStringOrNull(AppSettingsKeys.EVENTS_REFINE_STATE)
+        if (raw.isNullOrBlank()) {
+            // default state when nothing stored
+            return RefineState()
+        }
+
+        return runCatching {
+            json.decodeFromString<RefineState>(raw)
+        }.getOrElse {
+            // if schema changed or data corrupted – fail gracefully
+            RefineState()
+        }
+    }
+
+    fun saveRefineState(state: RefineState) {
+        val encoded = json.encodeToString(state)
+        appSettings.setString(AppSettingsKeys.EVENTS_REFINE_STATE, encoded)
+    }
     /**
      * Convenience helper: applies a local "add message" operation to a WorkOrder
      * identified by [orderGuid], using a simple MessageModel from the UI.
@@ -198,7 +194,7 @@ class WorkOrdersComponent(
         message: MessageModel
     ) {
         updateOrderLocally(orderGuid) { currentOrder ->
-            val newMessage = WorkOrderMessageDto(
+            val newMessage = MessageDto(
                 author = message.author,
                 comment = message.text,
                 workDate = message.date
@@ -220,46 +216,25 @@ class WorkOrdersComponent(
      */
     private fun updateOrderLocally(
         guid: String?,
-        transform: (WorkOrderDto) -> WorkOrderDto
+        transform: (EventItemDto) -> EventItemDto
     ) {
         if (guid == null) return
 
-        val index = loadedOrders.indexOfFirst { it.guid == guid }
+        val index = loadedEvents.indexOfFirst { it.guid == guid }
         if (index == -1) return
 
-        val currentOrder = loadedOrders[index]
+        val currentOrder = loadedEvents[index]
         val updatedOrder = transform(currentOrder)
 
-        loadedOrders[index] = updatedOrder
+        loadedEvents[index] = updatedOrder
 
         // preserve current additionalLoading flag if present
-        val current = _workOrders.value
+        val current = _events.value
         val additionalLoading = (current as? Resource.Success)?.additionalLoading ?: false
 
-        _workOrders.value = Resource.Success(
-            data = loadedOrders.toList(),
+        _events.value = Resource.Success(
+            data = loadedEvents.toList(),
             additionalLoading = additionalLoading
         )
-    }
-    // ---------- Work Orders refine state ----------
-
-    fun loadRefineState(): RefineState {
-        val raw = appSettings.getStringOrNull(AppSettingsKeys.WORK_ORDERS_REFINE_STATE)
-        if (raw.isNullOrBlank()) {
-            // default state when nothing stored
-            return RefineState()
-        }
-
-        return runCatching {
-            json.decodeFromString<RefineState>(raw)
-        }.getOrElse {
-            // if schema changed or data corrupted – fail gracefully
-            RefineState()
-        }
-    }
-
-    fun saveRefineState(state: RefineState) {
-        val encoded = json.encodeToString(state)
-        appSettings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE, encoded)
     }
 }

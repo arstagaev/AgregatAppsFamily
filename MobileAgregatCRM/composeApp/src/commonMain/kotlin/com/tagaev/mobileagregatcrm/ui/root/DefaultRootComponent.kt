@@ -12,6 +12,7 @@ import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.ui.details.DetailsComponent
+import com.tagaev.mobileagregatcrm.ui.events.EventsComponent
 import com.tagaev.mobileagregatcrm.ui.favorites.FavoritesComponent
 import com.tagaev.mobileagregatcrm.ui.login.ILoginComponent
 import com.tagaev.mobileagregatcrm.ui.login.LoginComponent
@@ -28,6 +29,7 @@ interface IRootComponent {
     val childStack: Value<ChildStack<Config, Child>>
 
     fun openList()
+    fun openEvents()
     fun openDetails()
     fun openWorkOrders()
     fun openQRScanner()
@@ -38,6 +40,7 @@ interface IRootComponent {
 
     sealed interface Config {
         data object List : Config
+        data object Events : Config
         data object Details : Config
         data object WorkOrder : Config
         data object Favorites : Config
@@ -48,6 +51,7 @@ interface IRootComponent {
 
     sealed interface Child {
         data class List(val component: ListComponent) : Child
+        data class Events(val component: EventsComponent) : Child
         data class Details(val component: DetailsComponent) : Child
         data class WorkOrder(val component: WorkOrdersComponent) : Child
         data class Favorites(val component: FavoritesComponent) : Child
@@ -107,6 +111,8 @@ class DefaultRootComponent(
                         onOpenFavorites = { nav.bringToFront(IRootComponent.Config.Favorites) }
                     )
                 )
+            is IRootComponent.Config.Events ->
+                IRootComponent.Child.Events(EventsComponent(ctx) { nav.pop() })
 
             is IRootComponent.Config.Details ->
                 IRootComponent.Child.Details(DefaultDetailsComponent(ctx) { nav.pop() })
@@ -138,11 +144,12 @@ class DefaultRootComponent(
             is IRootComponent.Config.Login ->
                 IRootComponent.Child.Login(LoginComponent(
                     componentContext = ctx,
-                    onLoginSuccess = { openList() },
+                    onLoginSuccess = { openEvents() },
                 ) { nav.pop() })
         }
 
     override fun openList() = nav.bringToFront(IRootComponent.Config.List)
+    override fun openEvents() = nav.bringToFront(IRootComponent.Config.Events)
     override fun openDetails() = nav.bringToFront(IRootComponent.Config.Details)
     override fun openWorkOrders() = nav.bringToFront(IRootComponent.Config.WorkOrder)
     override fun openQRScanner() = nav.bringToFront(IRootComponent.Config.QRScanner)

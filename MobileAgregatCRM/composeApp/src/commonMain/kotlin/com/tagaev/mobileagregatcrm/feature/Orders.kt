@@ -36,8 +36,8 @@ enum class OrderByOption(val label: String, val wire: String) {
  *
  * filterby - реквизит для фильтрации (Состояние, Номер, и тд)
  * filtertype - тип фильтрации (value - поиск по подстроке, code - поиск по коду справочника, list - по перечислению, состояния и т.д.)
- *
  * filterval - значение фильтра
+ *
  * guid - поле для точного поиска по номеру документов с периодической нумерацией
  */
 enum class FilterByOption(val label: String, val wire: String) {

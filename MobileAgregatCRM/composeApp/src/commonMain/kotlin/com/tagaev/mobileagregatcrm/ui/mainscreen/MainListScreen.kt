@@ -399,7 +399,9 @@ private fun ControlsDialog(
     )
 }
 
+
 @Composable
+@Deprecated("OLD CARD")
 fun EventCard(
     ev: EventItemDto,
     component: ListComponent,
@@ -455,7 +457,7 @@ fun EventCard(
 }
 
 @Composable
-private fun StatusBadge(state: String) {
+fun StatusBadge(state: String) {
     if (state.isBlank()) return
     val lower = state.lowercase()
     val bg = when (lower) {
@@ -476,7 +478,7 @@ private fun StatusBadge(state: String) {
 }
 
 @Composable
-private fun KeyValueRow(key: String, value: String?, textSize: TextUnit = TextUnit.Unspecified) {
+fun KeyValueRow(key: String, value: String?, textSize: TextUnit = TextUnit.Unspecified) {
     if (value.isNullOrBlank()) return
     Row(
         Modifier.fillMaxWidth(),

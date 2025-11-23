@@ -4,7 +4,7 @@ import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
-import com.tagaev.mobileagregatcrm.domain.WorkOrderRefineState
+import com.tagaev.mobileagregatcrm.domain.RefineState
 import com.tagaev.mobileagregatcrm.feature.DocumentTypes
 import com.tagaev.mobileagregatcrm.models.EventItemDto
 import com.tagaev.mobileagregatcrm.models.GetTokenResponse
@@ -18,7 +18,7 @@ import kotlin.getValue
 //import org.agregatcrm.utils.requestEventsList
 
 // Repository that adapts EventsApi to our app needs
-class EventsRepository(
+class MainRepository(
     private val api: EventsApi,
     private val cfg: ApiConfig,
 ): KoinComponent {
@@ -54,7 +54,20 @@ class EventsRepository(
 
     suspend fun getTRSData(decodedCode: String): Resource<QRResponseTRS> = api.getTRSData(apiConfig = cfg, decodedCode = decodedCode)
 
-    suspend fun loadWorkOrders(ncount: Int, currentRefine: WorkOrderRefineState): Resource<List<WorkOrderDto>> =
+    suspend fun loadEvents(ncount: Int, currentRefine: RefineState): Resource<List<EventItemDto>> =
+        api.getEvents(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+//        runCatching {  }
+//            .fold(
+//                onSuccess = { Resource.Success(it) },
+//                onFailure = {
+//                    Resource.Error(
+//                        exception = it as Exception?,
+//                        causes = it.message ?: "Ошибка загрузки заказ-нарядов"
+//                    )
+//                }
+//            )
+
+    suspend fun loadWorkOrders(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
         runCatching { api.loadWorkOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
             .fold(
                 onSuccess = { Resource.Success(it) },
@@ -65,6 +78,13 @@ class EventsRepository(
                     )
                 }
             )
+
+    suspend fun sendMessageEvent(
+        number: String,
+        date: String,
+        message: String
+    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
+
 
     suspend fun sendMessageToWorkOrder(
         number: String,

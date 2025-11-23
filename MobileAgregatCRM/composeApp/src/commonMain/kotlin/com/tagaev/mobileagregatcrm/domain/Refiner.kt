@@ -41,17 +41,34 @@ sealed interface Refiner : ApiOption {
         DONE("Не Активные", "неактивно"),
         OFF("Все", ""),
     }
+
+    enum class SearchQueryType(
+        override val label: String,
+        override val wire: String
+    ) : Refiner {
+        TOPIC("Поиск по теме события","Тема"),
+        CODE("Поиск по номеру события","Номер"),
+        //OFF("Выключить","")
+    }
+
+    enum class Department(
+        override val label: String,
+        override val wire: String
+    ) : Refiner {
+
+    }
 }
 
 @Serializable
-data class WorkOrderRefineState(
+data class RefineState(
     val orderBy: Refiner.OrderBy = Refiner.OrderBy.DATE_LAST_MODIFICATION,
     val orderDir: Refiner.Dir = Refiner.Dir.DESC,
     val filter: Refiner.Filter = Refiner.Filter.OFF,
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val searchQueryType: Refiner.SearchQueryType = Refiner.SearchQueryType.TOPIC
 ) {
-    companion object {
-        val Default = WorkOrderRefineState()
+    companion object Companion {
+        val Default = RefineState()
     }
 }
 

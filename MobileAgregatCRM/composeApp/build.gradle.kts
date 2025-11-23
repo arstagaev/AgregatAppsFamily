@@ -78,6 +78,7 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
             implementation("br.com.devsrsouza.compose.icons:feather:1.1.1")
+            implementation("br.com.devsrsouza.compose.icons:line-awesome:1.1.1")
 
 //            implementation("com.squareup.sqldelight:runtime:1.5.5")
 //            implementation("com.squareup.sqldelight:coroutines-extensions:1.5.5")

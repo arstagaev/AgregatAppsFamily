@@ -4,8 +4,7 @@ package com.tagaev.mobileagregatcrm.di
 import com.agregat.db.Database
 import com.russhwolf.settings.Settings
 import com.tagaev.mobileagregatcrm.data.AppSettings
-import com.tagaev.mobileagregatcrm.data.EventsRepository
-import com.tagaev.mobileagregatcrm.data.db.DriverFactory
+import com.tagaev.mobileagregatcrm.data.MainRepository
 import com.tagaev.mobileagregatcrm.data.db.EventsCacheStore
 import com.tagaev.mobileagregatcrm.data.db.FavoritesStore
 import com.tagaev.mobileagregatcrm.data.db.createDatabase
@@ -13,7 +12,6 @@ import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.ui.style.ThemeController
 import org.koin.dsl.module
-import org.koin.core.qualifier.named
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,7 +34,7 @@ val commonModule = module {
     single { EventsApi() }
 
     // --- Repositories ---
-    single { EventsRepository(api = get(), cfg = get()) }
+    single { MainRepository(api = get(), cfg = get()) }
 
 //    single { get<Database>().events_cacheQueries }
 //    single { EventsCacheStore(get(), get()) } // needs Json too

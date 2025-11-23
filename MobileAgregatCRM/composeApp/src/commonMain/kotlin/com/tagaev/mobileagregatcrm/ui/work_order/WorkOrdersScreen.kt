@@ -16,7 +16,12 @@ import com.tagaev.mobileagregatcrm.models.WorkOrderDto
 import com.tagaev.mobileagregatcrm.ui.custom.TextC
 import com.tagaev.mobileagregatcrm.ui.master_screen.MasterScreen
 import com.tagaev.mobileagregatcrm.ui.master_screen.RefineScreen
+import com.tagaev.mobileagregatcrm.ui.master_screen.RefineSection
+import com.tagaev.mobileagregatcrm.ui.master_screen.models.MessageModel
 import com.tagaev.mobileagregatcrm.utils.formatRelativeWorkDate
+import compose.icons.LineAwesomeIcons
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +32,11 @@ fun WorkOrdersScreen(
     val resource by component.workOrders.collectAsState()
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
-    val selectedId by component.selectedOrderGuid.collectAsState()
+    val selectedId by component.selectedItemGuid.collectAsState()
+
+    val scope = rememberCoroutineScope()
+    var isSendingMessage by remember { mutableStateOf(false) }
+    var lastSendError by remember { mutableStateOf<String?>(null) }
 
     MasterScreen(
         title = "Заказ-наряды",
@@ -56,11 +65,20 @@ fun WorkOrdersScreen(
             WorkOrderDetailsSheet(
                 order = order,
                 onBack = onClose,
-                onSendMessage = { message ->
+                onSendMessage = { message, onResult ->
                     val number = order.number.orEmpty()
                     val date = order.date.orEmpty()
-                    component.sendMessage(number, date, message)
-                }
+                    scope.launch {
+                        val ok = component.sendMessage(number, date, message)
+                        if (ok) {
+                            component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+                        }
+                        onResult(ok) // this notifies the sheet
+                    }
+                },
+                isSendingMessage = isSendingMessage,
+                lastSendError = lastSendError,
+                onErrorDismiss = { lastSendError = null }
             )
         },
 
@@ -69,6 +87,11 @@ fun WorkOrdersScreen(
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
+                sections = setOf(
+                    RefineSection.STATUS,
+                    RefineSection.ORDER,
+                    RefineSection.DIRECTION,
+                ),
                 onApply = { newState ->
                     onApply(newState)     // MasterDetailFilterScreen получит обновлённый стейт
                 }
@@ -82,7 +105,7 @@ fun WorkOrdersScreen(
         },
 
         selectedItemId = selectedId,
-        onSelectedItemChange = { id -> component.selectOrder(id) },
+        onSelectedItemChange = { id -> component.selectItemFromList(id) },
 
         modifier = modifier
     )

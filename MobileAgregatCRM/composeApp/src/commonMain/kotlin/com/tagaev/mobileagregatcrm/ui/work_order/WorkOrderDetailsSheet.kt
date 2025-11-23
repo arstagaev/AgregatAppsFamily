@@ -1,140 +1,80 @@
 package com.tagaev.mobileagregatcrm.ui.work_order
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tagaev.mobileagregatcrm.domain.messages.findDraftForGuid
-import com.tagaev.mobileagregatcrm.domain.messages.upsertDraftForGuid
 import com.tagaev.mobileagregatcrm.models.WorkOrderDto
 import com.tagaev.mobileagregatcrm.ui.custom.TextC
+import com.tagaev.mobileagregatcrm.ui.master_screen.DetailsWithMessagesSheet
+import com.tagaev.mobileagregatcrm.ui.master_screen.SectionTitle
+import com.tagaev.mobileagregatcrm.ui.master_screen.models.MessageModel
 
-// same file: WorkOrdersScreen.kt
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
-    )
-}
+
 
 @Composable
 fun WorkOrderDetailsSheet(
     order: WorkOrderDto,
     onBack: () -> Unit,
-    onSendMessage: (String) -> Unit,
-    // external UI state for sending
+    onSendMessage: (String, (Boolean) -> Unit) -> Unit,
     isSendingMessage: Boolean = false,
     lastSendError: String? = null,
     onErrorDismiss: () -> Unit = {},
-    // external draft state so we can restore unsent messages per order.guid
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
-    val scrollState = rememberScrollState()
-    var messageDraft by remember(order.guid, initialDraft) {
-        val base = when {
-            !initialDraft.isNullOrEmpty() -> initialDraft
-            else -> findDraftForGuid(order.guid)
+    DetailsWithMessagesSheet(
+        item = order,
+        guid = order.guid.toString(),
+        messages = order.messages.map { MessageModel(author = it.author ?: "no author", text = it.comment ?: "", date = it.workDate ?: "no date") },
+        onBack = onBack,
+        onSendMessage = onSendMessage,
+        //isSendingMessage = isSendingMessage,
+        lastSendError = lastSendError,
+        onErrorDismiss = onErrorDismiss,
+        initialDraft = initialDraft,
+        onDraftChanged = onDraftChanged,
+        isSendEnabled = { draft, wo ->
+            draft.isNotBlank() &&
+                    !wo.number.isNullOrBlank() &&
+                    !wo.date.isNullOrBlank()
         }
-        mutableStateOf(base.orEmpty())
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .verticalScroll(scrollState)
-    ) {
-        // Loading dialog while sending
-        if (isSendingMessage) {
-            AlertDialog(
-                onDismissRequest = {}, // uncancellable while sending
-                title = { Text("Отправка комментария") },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.height(24.dp).width(24.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Пожалуйста, подождите…")
-                    }
-                },
-                confirmButton = {}
-            )
-        }
-
-        // Error dialog after failed send
-        if (lastSendError != null) {
-            AlertDialog(
-                onDismissRequest = onErrorDismiss,
-                title = { Text("Ошибка отправки") },
-                text = { Text(lastSendError) },
-                confirmButton = {
-                    TextButton(onClick = onErrorDismiss) {
-                        Text("OK")
-                    }
-                }
-            )
-        }
+    ) { wo ->
         // 1. Организация + подразделение (две колонки)
-        if (!order.organization.isNullOrBlank() || !order.branch.isNullOrBlank()) {
+        if (!wo.organization.isNullOrBlank() || !wo.branch.isNullOrBlank()) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                if (!order.organization.isNullOrBlank()) {
+                if (!wo.organization.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Организация:")
                         TextC(
-                            text = order.organization.orEmpty(),
+                            text = wo.organization.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-                if (!order.branch.isNullOrBlank()) {
+                if (!wo.branch.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Подразделение:")
-//                        Text(
-//                            text = "Подразделение:",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            fontWeight = FontWeight.SemiBold,
-//                            color = MaterialTheme.colorScheme.onSurfaceVariant
-//                        )
                         TextC(
-                            text = order.branch.orEmpty(),
+                            text = wo.branch.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -143,34 +83,28 @@ fun WorkOrderDetailsSheet(
         }
 
         // 2. Документ + заказчик (две колонки)
-        if (!order.link.isNullOrBlank() || !order.customer.isNullOrBlank()) {
+        if (!wo.link.isNullOrBlank() || !wo.customer.isNullOrBlank()) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                if (!order.link.isNullOrBlank()) {
+                if (!wo.link.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-//                        Text(
-//                            text = "Документ:",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            fontWeight = FontWeight.SemiBold,
-//                            color = MaterialTheme.colorScheme.onSurfaceVariant
-//                        )
                         SectionTitle("Документ:")
                         TextC(
-                            text = order.link.orEmpty(),
+                            text = wo.link.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-                if (!order.customer.isNullOrBlank()) {
+                if (!wo.customer.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Заказчик:")
                         TextC(
-                            text = order.customer.orEmpty(),
+                            text = wo.customer.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -179,7 +113,7 @@ fun WorkOrderDetailsSheet(
         }
 
         // 4. Автомобиль
-        order.car?.takeIf { it.isNotBlank() }?.let {
+        wo.car?.takeIf { it.isNotBlank() }?.let {
             SectionTitle("Автомобиль:")
             TextC(
                 text = it,
@@ -187,17 +121,18 @@ fun WorkOrderDetailsSheet(
             )
         }
 
-        // 5. Тип КПП / Тип двигателя / Пробег
-        if (!order.gearboxType.isNullOrBlank() ||
-            !order.engineType.isNullOrBlank() ||
-            !order.mileage.isNullOrBlank()
+        // 5. Тип КПП / Тип двигателя / Пробег / Год
+        if (!wo.gearboxType.isNullOrBlank() ||
+            !wo.engineType.isNullOrBlank() ||
+            !wo.mileage.isNullOrBlank() ||
+            !wo.carAge.isNullOrBlank()
         ) {
             SectionTitle("Хар-ки автомобиля:")
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                if (!order.gearboxType.isNullOrBlank()) {
+                if (!wo.gearboxType.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Тип КПП:",
@@ -206,12 +141,12 @@ fun WorkOrderDetailsSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TextC(
-                            text = order.gearboxType.orEmpty(),
+                            text = wo.gearboxType.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
-                if (!order.engineType.isNullOrBlank()) {
+                if (!wo.engineType.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Тип ДВС:",
@@ -220,12 +155,12 @@ fun WorkOrderDetailsSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TextC(
-                            text = order.engineType.orEmpty(),
+                            text = wo.engineType.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
-                if (!order.mileage.isNullOrBlank()) {
+                if (!wo.mileage.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Пробег:",
@@ -234,12 +169,12 @@ fun WorkOrderDetailsSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TextC(
-                            text = order.mileage.orEmpty(),
+                            text = wo.mileage.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
-                if (!order.carAge.isNullOrBlank()) {
+                if (!wo.carAge.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Год выпуска:",
@@ -248,7 +183,7 @@ fun WorkOrderDetailsSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TextC(
-                            text = order.carAge.orEmpty(),
+                            text = wo.carAge.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -257,26 +192,25 @@ fun WorkOrderDetailsSheet(
         }
 
         // 6. Состояние + Вид ремонта (две колонки)
-        if (!order.status.isNullOrBlank() || !order.repairType.isNullOrBlank()) {
-//            SectionTitle("Состояние и вид ремонта:")
+        if (!wo.status.isNullOrBlank() || !wo.repairType.isNullOrBlank()) {
             Row(
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (!order.status.isNullOrBlank()) {
+                if (!wo.status.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Состояние")
 
                         Spacer(Modifier.height(4.dp))
-                        WorkOrderStatusBadge(order.status.orEmpty())
+                        WorkOrderStatusBadge(wo.status.orEmpty())
                     }
                 }
-                if (!order.repairType.isNullOrBlank()) {
+                if (!wo.repairType.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         SectionTitle("Вид ремонта:")
 
                         Text(
-                            text = order.repairType.orEmpty(),
+                            text = wo.repairType.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -286,22 +220,16 @@ fun WorkOrderDetailsSheet(
         }
 
         // 7. Ошибка + Причина обращения (две колонки)
-        if (!order.errorCodes.isNullOrBlank() || !order.reason.isNullOrBlank()) {
-//            SectionTitle("Ошибки:")
+        if (!wo.errorCodes.isNullOrBlank() || !wo.reason.isNullOrBlank()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                if (!order.errorCodes.isNullOrBlank()) {
+                if (!wo.errorCodes.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-//                        Text(
-//                            text = "Коды ошибок:",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            fontWeight = FontWeight.SemiBold
-//                        )
                         SectionTitle("Коды ошибок:")
-                        val lines = remember(order.errorCodes) {
-                            order.errorCodes!!
+                        val lines = remember(wo.errorCodes) {
+                            wo.errorCodes!!
                                 .split("\\r".toRegex())
                                 .map { it.trim() }
                                 .filter { it.isNotEmpty() }
@@ -315,13 +243,13 @@ fun WorkOrderDetailsSheet(
                             }
                         } else {
                             Text(
-                                text = order.errorCodes ?: "Нету",
+                                text = wo.errorCodes ?: "Нету",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
                 }
-                if (!order.reason.isNullOrBlank()) {
+                if (!wo.reason.isNullOrBlank()) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -330,7 +258,7 @@ fun WorkOrderDetailsSheet(
                         SectionTitle("Причина обращения:")
 
                         Text(
-                            text = order.reason.orEmpty(),
+                            text = wo.reason.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -339,7 +267,7 @@ fun WorkOrderDetailsSheet(
         }
 
         // 8. Выполненные работы по заказ-наряду (используем только "Работы")
-        val jobs = order.jobs
+        val jobs = wo.jobs
         SectionTitle("Выполненные работы по заказ-наряду:")
         if (jobs.isNullOrEmpty()) {
             Text(
@@ -390,7 +318,7 @@ fun WorkOrderDetailsSheet(
         }
 
         // 9. Товары по заказ-наряду (используем только "Товары")
-        val products = order.products
+        val products = wo.products
         SectionTitle("Товары по заказ-наряду:")
         if (products.isNullOrEmpty()) {
             Text(
@@ -454,94 +382,6 @@ fun WorkOrderDetailsSheet(
                 }
             }
         }
-
-        // 10. Сообщения + форма отправки (внизу)
-        val messages = order.messages
-        if (!messages.isNullOrEmpty()) {
-            SectionTitle("Комментарии:")
-            messages.forEach { msg ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        msg.author?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        msg.workDate?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    msg.comment?.takeIf { it.isNotBlank() }?.let {
-                        TextC(
-                            text = it,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-
-                }
-            }
-        }
-
-        SectionTitle("Добавить комментарий")
-        LimitedOutlinedTextField(
-            value = messageDraft,
-            onValueChange = { newValue ->
-                messageDraft = newValue
-                onDraftChanged(newValue)
-                upsertDraftForGuid(order.guid, newValue)
-            },
-            maxChars = 500,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 80.dp),
-            placeholder = "Комментарий по работам…"
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Закрыть")
-            }
-
-            Button(
-                onClick = {
-                    val trimmed = messageDraft.trim()
-                    if (trimmed.isNotEmpty()) {
-                        onSendMessage(trimmed)
-                        // do not clear draft here; parent decides via initialDraft/onDraftChanged
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                enabled = messageDraft.isNotBlank() &&
-                        !order.number.isNullOrBlank() &&
-                        !order.date.isNullOrBlank()
-            ) {
-                Text("Отправить")
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
     }
 }
 

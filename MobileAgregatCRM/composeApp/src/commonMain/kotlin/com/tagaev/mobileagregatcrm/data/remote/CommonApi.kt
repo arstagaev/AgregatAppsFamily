@@ -1,8 +1,9 @@
 package com.tagaev.mobileagregatcrm.data.remote
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
+import com.tagaev.mobileagregatcrm.data.remote.models.GetRolesResponse
 import com.tagaev.mobileagregatcrm.domain.Refiner
-import com.tagaev.mobileagregatcrm.domain.WorkOrderRefineState
+import com.tagaev.mobileagregatcrm.domain.RefineState
 import com.tagaev.mobileagregatcrm.feature.DocumentTypes
 import com.tagaev.mobileagregatcrm.feature.FilterByOption
 import com.tagaev.mobileagregatcrm.feature.FilterByOptionWorkOrders
@@ -44,6 +45,59 @@ sealed class Resource<out R> {
 class EventsApi(
     private val client: HttpClient = HttpClientFactory.create()
 ) {
+    //https://agrapp.agregatka.ru/?token=92139A5BFBBF4D644BA0E49BC0D35E842EE78F188DE445BF1C01F5BBE069B389&&task=getitemslist&type=Документ&name=Событие&count=50&ncount=0&orderby=Дата&orderdir=desc&filterby=Тема&filterval=Настройка&filtertype=value
+    suspend fun getEvents(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<EventItemDto>> = resourceify {
+        val url = apiConfig.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+
+                parameters.append("type", "Документ")
+                parameters.append("name", "Событие")
+
+                parameters.append("count", "30")
+                parameters.append("ncount", "$ncount")
+
+                if (currentRefine.orderBy != Refiner.OrderBy.OFF) {
+                    parameters.append("orderby", currentRefine.orderBy.wire)
+                    parameters.append("orderdir", currentRefine.orderDir.wire)
+                }
+
+
+
+                if (currentRefine.filter == Refiner.Filter.ACTIVE) {
+                    println("FilterByOption 1")
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (currentRefine.filter == Refiner.Filter.DONE) {
+                    println("FilterByOption 2")
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                } else {
+                    println("FilterByOption 3")
+                }
+
+
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    parameters.append("filterby", currentRefine.searchQueryType.wire)
+                    parameters.append("filterval", currentRefine.searchQuery)
+//                    parameters.append("filtertype", "list")
+                }
+
+
+                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<EventItemDto>>(json, raw)
+    }
+
+    @Deprecated("USE FROM NEW SCREEN")
     suspend fun getEvents(
         api: ApiConfig,
         type: String,
@@ -121,21 +175,6 @@ class EventsApi(
 
         val raw = response.bodyAsText()
         decodeOrWarning<SentMessageResponse>(json, raw)
-//        SentMessageResponse(status = "WOW")
-//        "LOL"
-//        try {
-//            json.decodeFromString<SentMessageResponse>(raw)
-//        } catch (e: Exception) {
-//            val warning = obj["warning"]?.jsonPrimitive?.contentOrNull
-//            if (warning != null) {
-//                // Map logical 200-OK errors into Resource.Error via resourceify
-//
-//            }
-////            Resource.Error(causes = "")
-////            throw IllegalStateException(err) as Throwable
-//            warning
-//        }
-
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=
@@ -190,8 +229,7 @@ class EventsApi(
     }
 
     //
-//https://agrapp.agregatka.ru/?token=962088EF874D4133DE9BDBEEABC5F7702E6EA420941F113BD6789C03927C07EC&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%97%D0%B0%D0%BA%D0%B0%D0%B7%D0%9D%D0%B0%D1%80%D1%8F%D0%B4&count=1
-    suspend fun loadWorkOrders(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: WorkOrderRefineState, city: String): List<WorkOrderDto> {
+    suspend fun loadWorkOrders(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): List<WorkOrderDto> {
         val response = client.get(apiConfig.baseUrl) {
             url {
                 parameters.append("token", apiConfig.token)
@@ -207,8 +245,15 @@ class EventsApi(
 //                    parameters.append("orderby", currentRefine.orderBy.wire)
 //                    parameters.append("orderdir", currentRefine.orderDir.wire)
 //                }
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    parameters.append("filterby", currentRefine.searchQueryType.wire)
+                    parameters.append("filterval", currentRefine.searchQuery)
+//                    parameters.append("filtertype", "list")
+                } else {
+                    parameters.append("filterby", FilterByOptionWorkOrders.DEPARTMENT.wire)
+                    parameters.append("filterval", "Москва")
+                }
 
-                parameters.append("filterby", FilterByOptionWorkOrders.DEPARTMENT.wire)
 
                 if (currentRefine.filter == Refiner.Filter.ACTIVE) {
                     println("FilterByOption 1")
@@ -219,30 +264,6 @@ class EventsApi(
                 } else {
                     println("FilterByOption 3")
                 }
-
-//                if (currentFilter == FilterByOption.ACTIVE) {
-//                    println("FilterByOption 1")
-//                    parameters.append("state", FilterByOption.ACTIVE.wire)
-//                } else if (currentFilter == FilterByOption.NO_ACTIVE) {
-//                    println("FilterByOption 2")
-//                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
-//                } else {
-//                    println("FilterByOption 3")
-//                }
-
-
-//                parameters.append("filterval", city)
-//                parameters.append("ncount", "${ncount}")
-//                parameters.append("orderby", OrderByOption.DATE_LAST_MODIFICATION.wire)
-//                parameters.append("orderdir", OrderDirOption.ASC.wire)
-
-//                parameters.append("filterby", "${filterBy}")
-//                parameters.append("filterval", filterVal)
-//                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
-
-
-                // TODO: set the real task name for work orders
-//                parameters.append("task", "get_work_orders")
             }
         }
 
@@ -256,6 +277,27 @@ class EventsApi(
 
         val raw = response.bodyAsText().cleanJsonStart()
         return json.decodeFromString<List<WorkOrderDto>>(raw)
+    }
+
+    suspend fun getRole(apiConfig: ApiConfig): Resource<GetRolesResponse> = resourceify {
+
+        val response = client.get(apiConfig.baseUrl) {
+            expectSuccess = true            // make non-2xx throw ResponseException
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getroles")
+            }
+        }
+
+        // If the server sometimes sends a preface you strip off:
+        val raw = response.bodyAsText().cleanJsonStart()
+        val obj = json.parseToJsonElement(raw).jsonObject
+        val err = obj["error"]?.jsonPrimitive?.contentOrNull
+        if (err != null) {
+            // Map logical 200-OK errors into Resource.Error via resourceify
+            throw IllegalStateException(err)
+        }
+        json.decodeFromJsonElement<GetRolesResponse>(obj)
     }
 
     companion object {

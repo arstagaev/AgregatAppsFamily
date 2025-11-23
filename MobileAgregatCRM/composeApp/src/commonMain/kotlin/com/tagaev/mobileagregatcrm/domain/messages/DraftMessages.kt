@@ -23,3 +23,14 @@ fun upsertDraftForGuid(guid: String?, message: String) {
         DRAFTED_MESSAGES_ARRAY.add(DraftedMessage(guid = guid, message = message))
     }
 }
+
+fun removeDraftIfMatches(guid: String?, message: String) {
+    val iterator = DRAFTED_MESSAGES_ARRAY.iterator()
+    while (iterator.hasNext()) {
+        val draft = iterator.next()
+        if (draft.guid == guid || draft.message == message) {
+            iterator.remove()
+            break
+        }
+    }
+}

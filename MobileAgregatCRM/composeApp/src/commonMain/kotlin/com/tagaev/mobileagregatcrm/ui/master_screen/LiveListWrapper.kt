@@ -86,15 +86,22 @@ fun <T, Id> LiveListWrapper(
         isPaginating = false
     }
 
-    // Infinite scroll: when we are close to the end and haven't hit maxItems yet
+    // Infinite scroll: only trigger when we have at least one full page (30 items)
+    // and the user has scrolled over half of the current list.
     LaunchedEffect(lazyState, items.size, isLoading) {
+        val pageSize = 30
+
         snapshotFlow { lazyState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { lastVisibleIndex ->
                 val total = lazyState.layoutInfo.totalItemsCount
-                // auto-load when user has scrolled into the second half of the list
                 if (lastVisibleIndex != null && total > 0) {
-                    val reachedSecondHalf = lastVisibleIndex >= total - total / 2
-                    if (reachedSecondHalf && items.size < maxItems && !isPaginating && !isLoading) {
+                    val reachedSecondHalf = lastVisibleIndex >= total / 2
+                    val canLoadMorePage =
+                        items.size >= pageSize &&
+                                items.size < maxItems &&
+                                items.size % pageSize == 0
+
+                    if (reachedSecondHalf && canLoadMorePage && !isPaginating && !isLoading) {
                         isPaginating = true
                         onLoadMore(items.size, maxItems)
                     }

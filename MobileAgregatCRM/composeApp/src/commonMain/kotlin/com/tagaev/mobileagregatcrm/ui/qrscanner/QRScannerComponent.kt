@@ -2,7 +2,7 @@ package com.tagaev.mobileagregatcrm.ui.qrscanner
 
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.data.models.qrscanner.QRResponseTRS
-import com.tagaev.mobileagregatcrm.data.EventsRepository
+import com.tagaev.mobileagregatcrm.data.MainRepository
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import com.tagaev.mobileagregatcrm.data.remote.EventsApi
 import com.tagaev.mobileagregatcrm.data.remote.Resource
@@ -48,7 +48,7 @@ class DefaultQRScannerComponent(
     private val appScope: CoroutineScope by inject()
     private val apiConfig: ApiConfig by inject()
 //    private val eventsCacheStore: EventsCacheStore by inject()
-    private val repo by lazy { EventsRepository(api, apiConfig) }
+    private val repo by lazy { MainRepository(api, apiConfig) }
 
     private val _state = MutableStateFlow(QRScannerViewState())
     override val state: StateFlow<QRScannerViewState> = _state.asStateFlow()

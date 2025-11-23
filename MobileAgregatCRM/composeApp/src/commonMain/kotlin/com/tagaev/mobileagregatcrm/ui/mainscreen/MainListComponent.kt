@@ -4,7 +4,7 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
-import com.tagaev.mobileagregatcrm.data.EventsRepository
+import com.tagaev.mobileagregatcrm.data.MainRepository
 import com.tagaev.mobileagregatcrm.data.FilterState
 import com.tagaev.mobileagregatcrm.data.db.EventsCacheStore
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
@@ -51,7 +51,7 @@ class MainListComponent(
     private val api: EventsApi by inject()
     private val apiConfig: ApiConfig by inject()
     private val eventsCacheStore: EventsCacheStore by inject()
-    private val repo by lazy { EventsRepository(api, apiConfig) }
+    private val repo by lazy { MainRepository(api, apiConfig) }
 
     private val backCallback = BackCallback { /* NO HANDLE */ }
 

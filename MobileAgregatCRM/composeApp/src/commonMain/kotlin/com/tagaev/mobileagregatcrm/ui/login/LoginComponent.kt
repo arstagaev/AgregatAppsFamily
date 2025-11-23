@@ -6,7 +6,7 @@ import com.tagaev.mobileagregatcrm.data.AppSettings
 import com.tagaev.mobileagregatcrm.data.remote.ApiConfig
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import com.tagaev.mobileagregatcrm.data.EventsRepository
+import com.tagaev.mobileagregatcrm.data.MainRepository
 import com.tagaev.mobileagregatcrm.data.AppSettingsKeys
 import com.tagaev.mobileagregatcrm.data.remote.Resource
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +44,7 @@ class LoginComponent(
 
     private val settings: AppSettings by inject()
     private val apiConfig: ApiConfig by inject()
-    private val repo: EventsRepository by inject()
+    private val repo: MainRepository by inject()
     private val appScope: CoroutineScope by inject()
     private val mutex = kotlinx.coroutines.sync.Mutex()
 

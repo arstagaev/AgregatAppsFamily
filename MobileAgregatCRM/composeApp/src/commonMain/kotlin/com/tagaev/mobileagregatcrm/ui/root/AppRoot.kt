@@ -28,11 +28,18 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.unit.sp
+import com.tagaev.mobileagregatcrm.ui.events.EventsScreen
 import com.tagaev.mobileagregatcrm.ui.qrscanner.QRScannerScreen
 import com.tagaev.mobileagregatcrm.ui.work_order.WorkOrdersScreen
+import compose.icons.LineAwesomeIcons
 import compose.icons.feathericons.Camera
 import compose.icons.feathericons.CloudLightning
 import compose.icons.feathericons.Command
+import compose.icons.lineawesomeicons.CarSideSolid
+import compose.icons.lineawesomeicons.FireSolid
+import compose.icons.lineawesomeicons.QrcodeSolid
+import compose.icons.lineawesomeicons.ToolsSolid
 
 @Composable
 fun AppRoot(root: IRootComponent) {
@@ -47,6 +54,7 @@ fun AppRoot(root: IRootComponent) {
                     AppBottomNavBar(
                         activeChild = activeChild,
                         onList = { if (activeChild !is IRootComponent.Child.List) root.openList() },
+                        onEvents = { if (activeChild !is IRootComponent.Child.Events) root.openEvents() },
                         onDetails = { if (activeChild !is IRootComponent.Child.Details) root.openDetails() },
                         onWorkOrder = { if (activeChild !is IRootComponent.Child.WorkOrder) root.openWorkOrders() },
                         onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
@@ -65,6 +73,7 @@ fun AppRoot(root: IRootComponent) {
             ) { created ->
                 when (val c = created.instance) {
                     is IRootComponent.Child.List -> MainListScreen(c.component)
+                    is IRootComponent.Child.Events -> EventsScreen(c.component)
                     is IRootComponent.Child.Details -> DetailsScreen(c.component)
                     is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
                     is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
@@ -81,6 +90,7 @@ fun AppRoot(root: IRootComponent) {
 fun AppBottomNavBar(
     activeChild: IRootComponent.Child,
     onList: () -> Unit,
+    onEvents: () -> Unit,
     onDetails: () -> Unit,
     onQRScanner: () -> Unit,
     onFavorites: () -> Unit,
@@ -88,31 +98,38 @@ fun AppBottomNavBar(
     onWorkOrder: () -> Unit
 ) {
     NavigationBar(Modifier.navigationBarsPadding()) {
+//        NavigationBarItem(
+//            selected = activeChild is IRootComponent.Child.List,
+//            onClick = onList,
+//            icon = { Icon(FeatherIcons.Home, null) },
+//            label = { Text("События") }
+//        )
+
         NavigationBarItem(
-            selected = activeChild is IRootComponent.Child.List,
-            onClick = onList,
-            icon = { Icon(FeatherIcons.Home, null) },
+            selected = activeChild is IRootComponent.Child.Events,
+            onClick = onEvents,
+            icon = { Icon(LineAwesomeIcons.ToolsSolid, null) },
             label = { Text("События") }
         )
 
-        NavigationBarItem(
-            selected = activeChild is IRootComponent.Child.Details,
-            onClick = onDetails,
-            icon = { Icon(FeatherIcons.Box, null) },
-            label = { Text("Событие") }
-        )
+//        NavigationBarItem(
+//            selected = activeChild is IRootComponent.Child.Details,
+//            onClick = onDetails,
+//            icon = { Icon(FeatherIcons.Box, null) },
+//            label = { Text("Событие") }
+//        )
 
         NavigationBarItem(
             selected = activeChild is IRootComponent.Child.WorkOrder,
             onClick = onWorkOrder,
-            icon = { Icon(FeatherIcons.Command, null) },
-            label = { Text("ЗН") }
+            icon = { Icon(LineAwesomeIcons.CarSideSolid, null) },
+            label = { Text("Заказ-Наряды", fontSize = 12.sp) }
         )
 
         NavigationBarItem(
             selected = activeChild is IRootComponent.Child.QRScanner,
             onClick = onQRScanner,
-            icon = { Icon(FeatherIcons.Camera, null) },
+            icon = { Icon(LineAwesomeIcons.QrcodeSolid, null) },
             label = { Text("QR Сканер") }
         )
 
