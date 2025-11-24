@@ -33,7 +33,7 @@ kotlin {
             isStatic = false
 //            linkerOpts("-lsqlite3")
             // 👇 this is the important line
-            binaryOption("bundleId", "com.tagaev.mobileagregatcrm.shared")
+            binaryOption("bundleId", "com.tagaev.trrcrm.shared")
         }
     }
 
@@ -120,11 +120,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.tagaev.mobileagregatcrm"
+    namespace = "com.tagaev.trrcrm"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.tagaev.mobileagregatcrm"
+        applicationId = "com.tagaev.trrcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 2
@@ -151,8 +151,8 @@ android {
         // Keep a very basic release as a base (AGP expects it)
         getByName("release") {
             // can be identical to debug, or light minification – your choice
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
         }
 
         // Prod: your “real” minified build
