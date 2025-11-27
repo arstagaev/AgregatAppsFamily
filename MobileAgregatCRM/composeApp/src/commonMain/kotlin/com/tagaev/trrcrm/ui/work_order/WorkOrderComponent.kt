@@ -67,7 +67,7 @@ class WorkOrdersComponent(
     private val _refineState = MutableStateFlow(RefineState.Default)
     override val refineState: StateFlow<RefineState> = _refineState
 
-    private val _masterScreenPanel = MutableStateFlow(MasterPanel.List)
+    val _masterScreenPanel = MutableStateFlow(MasterPanel.List)
     override val masterScreenPanel: StateFlow<MasterPanel> = _masterScreenPanel
 
     private val _ncount = MutableStateFlow(0)

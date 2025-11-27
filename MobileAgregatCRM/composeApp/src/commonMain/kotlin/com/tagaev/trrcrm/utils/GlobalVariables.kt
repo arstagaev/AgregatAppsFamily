@@ -23,6 +23,8 @@ object DefaultValuesConst {
     // Выполнено Выполняется
     const val FILTER_TYPE = "list" // Выполнено Выполняется
     const val MESSAGE_MAX_CHARS = 500
+
+//    var needBack
 }
 
 object ServerAnswers {

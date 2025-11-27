@@ -155,14 +155,6 @@ fun EventCard(
 
             Spacer(Modifier.height(2.dp))
 
-            Text(
-                ev.date?.format(format) ?: "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(Modifier.height(4.dp))
-
             TextC(
                 ev.subject ?: (ev.content ?: ""),
                 style = MaterialTheme.typography.bodyLarge,
@@ -181,64 +173,55 @@ fun EventCard(
                         !ev.modifiedDate.isNullOrBlank()
 
             if (hasMeta) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 HorizontalDivider(
                     modifier = Modifier.fillMaxWidth(),
                     thickness = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
 
                 // First row: Эпик + Вид события
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    EventMetaColumn(
-                        label = "Эпик",
-                        value = ev.baseDocument,
-                        modifier = Modifier.weight(1f, fill = true)
-                    )
-                    EventMetaColumn(
-                        label = "Вид события",
-                        value = ev.eventType,
-                        modifier = Modifier.weight(1f, fill = true)
-                    )
-                }
+//                Row(
+//                    modifier = Modifier.fillMaxWidth(),
+//                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+//                ) {
+//
+//                }
 
                 // Second row: Организация + Подразделение
                 if (!ev.organization.isNullOrBlank() || !ev.companyDepartment.isNullOrBlank()) {
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(1.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         EventMetaColumn(
                             label = "Организация",
-                            value = ev.organization,
+                            value = ev.organization ?: "undefined",
                             modifier = Modifier.weight(1f, fill = true)
                         )
                         EventMetaColumn(
                             label = "Подразделение",
-                            value = ev.companyDepartment,
+                            value = ev.companyDepartment?: "undefined",
+                            modifier = Modifier.weight(1f, fill = true)
+                        )
+
+                        EventMetaColumn(
+                            label = "Эпик",
+                            value = ev.baseDocument?: "undefined",
+                            modifier = Modifier.weight(1f, fill = true)
+                        )
+                        EventMetaColumn(
+                            label = "Вид события",
+                            value = ev.eventType?: "undefined",
                             modifier = Modifier.weight(1f, fill = true)
                         )
                     }
                 }
-
-                // Third row: Контрагент
-                ev.counterparty?.takeIf { it.isNotBlank() }?.let { counterparty ->
-                    Spacer(Modifier.height(2.dp))
-                    EventMetaColumn(
-                        label = "Контрагент",
-                        value = counterparty,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // Fourth row: Автор + Изменено
-                if (!ev.author.isNullOrBlank() || !ev.modifiedDate.isNullOrBlank()) {
-                    Spacer(Modifier.height(2.dp))
+                // Fourth row: Автор
+                if (!ev.author.isNullOrBlank() && !ev.users.isNullOrEmpty()) {
+                    Spacer(Modifier.height(1.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -249,10 +232,52 @@ fun EventCard(
                             value = ev.author,
                             modifier = Modifier.weight(1f, fill = true)
                         )
+                        // Контрагент
+                        ev.counterparty?.takeIf { it.isNotBlank() }?.let { counterparty ->
+//                            Spacer(Modifier.height(1.dp))
+                            EventMetaColumn(
+                                label = "Контрагент",
+                                value = counterparty,
+                                modifier = Modifier.weight(1f, fill = true)
+                            )
+                        }
                         EventMetaColumn(
-                            label = "Изм.",
-                            value = ev.modifiedDate,
+                            label = "Количество участников",
+                            value = "${ev.users.size}",
                             modifier = Modifier.weight(1f, fill = true)
+                        )
+                    }
+                }
+            }
+
+            val createdText = ev.date?.format(format)
+            val modifiedText = ev.modifiedDate
+
+            if (!createdText.isNullOrBlank() || !modifiedText.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    createdText?.let {
+                        Text(
+                            text = "Создано: $it",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    modifiedText?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            text = "Изм.: $it",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -276,8 +301,8 @@ private fun EventMetaColumn(
         )
         TextC(
             text = value,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 2,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis
         )
     }

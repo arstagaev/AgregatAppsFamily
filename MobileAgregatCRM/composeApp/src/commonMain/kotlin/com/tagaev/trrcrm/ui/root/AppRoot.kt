@@ -47,9 +47,23 @@ fun AppRoot(root: IRootComponent) {
                     AppBottomNavBar(
                         activeChild = activeChild,
                         onList = { if (activeChild !is IRootComponent.Child.List) root.openList() },
-                        onEvents = { if (activeChild !is IRootComponent.Child.Events) root.openEvents() },
+                        onEvents = {
+                            val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
+                                false
+                            } else {
+                                true
+                            }
+                            root.openEvents(needBackToList)
+                        },
                         onDetails = { if (activeChild !is IRootComponent.Child.Details) root.openDetails() },
-                        onWorkOrder = { if (activeChild !is IRootComponent.Child.WorkOrder) root.openWorkOrders() },
+                        onWorkOrder = {
+                            val needBackToList = if (activeChild !is IRootComponent.Child.WorkOrder) {
+                                false
+                            } else {
+                                true
+                            }
+                            root.openWorkOrders(needBackToList)
+                        },
                         onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
                         onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
                         onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },

@@ -17,6 +17,7 @@ import com.tagaev.trrcrm.ui.favorites.FavoritesComponent
 import com.tagaev.trrcrm.ui.login.ILoginComponent
 import com.tagaev.trrcrm.ui.login.LoginComponent
 import com.tagaev.trrcrm.ui.mainscreen.ListComponent
+import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.qrscanner.DefaultQRScannerComponent
 import com.tagaev.trrcrm.ui.qrscanner.IQRScannerComponent
 import com.tagaev.trrcrm.ui.settings.ISettingsComponent
@@ -29,9 +30,9 @@ interface IRootComponent {
     val childStack: Value<ChildStack<Config, Child>>
 
     fun openList()
-    fun openEvents()
+    fun openEvents(needBackToList: Boolean)
     fun openDetails()
-    fun openWorkOrders()
+    fun openWorkOrders(needBackToList: Boolean)
     fun openQRScanner()
     fun openFavorites()
     fun openSettings()
@@ -39,6 +40,7 @@ interface IRootComponent {
     fun back()
 
     sealed interface Config {
+        @Deprecated("DONT USE LIST, need delete it soon")
         data object List : Config
         data object Events : Config
         data object Details : Config
@@ -50,6 +52,7 @@ interface IRootComponent {
     }
 
     sealed interface Child {
+        @Deprecated("NEED DELETE")
         data class List(val component: ListComponent) : Child
         data class Events(val component: EventsComponent) : Child
         data class Details(val component: DetailsComponent) : Child
@@ -144,14 +147,36 @@ class DefaultRootComponent(
             is IRootComponent.Config.Login ->
                 IRootComponent.Child.Login(LoginComponent(
                     componentContext = ctx,
-                    onLoginSuccess = { openEvents() },
+                    onLoginSuccess = { openEvents(false) },
                 ) { nav.pop() })
         }
-
-    override fun openList() = nav.bringToFront(IRootComponent.Config.List)
-    override fun openEvents() = nav.bringToFront(IRootComponent.Config.Events)
+    @Deprecated("MIGRATE NEED")
+    override fun openList() {
+        nav.bringToFront(IRootComponent.Config.Events)
+    }
+    override fun openEvents(needBackToList: Boolean) {
+//        println(">>>>> openEvents $needBackToList")
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.Events }
+                ?.instance as? IRootComponent.Child.Events
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.Events)
+        }
+    }
     override fun openDetails() = nav.bringToFront(IRootComponent.Config.Details)
-    override fun openWorkOrders() = nav.bringToFront(IRootComponent.Config.WorkOrder)
+
+    override fun openWorkOrders(needBackToList: Boolean){
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.WorkOrder }
+                ?.instance as? IRootComponent.Child.WorkOrder
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.WorkOrder)
+        }
+    }
     override fun openQRScanner() = nav.bringToFront(IRootComponent.Config.QRScanner)
 
     override fun openFavorites() = nav.bringToFront(IRootComponent.Config.Favorites)
