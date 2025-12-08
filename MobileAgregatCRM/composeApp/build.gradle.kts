@@ -15,6 +15,7 @@ plugins {
     kotlin("plugin.serialization") version "2.2.0"
     id("app.cash.sqldelight") version "2.1.0"
     id("com.codingfeline.buildkonfig")
+    id("com.google.gms.google-services")
 }
 
 kotlin {
@@ -51,6 +52,15 @@ kotlin {
 
             // Koin for Android
             implementation("io.insert-koin:koin-android:4.1.0")
+
+            //Analytics
+            // Import the Firebase BoM
+            // Firebase BoM – pin all Firebase libs to a consistent version
+            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:33.5.1"))
+
+            // Analytics (Kotlin devs now use the main artifact, not -ktx)
+            implementation("com.google.firebase:firebase-analytics")
+
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -97,11 +107,19 @@ kotlin {
             implementation(libs.okio)
 
             implementation("org.slf4j:slf4j-nop:1.7.36")   // if slf4j-api is 1.7.x
-
+            //qr
+            implementation("io.github.ismai117:KScan:0.4.0")
 //            implementation("network.chaintech:qr-kit:3.1.3")
 //            implementation("io.github.kalinjul.easyqrscan:scanner:0.5.0")
 
             implementation("io.github.g00fy2.quickie:quickie-bundled:1.11.0")
+
+            // image
+            // Compose Multiplatform image loading
+            implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+
+            // Network support via Ktor (multiplatform)
+            implementation("io.coil-kt.coil3:coil-network-ktor3:3.3.0")
         }
         iosMain.dependencies {
             implementation("app.cash.sqldelight:native-driver:2.1.0")
@@ -127,7 +145,7 @@ android {
         applicationId = "com.tagaev.trrcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 3
+        versionCode = 5
         versionName = version//"1.4.5"
     }
     packaging {

@@ -8,6 +8,7 @@ interface ApiOption {
     val wire: String    // что отправляем в API
 }
 
+// OrderBy Dir Status SearchQueryType Filter
 sealed interface Refiner : ApiOption {
     enum class OrderBy(
         override val label: String,

@@ -11,6 +11,7 @@ import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
+import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
@@ -244,7 +245,7 @@ class WorkOrdersComponent(
     // ---------- Work Orders refine state ----------
 
     fun loadRefineState(): RefineState {
-        val raw = appSettings.getStringOrNull(AppSettingsKeys.WORK_ORDERS_REFINE_STATE)
+        val raw = appSettings.getStringOrNull(AppSettingsKeys.CARGO_REFINE_STATE)
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
             return RefineState()
@@ -260,6 +261,6 @@ class WorkOrdersComponent(
 
     fun saveRefineState(state: RefineState) {
         val encoded = json.encodeToString(state)
-        appSettings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE, encoded)
+        appSettings.setString(AppSettingsKeys.CARGO_REFINE_STATE, encoded)
     }
 }

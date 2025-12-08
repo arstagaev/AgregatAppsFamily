@@ -26,10 +26,14 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.unit.sp
+import com.tagaev.trrcrm.ui.cargo.CargoScreen
 import com.tagaev.trrcrm.ui.events.EventsScreen
+import com.tagaev.trrcrm.ui.menu.MenuScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
 import compose.icons.LineAwesomeIcons
+import compose.icons.feathericons.Grid
+import compose.icons.feathericons.Menu
 import compose.icons.lineawesomeicons.CarSideSolid
 import compose.icons.lineawesomeicons.QrcodeSolid
 import compose.icons.lineawesomeicons.ToolsSolid
@@ -46,7 +50,6 @@ fun AppRoot(root: IRootComponent) {
                 AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
                     AppBottomNavBar(
                         activeChild = activeChild,
-                        onList = { if (activeChild !is IRootComponent.Child.List) root.openList() },
                         onEvents = {
                             val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
                                 false
@@ -66,6 +69,7 @@ fun AppRoot(root: IRootComponent) {
                         },
                         onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
                         onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
+                        onMenu = { if (activeChild !is IRootComponent.Child.Menu) root.openMenu() },
                         onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
                     )
                 }
@@ -79,12 +83,13 @@ fun AppRoot(root: IRootComponent) {
                     .consumeWindowInsets(padding)
             ) { created ->
                 when (val c = created.instance) {
-                    is IRootComponent.Child.List -> MainListScreen(c.component)
                     is IRootComponent.Child.Events -> EventsScreen(c.component,)
                     is IRootComponent.Child.Details -> DetailsScreen(c.component)
                     is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
+                    is IRootComponent.Child.Cargo -> CargoScreen(c.component)
                     is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
                     is IRootComponent.Child.Settings -> SettingsScreen(c.component)
+                    is IRootComponent.Child.Menu -> MenuScreen(c.component)
                     is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
                     is IRootComponent.Child.Login -> LoginScreen(c.component)
                 }
@@ -96,10 +101,10 @@ fun AppRoot(root: IRootComponent) {
 @Composable
 fun AppBottomNavBar(
     activeChild: IRootComponent.Child,
-    onList: () -> Unit,
     onEvents: () -> Unit,
     onDetails: () -> Unit,
     onQRScanner: () -> Unit,
+    onMenu: () -> Unit,
     onFavorites: () -> Unit,
     onSettings: () -> Unit,
     onWorkOrder: () -> Unit
@@ -140,6 +145,13 @@ fun AppBottomNavBar(
             label = { Text("QR Сканер") }
         )
 
+        NavigationBarItem(
+            selected = activeChild is IRootComponent.Child.Menu,
+            onClick = onMenu,
+            icon = { Icon(FeatherIcons.Grid, null) },
+            label = { Text("Меню") }
+        )
+
 //        NavigationBarItem(
 //            selected = activeChild is IRootComponent.Child.Favorites,
 //            onClick = onFavorites,
@@ -147,11 +159,11 @@ fun AppBottomNavBar(
 //            label = { Text("Избранное") }
 //        )
 
-        NavigationBarItem(
-            selected = activeChild is IRootComponent.Child.Settings,
-            onClick = onSettings,
-            icon = { Icon(FeatherIcons.Settings, null) },
-            label = { Text("Настройки") }
-        )
+//        NavigationBarItem(
+//            selected = activeChild is IRootComponent.Child.Settings,
+//            onClick = onSettings,
+//            icon = { Icon(FeatherIcons.Settings, null) },
+//            label = { Text("Настройки") }
+//        )
     }
 }

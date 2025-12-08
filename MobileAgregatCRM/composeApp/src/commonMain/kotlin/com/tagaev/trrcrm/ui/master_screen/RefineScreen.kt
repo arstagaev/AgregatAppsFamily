@@ -5,13 +5,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.RefineState
-import com.tagaev.trrcrm.feature.OptionChipsRow
+import com.tagaev.trrcrm.domain.OptionChipsRow
 import compose.icons.LineAwesomeIcons
 import compose.icons.lineawesomeicons.UndoSolid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
+import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
+import com.tagaev.trrcrm.ui.style.NeumoColors.RainbowRedFg
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.AlertTriangle
 
 enum class RefineSection {
     STATUS,
@@ -33,6 +40,7 @@ fun RefineScreen(
     current: RefineState,
     onBack: () -> Unit,
     onApply: (RefineState) -> Unit,
+    messageForUser: String? = null,
     sections: Set<RefineSection> = RefineSection.values().toSet()
 ) {
     var selOrderBy by remember { mutableStateOf(current.orderBy) }
@@ -70,101 +78,129 @@ fun RefineScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-
-            if (RefineSection.STATUS in sections) {
-                // Статус
-                Text("Статус", style = MaterialTheme.typography.titleSmall)
-                OptionChipsRow(
-                    options = Refiner.Status.values().toList(),
-                    selected = setStatus,
-                    onSelect = { setStatus = it },
-                    labelFor = { it.label }
-                )
-            }
-
-            if (RefineSection.FILTER_VAL in sections) {
-                // Фильтр
-                Text("Фильтр по подразделению", style = MaterialTheme.typography.titleSmall)
-                OptionChipsRow(
-                    options = Refiner.Filter.values().toList(),
-                    selected = setFilter,
-                    onSelect = { setFilter = it },
-                    labelFor = { it.label }
-                )
-            }
-
-            if (RefineSection.ORDER in sections) {
-                // Поле сортировки
-                Text("Сортировать по", style = MaterialTheme.typography.titleSmall)
-                OptionChipsRow(
-                    options = Refiner.OrderBy.values().toList(),
-                    selected = selOrderBy,
-                    onSelect = { selOrderBy = it },
-                    labelFor = { it.label }
-                )
-            }
-
-            if (RefineSection.DIRECTION in sections) {
-                // Направление
-                Text("Направление", style = MaterialTheme.typography.titleSmall)
-                OptionChipsRow(
-                    options = Refiner.Dir.values().toList(),
-                    selected = selOrderDir,
-                    onSelect = { selOrderDir = it },
-                    labelFor = { it.label }
-                )
-            }
-
-            if (RefineSection.SEARCH in sections) {
-                // Поиск
-                Text("Поиск", style = MaterialTheme.typography.titleSmall)
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Поиск по ключевым словам") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
-                OptionChipsRow(
-                    options = Refiner.SearchQueryType.values().toList(),
-                    selected = searchQueryType,
-                    onSelect = { searchQueryType = it },
-                    labelFor = { it.label }
-                )
-            }
-
-
-
-            ///////////////
-            // .  SETTING REFINERS!!
-            //////////////
-            Spacer(Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    onApply(
-                        current.copy(
-                            orderBy = selOrderBy,
-                            orderDir = selOrderDir,
-                            status = setStatus,
-                            filter = setFilter,
-                            searchQueryType = searchQueryType,
-                            searchQuery = searchQuery
-                        )
-                    )
-                },
-                modifier = Modifier.fillMaxWidth()
+        ScreenWithDismissableKeyboard {
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Применить")
+                if (messageForUser != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = RainbowRedFg,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(FeatherIcons.AlertTriangle, contentDescription = "Alert")
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = messageForUser,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                if (RefineSection.STATUS in sections) {
+                    // Статус
+                    Text("Статус", style = MaterialTheme.typography.titleSmall)
+                    OptionChipsRow(
+                        options = Refiner.Status.values().toList(),
+                        selected = setStatus,
+                        onSelect = { setStatus = it },
+                        labelFor = { it.label }
+                    )
+                }
+
+                if (RefineSection.FILTER_VAL in sections) {
+                    // Фильтр
+                    Text("Фильтр по подразделению", style = MaterialTheme.typography.titleSmall)
+                    OptionChipsRow(
+                        options = Refiner.Filter.values().toList(),
+                        selected = setFilter,
+                        onSelect = { setFilter = it },
+                        labelFor = { it.label }
+                    )
+                }
+
+                if (RefineSection.ORDER in sections) {
+                    // Поле сортировки
+                    Text("Сортировать по", style = MaterialTheme.typography.titleSmall)
+                    OptionChipsRow(
+                        options = Refiner.OrderBy.values().toList(),
+                        selected = selOrderBy,
+                        onSelect = { selOrderBy = it },
+                        labelFor = { it.label }
+                    )
+                }
+
+                if (RefineSection.DIRECTION in sections) {
+                    // Направление
+                    Text("Направление", style = MaterialTheme.typography.titleSmall)
+                    OptionChipsRow(
+                        options = Refiner.Dir.values().toList(),
+                        selected = selOrderDir,
+                        onSelect = { selOrderDir = it },
+                        labelFor = { it.label }
+                    )
+                }
+
+                if (RefineSection.SEARCH in sections) {
+                    // Поиск
+                    Text("Поиск", style = MaterialTheme.typography.titleSmall)
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        label = { Text("Поиск по ключевым словам") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    OptionChipsRow(
+                        options = Refiner.SearchQueryType.values().toList(),
+                        selected = searchQueryType,
+                        onSelect = { searchQueryType = it },
+                        labelFor = { it.label }
+                    )
+                }
+
+
+
+                ///////////////
+                // .  SETTING REFINERS!!
+                //////////////
+                Spacer(Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        onApply(
+                            current.copy(
+                                orderBy = selOrderBy,
+                                orderDir = selOrderDir,
+                                status = setStatus,
+                                filter = setFilter,
+                                searchQueryType = searchQueryType,
+                                searchQuery = searchQuery
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Применить")
+                }
             }
         }
+
     }
 }

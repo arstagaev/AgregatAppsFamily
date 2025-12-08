@@ -68,3 +68,109 @@ fun elegantDarkColors(): ColorScheme = darkColorScheme(
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6)
 )
+
+/**
+ * Dark / black neumorphism-oriented palette.
+ * Elegant, low-saturation accents + soft contrast.
+ */
+object NeumoColors {
+
+    // === BASE / BACKGROUND ===
+
+    // App background (behind everything)
+    val Background = Color(0xFF050509)      // almost-black, slightly bluish
+
+    // Surfaces (cards, panels, sheets)
+    val SurfaceLowest = Color(0xFF06070B)   // for very flat areas
+    val SurfaceLow    = Color(0xFF080A10)   // default background for cards
+    val Surface       = Color(0xFF0C0F17)   // slightly raised
+    val SurfaceHigh   = Color(0xFF111521)   // more contrast / top bars
+
+    // Borders for outlines / dividers
+    val BorderSubtle  = Color(0xFF171C28)
+    val BorderStrong  = Color(0xFF222837)
+
+    // === TEXT ===
+
+    val TextPrimary   = Color(0xFFE8ECF8)   // main text
+    val TextSecondary = Color(0xFFB0B6C6)   // secondary labels
+    val TextMuted     = Color(0xFF70788A)   // hints, disabled, helper
+
+    // === NEUMORPHIC LIGHT / SHADOW (for inner/outer shadows) ===
+
+    // Light highlight for top-left edges
+    val NeumoHighlight = Color(0x26FFFFFF) // ~15% white
+
+    // Dark shadow for bottom-right edges
+    val NeumoShadow    = Color(0x80000000) // 50% black
+
+    // You can use these in shadow/elevation implementations.
+
+    // === ACCENT COLORS (for primary actions, focus, sliders, etc.) ===
+
+    // Main accent (buttons, primary chips)
+    val AccentPrimary   = Color(0xFF4C8DFF) // deep muted blue
+
+    // Secondary accent (toggles, links)
+    val AccentSecondary = Color(0xFF7B5CFF) // violet / indigo
+
+    // Tertiary accent (small highlights, indicators)
+    val AccentTertiary  = Color(0xFFFF9E64) // warm amber/orange
+
+    // For special UI bits (charts, tags)
+    val AccentTeal      = Color(0xFF36C5B3)
+    val AccentPink      = Color(0xFFFF6FA3)
+
+    // === STATUS / BADGE COLORS ===
+
+    // Success / Done
+    val StatusSuccessBg = Color(0xFF1F8F5C)
+    val StatusSuccessFg = Color(0xFFE3F7ED)
+
+    // Warning / In progress / Risk
+    val StatusWarningBg = Color(0xFFB97A1F)
+    val StatusWarningFg = Color(0xFFFFF4DD)
+
+    // Error / Problem
+    val StatusErrorBg   = Color(0xFFB63A3A)
+    val StatusErrorFg   = Color(0xFFFDECEC)
+
+    // Info / Neutral
+    val StatusInfoBg    = Color(0xFF27628F)
+    val StatusInfoFg    = Color(0xFFE3F1FD)
+
+    // Muted / Low importance / On hold
+    val StatusMutedBg   = Color(0xFF262B38)
+    val StatusMutedFg   = Color(0xFFB0B6C6)
+
+
+    /// RAINBOW
+
+    // Red – deep crimson
+    val RainbowRedBg = Color(0xFFB4363C)
+    val RainbowRedFg = Color(0xFFFF8D95)
+
+    // Orange – warm but not neon
+    val RainbowOrangeBg = Color(0xFFCB7A2A)
+    val RainbowOrangeFg = Color(0xFFFFF3E1)
+
+    // Yellow – golden / amber, softened
+    val RainbowYellowBg = Color(0xFFD2A52A)
+    val RainbowYellowFg = Color(0xFFFFF7D9)
+
+    // Green – emerald / teal-ish, not acidic
+    val RainbowGreenBg = Color(0xFF2C9B61)
+    val RainbowGreenFg = Color(0xFFE3F7EE)
+
+    // Blue – rich, slightly desaturated
+    val RainbowBlueBg = Color(0xFF3472C9)
+    val RainbowBlueFg = Color(0xFFE3F0FF)
+
+    // Indigo – deep blue-violet
+    val RainbowIndigoBg = Color(0xFF4642C5)
+    val RainbowIndigoFg = Color(0xFFE7E5FF)
+
+    // Violet – softer magenta-violet accent
+    val RainbowVioletBg = Color(0xFF9C4CCB)
+    val RainbowVioletFg = Color(0xFFF7E6FF)
+}

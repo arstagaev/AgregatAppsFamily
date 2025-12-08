@@ -36,13 +36,14 @@ import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.FilterState
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.utils.DefaultValuesConst
-import com.tagaev.trrcrm.feature.OrderDialog
-import com.tagaev.trrcrm.feature.toFilterByOption
-import com.tagaev.trrcrm.feature.toOrderByOption
-import com.tagaev.trrcrm.feature.toOrderDirOption
+import com.tagaev.trrcrm.domain.OrderDialog
+import com.tagaev.trrcrm.domain.toFilterByOption
+import com.tagaev.trrcrm.domain.toOrderByOption
+import com.tagaev.trrcrm.domain.toOrderDirOption
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.utils.TARGET_EVENT
+import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
 
@@ -317,7 +318,7 @@ fun MainListScreen(component: ListComponent) {
                     isLoading = true
                     error = null
                     scope.launch {
-                        val gate = launch { kotlinx.coroutines.delay(1000) }
+                        val gate = launch { delay(1000) }
                         try {
                             component.setFiltersAndRefresh(filters.sanitize())
                         } catch (t: Throwable) {

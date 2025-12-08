@@ -22,6 +22,14 @@ object AppSettingsKeys {
     const val FILTER_TYPE = "FILTER_TYPE"
     const val DEPARTMENT = "DEPARTMENT"
 
+    // OrderBy Dir Status SearchQueryType Filter
+//    const val CARGO_ORDER_BY = "CARGO_ORDER_BY"
+//    const val CARGO_DIR = "CARGO_DIR"
+//    const val CARGO_STATUS = "CARGO_STATUS"
+//    const val CARGO_SEARCH_QUERY_TYPE = "CARGO_SEARCH_QUERY_TYPE"
+//    const val CARGO_FILTER = "CARGO_FILTER"
+
+
     const val FILTER_STATE_WO = "FILTER_STATE_WO"
 
     // Details screen
@@ -41,6 +49,7 @@ object AppSettingsKeys {
 
     const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
     const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
+    const val CARGO_REFINE_STATE = "CARGO_REFINE_STATE"
 }
 
 //object PrefDef {

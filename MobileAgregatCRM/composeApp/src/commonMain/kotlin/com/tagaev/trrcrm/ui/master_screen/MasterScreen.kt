@@ -1,10 +1,13 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
@@ -70,7 +74,13 @@ fun <T, F> MasterScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    Row(Modifier.clickable {
+                        onPanelChange(MasterPanel.List)
+                    }) {
+                        Text(text = title, modifier = Modifier.padding(horizontal = 10.dp))
+                    }
+                },
                 actions = {
                     if (panel == MasterPanel.List) {
 //                    if (true) {
@@ -198,9 +208,11 @@ fun <T, F> MasterScreen(
                         .firstOrNull { itemId(it) == selectedItemId }
 
                     if (current != null) {
-                        detailsContent(current) {
-                            onSelectedItemChange(null)
-                            onPanelChange(MasterPanel.List)
+                        ScreenWithDismissableKeyboard {
+                            detailsContent(current) {
+                                onSelectedItemChange(null)
+                                onPanelChange(MasterPanel.List)
+                            }
                         }
                     } else {
                         // Fallback if details panel opened without item

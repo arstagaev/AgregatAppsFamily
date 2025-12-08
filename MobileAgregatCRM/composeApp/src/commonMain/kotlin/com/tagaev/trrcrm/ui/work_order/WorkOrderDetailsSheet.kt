@@ -389,7 +389,7 @@ fun WorkOrderDetailsSheet(
 fun LimitedOutlinedTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    maxChars: Int,
+    maxChars: Int = 500,
     modifier: Modifier = Modifier,
     placeholder: String = ""
 ) {

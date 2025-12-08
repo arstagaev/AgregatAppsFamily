@@ -48,7 +48,8 @@ import com.tagaev.trrcrm.utils.SPACE_RX
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
 import com.tagaev.trrcrm.utils.roleRank
 import kotlinx.datetime.format
-import org.agregatcrm.models.isResponsible
+import com.tagaev.trrcrm.models.isResponsible
+import com.tagaev.trrcrm.ui.custom.TextC
 import org.koin.compose.koinInject
 
 @Composable
@@ -294,7 +295,7 @@ private fun TaskItem(t: TaskDto) {
 @Composable
 private fun ProductItem(t: ProductsItem) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        TextC(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
             t.quantity?.takeIf { it.isNotBlank() }?.let { add("$it ${t.unit ?: ""}") }

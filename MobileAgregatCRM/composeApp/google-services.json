@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "537971565102",
+    "project_id": "trr-crm",
+    "storage_bucket": "trr-crm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:537971565102:android:847d0b1b2faca62bc675bf",
+        "android_client_info": {
+          "package_name": "com.tagaev.trrcrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAeMXBcV1A0LjTbeyP9yZSNCPb9uIX9Plg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

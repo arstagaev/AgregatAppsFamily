@@ -56,7 +56,7 @@ import com.tagaev.trrcrm.utils.SPACE_RX
 import com.tagaev.trrcrm.utils.TARGET_EVENT
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
 import com.tagaev.trrcrm.utils.roleRank
-import org.agregatcrm.models.isResponsible
+import com.tagaev.trrcrm.models.isResponsible
 
 @Composable
 fun DetailsScreen(

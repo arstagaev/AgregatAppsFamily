@@ -41,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import com.tagaev.secrets.Secrets
+import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import mobileagregatcrm.composeapp.generated.resources.car1
 import mobileagregatcrm.composeapp.generated.resources.car2
 import mobileagregatcrm.composeapp.generated.resources.car3
@@ -87,7 +88,7 @@ fun LoginScreen(component: ILoginComponent) {
     var showErrorDialog by rememberSaveable { mutableStateOf(true) }
     var currentError by remember { mutableStateOf("") }
 
-    var keepSplash by rememberSaveable { mutableStateOf(false) }
+    var keepSplash by rememberSaveable { mutableStateOf(true) }
 
     // Keep the loading splash on screen a bit longer when leaving Login,
     // so the forms never flash during navigation to MainList.
@@ -181,141 +182,144 @@ fun LoginScreen(component: ILoginComponent) {
     val showSplash = keepSplash || (uiState is LoginUiState.Loading)
 
     if (!showSplash) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            // Fullscreen background image
-            Image(
-                painter = painterResource(Res.drawable.carv),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Optional dark scrim to keep text readable
+        ScreenWithDismissableKeyboard {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.25f),
-                                Color.Black.copy(alpha = 0.99f)
-                            )
-                        )
-                    )
-            )
-
-            // Foreground content (forms, version, etc.)
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Spacer(Modifier.height(16.dp))
+                // Fullscreen background image
+                Image(
+                    painter = painterResource(Res.drawable.carv),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
 
-                Spacer(Modifier.height(24.dp))
-
-                Spacer(Modifier.height(20.dp))
-                Column(Modifier.padding(horizontal = 24.dp)) {
-                    when (mode) {
-                        Mode.Credentials -> {
-                            OutlinedTextField(
-                                value = user,
-                                onValueChange = { user = it },
-                                label = { Text("Логин") },
-                                singleLine = true,
-                                colors = tfColors,
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardOptions = KeyboardOptions(
-                                    imeAction = ImeAction.Next,
-                                    keyboardType = KeyboardType.Email
+                // Optional dark scrim to keep text readable
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.25f),
+                                    Color.Black.copy(alpha = 0.99f)
                                 )
                             )
-                            Spacer(Modifier.height(12.dp))
-                            var passVisible by rememberSaveable { mutableStateOf(false) }
-                            OutlinedTextField(
-                                value = pass,
-                                onValueChange = { pass = it },
-                                label = { Text("Пароль") },
-                                singleLine = true,
-                                colors = tfColors,
-                                modifier = Modifier.fillMaxWidth(),
-                                visualTransformation = if (passVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                trailingIcon = {
-                                    val label = if (passVisible) "Скрыть" else "Показать"
-                                    TextButton(onClick = { passVisible = !passVisible }) { Text(label) }
-                                },
-                                keyboardOptions = KeyboardOptions(
-                                    imeAction = ImeAction.Done,
-                                    keyboardType = KeyboardType.Password
-                                ),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    if (canLogin) component.onLoginWithCredentials(user.trim(), pass)
-                                })
-                            )
-                        }
-                        Mode.Token -> {
-                            OutlinedTextField(
-                                value = token,
-                                onValueChange = { value ->
-                                    token = value
-                                    appSettings.setString("API_TOKEN", token)
-                                },
-                                label = { Text("API Token") },
-                                placeholder = { Text("Paste your token here") },
-                                singleLine = true,
-                                colors = tfColors,
-                                modifier = Modifier.fillMaxWidth(),
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    if (canLogin) component.onLoginWithToken(token.trim())
-                                })
-                            )
-                        }
-                    }
+                        )
+                )
+
+                // Foreground content (forms, version, etc.)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Spacer(Modifier.height(16.dp))
+
+                    Spacer(Modifier.height(24.dp))
 
                     Spacer(Modifier.height(20.dp))
-
-                    Button(
-                        onClick = {
-                            when (mode) {
-                                Mode.Credentials -> component.onLoginWithCredentials(user.trim(), pass.trim())
-                                Mode.Token -> component.onLoginWithToken(token.trim())
+                    Column(Modifier.padding(horizontal = 24.dp)) {
+                        when (mode) {
+                            Mode.Credentials -> {
+                                OutlinedTextField(
+                                    value = user,
+                                    onValueChange = { user = it },
+                                    label = { Text("Логин") },
+                                    singleLine = true,
+                                    colors = tfColors,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    keyboardOptions = KeyboardOptions(
+                                        imeAction = ImeAction.Next,
+                                        keyboardType = KeyboardType.Email
+                                    )
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                var passVisible by rememberSaveable { mutableStateOf(false) }
+                                OutlinedTextField(
+                                    value = pass,
+                                    onValueChange = { pass = it },
+                                    label = { Text("Пароль") },
+                                    singleLine = true,
+                                    colors = tfColors,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    visualTransformation = if (passVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    trailingIcon = {
+                                        val label = if (passVisible) "Скрыть" else "Показать"
+                                        TextButton(onClick = { passVisible = !passVisible }) { Text(label) }
+                                    },
+                                    keyboardOptions = KeyboardOptions(
+                                        imeAction = ImeAction.Done,
+                                        keyboardType = KeyboardType.Password
+                                    ),
+                                    keyboardActions = KeyboardActions(onDone = {
+                                        if (canLogin) component.onLoginWithCredentials(user.trim(), pass)
+                                    })
+                                )
                             }
-                        },
-                        enabled = canLogin && uiState !is LoginUiState.Loading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                    ) {
-                        Text("Войти", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+
+                            Mode.Token -> {
+                                OutlinedTextField(
+                                    value = token,
+                                    onValueChange = { value ->
+                                        token = value
+                                        appSettings.setString("API_TOKEN", token)
+                                    },
+                                    label = { Text("API Token") },
+                                    placeholder = { Text("Paste your token here") },
+                                    singleLine = true,
+                                    colors = tfColors,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                    keyboardActions = KeyboardActions(onDone = {
+                                        if (canLogin) component.onLoginWithToken(token.trim())
+                                    })
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(20.dp))
+
+                        Button(
+                            onClick = {
+                                when (mode) {
+                                    Mode.Credentials -> component.onLoginWithCredentials(user.trim(), pass.trim())
+                                    Mode.Token -> component.onLoginWithToken(token.trim())
+                                }
+                            },
+                            enabled = canLogin && uiState !is LoginUiState.Loading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Text("Войти", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    Column(Modifier.padding(horizontal = 24.dp)) {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            text = "Версия: ${Secrets.VERSION}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
-                Column(Modifier.padding(horizontal = 24.dp)) {
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                        text = "Версия: ${Secrets.VERSION}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (showErrorDialog && uiState is LoginUiState.Error) {
+                    AlertDialog(
+                        onDismissRequest = { showErrorDialog = false },
+                        confirmButton = {
+                            TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
+                        },
+                        title = { Text("Ошибка входа") },
+                        text = { Text(currentError) }
                     )
                 }
-            }
-
-            if (showErrorDialog && uiState is LoginUiState.Error) {
-                AlertDialog(
-                    onDismissRequest = { showErrorDialog = false },
-                    confirmButton = {
-                        TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
-                    },
-                    title = { Text("Ошибка входа") },
-                    text = { Text(currentError) }
-                )
             }
         }
     }

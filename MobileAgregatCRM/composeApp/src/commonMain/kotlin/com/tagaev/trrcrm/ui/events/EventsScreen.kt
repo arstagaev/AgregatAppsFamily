@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.mainscreen.StatusBadge
 import com.tagaev.trrcrm.ui.mainscreen.format

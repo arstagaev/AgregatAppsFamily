@@ -4,8 +4,9 @@ import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.RefineState
-import com.tagaev.trrcrm.feature.DocumentTypes
-import com.tagaev.trrcrm.feature.FilterByOption
+import com.tagaev.trrcrm.domain.DocumentTypes
+import com.tagaev.trrcrm.domain.FilterByOption
+import com.tagaev.trrcrm.models.CargoDto
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.*
@@ -22,7 +23,7 @@ import com.tagaev.trrcrm.models.GetTokenResponse
 import com.tagaev.trrcrm.models.SentMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import io.ktor.client.plugins.expectSuccess
-import org.agregatcrm.models.cleanJsonStart
+import com.tagaev.trrcrm.models.cleanJsonStart
 
 // https://api.aaaaaaaaa.ru/app/getdata.php?token=111111111&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
 // https://api.agregatka.ru/app/getdata.php?token=234234234&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
@@ -61,8 +62,6 @@ class EventsApi(
                     parameters.append("orderby", currentRefine.orderBy.wire)
                     parameters.append("orderdir", currentRefine.orderDir.wire)
                 }
-
-
 
                 if (currentRefine.status == Refiner.Status.ACTIVE) {
                     println("FilterByOption 1")
@@ -277,6 +276,55 @@ class EventsApi(
 
         val raw = response.bodyAsText().cleanJsonStart()
         return json.decodeFromString<List<WorkOrderDto>>(raw)
+    }
+
+    suspend fun getCargos(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<CargoDto>> = resourceify {
+        val url = apiConfig.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+
+                parameters.append("type", "Документ")
+                parameters.append("name", "Груз")
+
+                parameters.append("count", "30")
+                parameters.append("ncount", "$ncount")
+
+                if (currentRefine.orderBy != Refiner.OrderBy.OFF) {
+                    parameters.append("orderby", currentRefine.orderBy.wire)
+                    parameters.append("orderdir", currentRefine.orderDir.wire)
+                }
+
+                if (currentRefine.status == Refiner.Status.ACTIVE) {
+                    println("FilterByOption 1")
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (currentRefine.status == Refiner.Status.DONE) {
+                    println("FilterByOption 2")
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                } else {
+                    println("FilterByOption 3")
+                }
+
+
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    parameters.append("filterby", currentRefine.searchQueryType.wire)
+                    parameters.append("filterval", currentRefine.searchQuery)
+//                    parameters.append("filtertype", "list")
+                }
+
+
+                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<CargoDto>>(json, raw)
     }
 
     suspend fun getRole(apiConfig: ApiConfig): Resource<GetRolesResponse> = resourceify {
