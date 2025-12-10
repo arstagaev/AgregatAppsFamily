@@ -45,6 +45,7 @@ sealed class Resource<out R> {
 class EventsApi(
     private val client: HttpClient
 ) {
+    //
     //https://agrapp.agregatka.ru/?token=92139A5BFBBF4D644BA0E49BC0D35E842EE78F188DE445BF1C01F5BBE069B389&&task=getitemslist&type=Документ&name=Событие&count=50&ncount=0&orderby=Дата&orderdir=desc&filterby=Тема&filterval=Настройка&filtertype=value
     suspend fun getEvents(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<EventItemDto>> = resourceify {
         val url = apiConfig.baseUrl

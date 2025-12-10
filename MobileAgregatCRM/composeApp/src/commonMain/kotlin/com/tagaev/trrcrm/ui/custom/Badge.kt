@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.tagaev.trrcrm.ui.style.DefaultColors
 
 data class StatusStyle(
     val background: Color,
@@ -29,8 +30,8 @@ fun StatusBadge(
     styles: Map<String, StatusStyle> = mapOf(),
     modifier: Modifier = Modifier,
     defaultStyle: StatusStyle = StatusStyle(
-        background = MaterialTheme.colorScheme.secondaryContainer,
-        foreground = MaterialTheme.colorScheme.onSecondaryContainer
+        background = DefaultColors.StatusInfoFg,
+        foreground = DefaultColors.StatusInfoBg
     ),
     ignoreCase: Boolean = true
 ) {

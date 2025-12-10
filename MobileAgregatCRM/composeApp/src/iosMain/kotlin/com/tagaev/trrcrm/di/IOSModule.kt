@@ -19,5 +19,10 @@ val iosModule = module {
         NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults())
     }
 }
+private var koinStarted = false
+fun initKoinIos() {
+    if (koinStarted) return
+    koinStarted = true
 
-fun initKoinIos(): KoinApplication = startKoin { modules(commonModule, iosModule) }
+    startKoin { modules(commonModule, iosModule) }
+}

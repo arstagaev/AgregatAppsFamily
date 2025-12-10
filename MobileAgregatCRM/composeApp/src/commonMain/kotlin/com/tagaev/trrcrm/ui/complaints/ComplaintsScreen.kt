@@ -86,7 +86,16 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 topRightPrimary = {
                     val status = complaint.state
                     if (!status.isNullOrBlank()) {
-                        StatusBadge(state = status)
+                        StatusBadge(
+                            state = status,
+                            styles = mapOf(
+                                "Выполнен"       to StatusStyle(DefaultColors.RainbowGreenBg,   DefaultColors.RainbowGreenFg),
+                                "Закрыт"         to StatusStyle(DefaultColors.StatusMutedBg,   DefaultColors.StatusMutedFg),
+                                "Запланировано"  to StatusStyle(DefaultColors.RainbowIndigoBg, DefaultColors.RainbowIndigoFg),
+                                "Выполняется"    to StatusStyle(DefaultColors.RainbowBlueFg,   DefaultColors.RainbowBlueBg),
+                                "Начать работу"  to StatusStyle(DefaultColors.RainbowVioletBg, DefaultColors.RainbowVioletFg)
+                            )
+                        )
                     }
                 },
                 topRightSecondary = {

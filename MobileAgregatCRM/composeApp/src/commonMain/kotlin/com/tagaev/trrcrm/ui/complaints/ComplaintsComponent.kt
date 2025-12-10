@@ -10,6 +10,8 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.ComplaintDto
+import com.tagaev.trrcrm.models.ComplaintMessageDto
+import com.tagaev.trrcrm.models.MessageDto
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.work_order.IListMaster
@@ -189,7 +191,17 @@ class ComplaintsComponent(
         orderGuid: String?,
         message: MessageModel
     ) {
+        updateOrderLocally(orderGuid) { currentOrder ->
+            val newMessage = ComplaintMessageDto(
+                author = message.author,
+                comment = message.text,
+                workDate = message.date
+            )
 
+            val updatedMessages = currentOrder.messages.orEmpty() + newMessage
+
+            currentOrder.copy(messages = updatedMessages)
+        }
     }
     /**
      * Applies a local update to a single WorkOrder in the in-memory cache,

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,9 +14,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.domain.messages.findDraftForGuid
@@ -63,9 +69,10 @@ fun <T> DetailsWithMessagesSheet(
         }
         mutableStateOf(base.orEmpty())
     }
-    var isSendingMessage: Boolean = false
+    var isSendingMessage by remember { mutableStateOf(false) }
     var error = remember { mutableStateOf(lastSendError) }
-    var internalMessages = messages.toMutableStateList()
+    val internalMessages = remember(messages) { messages.toMutableStateList() }
+    var showAllMessages by remember(messages) { mutableStateOf(false) }
 
     // When server messages contain our draft text, consider it delivered and clear draft
 //    LaunchedEffect(guid, messages) {
@@ -130,9 +137,54 @@ fun <T> DetailsWithMessagesSheet(
         headerContent(item)
 
         // Messages section (shared across screens)
-        if (messages.isNotEmpty()) {
+        if (internalMessages.isNotEmpty()) {
             SectionTitle("Комментарии:")
-            messages.forEach { msg ->
+
+            // Show toggle only if we have more than 10 messages
+            if (internalMessages.size > 10) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant ?: MaterialTheme.colorScheme.outline,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (showAllMessages) {
+                            "Показаны все ${internalMessages.size} комментариев"
+                        } else {
+                            "Показаны последние 10 из ${internalMessages.size}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(
+                        onClick = { showAllMessages = !showAllMessages },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(
+                            text = if (showAllMessages) "Скрыть часть" else "Показать все"
+                        )
+                    }
+                }
+            }
+
+            val visibleMessages = if (showAllMessages || internalMessages.size <= 10) {
+                internalMessages
+            } else {
+                internalMessages.takeLast(10)
+            }
+
+            visibleMessages.forEach { msg ->
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -205,22 +257,23 @@ fun <T> DetailsWithMessagesSheet(
 
 
                         onSendMessage(trimmed) { ok ->
-                            internalMessages.add(MessageModel(
-                                author = "я",
-                                text = trimmed
-                            ))
+                            isSendingMessage = false
 
                             if (ok) {
                                 println(">>>> Message sent")
+                                internalMessages.add(
+                                    MessageModel(
+                                        author = "я",
+                                        text = trimmed,
+                                    )
+                                )
                                 removeDraftIfMatches(guid = guid, message = messageDraft)
                                 messageDraft = ""
                                 onDraftChanged("")
                                 error.value = ""
-                                // locally clear text, append to messages, etc.
                             } else {
                                 println(">>>> Message NOT sent")
                                 error.value = "Ошибка отправки сообщения"
-                                // show error UI inside sheet
                             }
                         }
                     }

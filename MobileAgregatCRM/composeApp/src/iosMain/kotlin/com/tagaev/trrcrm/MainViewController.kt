@@ -10,13 +10,14 @@ import com.tagaev.trrcrm.ui.root.DefaultRootComponent
 import com.tagaev.trrcrm.ui.root.IRootComponent
 import platform.UIKit.UIViewController
 
-fun MainViewController(): UIViewController = ComposeUIViewController {
-    // Create the Decompose root component once per controller
+fun MainViewController(): UIViewController {
     initKoinIos()
-    val root: IRootComponent = remember {
-        DefaultRootComponent(
-            componentContext = DefaultComponentContext(ApplicationLifecycle())
-        )
+    return ComposeUIViewController {
+        val root: IRootComponent = remember {
+            DefaultRootComponent(
+                componentContext = DefaultComponentContext(ApplicationLifecycle())
+            )
+        }
+        AppRoot(root)
     }
-    AppRoot(root)
 }

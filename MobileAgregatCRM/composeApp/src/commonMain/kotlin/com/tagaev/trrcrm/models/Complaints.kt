@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.models
 
+import androidx.compose.ui.graphics.Color
+import com.tagaev.trrcrm.ui.style.DefaultColors
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -460,3 +462,12 @@ data class ComplaintMessageDto(
     @SerialName("Комментарий")
     val comment: String? = null,
 )
+
+//// Выполнен Закрыт Запланировано  Выполняется  Начать работу
+enum class ComplaintColor (val name1C: String, val colorF: Color, val colorBack: Color) {
+    DONE("Выполнен"           , colorF = DefaultColors.RainbowGreenFg, colorBack = DefaultColors.RainbowGreenBg),
+    CLOSED("Закрыт"           , colorF = DefaultColors.StatusMutedFg, colorBack = DefaultColors.StatusMutedBg),
+    PLAN("Запланировано"      , colorF = DefaultColors.RainbowIndigoFg, colorBack = DefaultColors.RainbowIndigoBg),
+    PROGRESS("Выполняется"    , colorF = DefaultColors.RainbowBlueFg, colorBack = DefaultColors.RainbowBlueBg),
+    LETS_BEGIN("Начать работу", colorF = DefaultColors.RainbowVioletFg, colorBack = DefaultColors.RainbowVioletBg),
+}
