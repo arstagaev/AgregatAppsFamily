@@ -50,6 +50,7 @@ import com.tagaev.trrcrm.utils.roleRank
 import kotlinx.datetime.format
 import com.tagaev.trrcrm.models.isResponsible
 import com.tagaev.trrcrm.ui.custom.TextC
+import com.tagaev.trrcrm.ui.custom.TextCLinkPreview
 import org.koin.compose.koinInject
 
 @Composable
@@ -157,7 +158,7 @@ fun EventsHeader(
 
             // tasks (+)
             Section(
-                title = "Задачи",
+                title = "Задачи (кол-во: ${e.tasks.size})",
                 expanded = tasksExpanded,
                 onToggle = { tasksExpanded = !tasksExpanded },
                 trailing = { }
@@ -172,7 +173,7 @@ fun EventsHeader(
                 p.sum?.replace(SPACE_RX, "")?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
             }
             Section(
-                title = "Товары (Сумма: ${total} руб.)",
+                title = "Товары (Шт: ${e.products.size}, Сумма: ${total} руб.)",
                 expanded = productsExpanded,
                 onToggle = { productsExpanded = !productsExpanded },
                 //trailing = { TextButton(onClick = { component.addTask("TEST") }) { Text("+") } }
@@ -276,7 +277,7 @@ private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
 @Composable
 private fun TaskItem(t: TaskDto) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(t.document ?: "Задача", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(t.document ?: "Задача", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.workDate?.takeIf { it.isNotBlank() }?.let { add(it) }
             t.author?.takeIf { it.isNotBlank() }?.let { add("Автор: $it") }
@@ -286,7 +287,7 @@ private fun TaskItem(t: TaskDto) {
             Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         t.comment?.takeIf { it.isNotBlank() }?.let {
-            Spacer(Modifier.height(4.dp)); Text(it, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(4.dp)); TextCLinkPreview(it, style = MaterialTheme.typography.bodyLarge)
         }
     }
     Divider()
@@ -295,7 +296,7 @@ private fun TaskItem(t: TaskDto) {
 @Composable
 private fun ProductItem(t: ProductsItem) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        TextC(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        TextCLinkPreview(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
             t.quantity?.takeIf { it.isNotBlank() }?.let { add("$it ${t.unit ?: ""}") }

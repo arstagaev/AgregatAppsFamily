@@ -1,6 +1,5 @@
 package com.tagaev.trrcrm.ui.cargo
 
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,20 +18,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
 import com.tagaev.trrcrm.ui.custom.TextC
-import com.tagaev.trrcrm.ui.custom.TextCAnnotated
 import com.tagaev.trrcrm.ui.custom.withEscapedNewlines
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
-import com.tagaev.trrcrm.ui.style.NeumoColors
+import com.tagaev.trrcrm.ui.style.DefaultColors
 
 @Composable
 fun CargoScreen(component: ICargoComponent) {
@@ -146,12 +139,12 @@ private fun CargoListItem(
                 StatusBadge(
                     state = cargo.status,
                     styles = mapOf(
-                        Pair(CargoStatus.PROPOSAL.value, StatusStyle(NeumoColors.RainbowYellowFg, Color.Black)),
-                        Pair(CargoStatus.RECEIVED.value, StatusStyle(NeumoColors.RainbowBlueBg, Color.Black)),
-                        Pair(CargoStatus.IN_WORK.value, StatusStyle(NeumoColors.RainbowGreenBg, Color.Black)),
-                        Pair(CargoStatus.PROPOSAL_FOR_GET_CARGO.value, StatusStyle(NeumoColors.RainbowRedFg, Color.Black)),
-                        Pair(CargoStatus.SENT_TO_MAIN_DEPT.value, StatusStyle(NeumoColors.RainbowVioletBg, Color.Black)),
-                        Pair(CargoStatus.WAIT_FOR_LOAD_CAR_FOUND.value, StatusStyle(NeumoColors.RainbowRedBg, Color.Black)),
+                        Pair(CargoStatus.PROPOSAL.value, StatusStyle(DefaultColors.RainbowYellowFg, Color.Black)),
+                        Pair(CargoStatus.RECEIVED.value, StatusStyle(DefaultColors.RainbowBlueBg, Color.Black)),
+                        Pair(CargoStatus.IN_WORK.value, StatusStyle(DefaultColors.RainbowGreenBg, Color.Black)),
+                        Pair(CargoStatus.PROPOSAL_FOR_GET_CARGO.value, StatusStyle(DefaultColors.RainbowRedFg, Color.Black)),
+                        Pair(CargoStatus.SENT_TO_MAIN_DEPT.value, StatusStyle(DefaultColors.RainbowVioletBg, Color.Black)),
+                        Pair(CargoStatus.WAIT_FOR_LOAD_CAR_FOUND.value, StatusStyle(DefaultColors.RainbowRedBg, Color.Black)),
                     )
                 )
             }
@@ -187,7 +180,7 @@ private fun CargoListItem(
                 }
 
                 if (!cargo.comment.isNullOrBlank()) {
-                    HorizontalDivider(Modifier.fillMaxWidth(), thickness = 1.dp, color = NeumoColors.NeumoHighlight)
+                    HorizontalDivider(Modifier.fillMaxWidth(), thickness = 1.dp, color = DefaultColors.NeumoHighlight)
                     Text(
                         text = "${cargo.comment.withEscapedNewlines()}",
                         maxLines = 3,

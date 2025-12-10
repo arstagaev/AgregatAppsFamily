@@ -73,7 +73,7 @@ fun elegantDarkColors(): ColorScheme = darkColorScheme(
  * Dark / black neumorphism-oriented palette.
  * Elegant, low-saturation accents + soft contrast.
  */
-object NeumoColors {
+object DefaultColors {
 
     // === BASE / BACKGROUND ===
 

@@ -10,7 +10,9 @@ import com.tagaev.trrcrm.data.db.FavoritesStore
 import com.tagaev.trrcrm.data.db.createDatabase
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
+import com.tagaev.trrcrm.data.remote.HttpClientFactory
 import com.tagaev.trrcrm.ui.style.ThemeController
+import io.ktor.client.HttpClient
 import org.koin.dsl.module
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,10 +30,17 @@ val commonModule = module {
 
     // App scope
     single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
-
+    single<HttpClient> {
+        HttpClientFactory.create()  // your existing factory
+    }
     // --- HTTP / API layer ---
     single { ApiConfig(token = "NULL") }
-    single { EventsApi() }
+    single<EventsApi> {
+        EventsApi(
+            client = get()   // get<HttpClient>()
+        )
+    }
+//    single { EventsApi() }
 
     // --- Repositories ---
     single { MainRepository(api = get(), cfg = get()) }

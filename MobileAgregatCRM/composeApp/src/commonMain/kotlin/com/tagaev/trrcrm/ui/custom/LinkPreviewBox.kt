@@ -30,27 +30,39 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import org.koin.compose.koinInject
 import kotlin.toString
 
-private val urlRegex =
-    "(https?://[A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)".toRegex()
 
-private fun extractFirstUrlFromText(text: String): String? =
-    urlRegex.find(text)
-        ?.value
-        ?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '"', '\'')
+//@Composable
+//fun TextC(
+//    text: String,
+//    modifier: Modifier = Modifier
+//) {
+//    // Find first URL in the incoming text. If there is no URL, the preview stays collapsed.
+//    Column {
+//        TextC(text)
+//
+//        LinkPreviewBox(
+//            text = text,
+//            modifier = modifier,
+//        )
+//    }
+//}
 
 @Composable
-private fun LinkPreviewBox(
+fun LinkPreviewBox(
     text: String,
     modifier: Modifier = Modifier,
-    httpClient: HttpClient
 ) {
     val firstUrl = remember(text) { extractFirstUrlFromText(text) }
     if (firstUrl == null) {
         // No link in text – nothing to show.
         return
     }
+
+    val httpClient: HttpClient = koinInject()
+
     var preview by remember { mutableStateOf<LinkPreview?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -347,3 +359,11 @@ suspend fun downloadHtml(client: HttpClient, url: String): String {
     val resp: HttpResponse = client.get(url)
     return resp.bodyAsText()
 }
+
+private val urlRegex =
+    "(https?://[A-Za-z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)".toRegex()
+
+private fun extractFirstUrlFromText(text: String): String? =
+    urlRegex.find(text)
+        ?.value
+        ?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '"', '\'')

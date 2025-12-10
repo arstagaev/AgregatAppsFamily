@@ -7,6 +7,7 @@ import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
 import com.tagaev.trrcrm.domain.FilterByOption
 import com.tagaev.trrcrm.models.CargoDto
+import com.tagaev.trrcrm.models.ComplaintDto
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.*
@@ -42,7 +43,7 @@ sealed class Resource<out R> {
 }
 
 class EventsApi(
-    private val client: HttpClient = HttpClientFactory.create()
+    private val client: HttpClient
 ) {
     //https://agrapp.agregatka.ru/?token=92139A5BFBBF4D644BA0E49BC0D35E842EE78F188DE445BF1C01F5BBE069B389&&task=getitemslist&type=Документ&name=Событие&count=50&ncount=0&orderby=Дата&orderdir=desc&filterby=Тема&filterval=Настройка&filtertype=value
     suspend fun getEvents(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<EventItemDto>> = resourceify {
@@ -277,6 +278,57 @@ class EventsApi(
         val raw = response.bodyAsText().cleanJsonStart()
         return json.decodeFromString<List<WorkOrderDto>>(raw)
     }
+
+    suspend fun getComplaints(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<ComplaintDto>> = resourceify {
+        val url = apiConfig.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+
+                parameters.append("type", "Документ")
+                parameters.append("name", "Рекламация")
+
+                parameters.append("count", "30")
+                parameters.append("ncount", "$ncount")
+
+                if (currentRefine.orderBy != Refiner.OrderBy.OFF) {
+                    parameters.append("orderby", currentRefine.orderBy.wire)
+                    parameters.append("orderdir", currentRefine.orderDir.wire)
+                }
+
+                if (currentRefine.status == Refiner.Status.ACTIVE) {
+                    println("FilterByOption 1")
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (currentRefine.status == Refiner.Status.DONE) {
+                    println("FilterByOption 2")
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                } else {
+                    println("FilterByOption 3")
+                }
+
+
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    parameters.append("filterby", currentRefine.searchQueryType.wire)
+                    parameters.append("filterval", currentRefine.searchQuery)
+//                    parameters.append("filtertype", "list")
+                }
+
+
+                parameters.append("viewtype", "onlymy") //Secrets.VIEW_TYPE)
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<ComplaintDto>>(json, raw)
+    }
+
+
 
     suspend fun getCargos(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<CargoDto>> = resourceify {
         val url = apiConfig.baseUrl

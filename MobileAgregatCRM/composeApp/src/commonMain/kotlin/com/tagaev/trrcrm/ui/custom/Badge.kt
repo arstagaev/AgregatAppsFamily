@@ -26,7 +26,7 @@ data class StatusStyle(
 @Composable
 fun StatusBadge(
     state: String,
-    styles: Map<String, StatusStyle>,
+    styles: Map<String, StatusStyle> = mapOf(),
     modifier: Modifier = Modifier,
     defaultStyle: StatusStyle = StatusStyle(
         background = MaterialTheme.colorScheme.secondaryContainer,

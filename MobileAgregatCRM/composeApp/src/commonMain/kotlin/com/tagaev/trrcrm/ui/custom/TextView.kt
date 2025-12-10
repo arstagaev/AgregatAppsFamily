@@ -3,6 +3,7 @@ package com.tagaev.trrcrm.ui.custom
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -169,11 +170,43 @@ fun TextC(
     )
 }
 
+@Composable
+fun TextCLinkPreview(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+    fontWeight: FontWeight? = null,
+    textAlign: TextAlign? = null,
+    overflow: TextOverflow = TextOverflow.Clip,
+    softWrap: Boolean = true,
+    color: Color = Color.Unspecified,
+    maxLines: Int = Int.MAX_VALUE,
+    snackbarHostState: SnackbarHostState? = null,
+) {
+    Column(modifier = modifier) {
+        TextC(
+            text = text,
+//            modifier = modifier,
+            style = style,
+            fontWeight = fontWeight,
+            textAlign = textAlign,
+            overflow = overflow,
+            softWrap = softWrap,
+            color = color,
+            maxLines = maxLines,
+            snackbarHostState = snackbarHostState,
+        )
+
+        LinkPreviewBox(
+            text = text,
+            modifier = modifier,
+        )
+    }
+
+}
+
+
 fun String.withEscapedNewlines(): String =
     replace("\\n", "\n")
 
-//fun AnnotatedString.withEscapedNewlines(): AnnotatedString =
-//    replace(
-//        "\\n", "\n",
-//        ignoreCase = true
-//    )
+

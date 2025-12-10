@@ -292,8 +292,16 @@ fun <T> ExpandableListSection(
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items.forEach { item ->
-                        itemContent(item)
+                    if (items.isNotEmpty()) {
+                        items.forEach { item ->
+                            itemContent(item)
+                        }
+                    } else {
+                        Text(
+                            text = "Пусто",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

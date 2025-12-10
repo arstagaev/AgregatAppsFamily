@@ -11,7 +11,8 @@ import androidx.compose.ui.text.style.TextOverflow
 
 enum class DocumentTypes(val requestName: String) {
     EVENT("Событие"),
-    WORK_ORDER("ЗаказНаряд")
+    WORK_ORDER("ЗаказНаряд"),
+    COMPLAINT("Рекламация")
 }
 
 enum class FilterByOption(val label: String, val wire: String) {

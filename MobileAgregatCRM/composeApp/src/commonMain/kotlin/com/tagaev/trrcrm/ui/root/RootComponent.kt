@@ -11,6 +11,7 @@ import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.ui.cargo.CargoComponent
+import com.tagaev.trrcrm.ui.complaints.ComplaintsComponent
 import com.tagaev.trrcrm.ui.details.DetailsComponent
 import com.tagaev.trrcrm.ui.events.EventsComponent
 import com.tagaev.trrcrm.ui.favorites.FavoritesComponent
@@ -33,7 +34,8 @@ interface IRootComponent {
     fun openList()
     fun openEvents(needBackToList: Boolean)
     fun openDetails()
-    fun openCargo()
+    fun openCargo(needBackToList: Boolean)
+    fun openComplaint(needBackToList: Boolean)
     fun openWorkOrders(needBackToList: Boolean)
     fun openQRScanner()
     fun openFavorites()
@@ -47,6 +49,7 @@ interface IRootComponent {
         data object Details : Config
         data object WorkOrder : Config
         data object Cargo : Config
+        data object Complaint : Config
         data object Favorites : Config
         data object Menu : Config
         data object Settings : Config
@@ -60,6 +63,7 @@ interface IRootComponent {
         data class WorkOrder(val component: WorkOrdersComponent) : Child
         data class Favorites(val component: FavoritesComponent) : Child
         data class Cargo(val component: CargoComponent) : Child
+        data class Complaint(val component: ComplaintsComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
         data class Menu(val component: IMenuComponent) : Child
         data class QRScanner(val component: IQRScannerComponent) : Child
@@ -119,10 +123,13 @@ class DefaultRootComponent(
             is IRootComponent.Config.Cargo ->
                 IRootComponent.Child.Cargo(CargoComponent(ctx) { nav.pop() })
 
+            is IRootComponent.Config.Complaint ->
+                IRootComponent.Child.Complaint(ComplaintsComponent(ctx) { nav.pop() })
+
             is IRootComponent.Config.Menu ->
                 IRootComponent.Child.Menu(MenuComponent(ctx,
                     onCargo = {
-                        openCargo()
+//                        openCargo()
                     },
                     onSettings = {
                         openSettings()
@@ -221,7 +228,26 @@ class DefaultRootComponent(
         nav.bringToFront(IRootComponent.Config.Menu)
     }
     override fun openFavorites() = nav.bringToFront(IRootComponent.Config.Favorites)
-    override fun openCargo() = nav.bringToFront(IRootComponent.Config.Cargo)
+    override fun openCargo(needBackToList: Boolean)  {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.Cargo }
+                ?.instance as? IRootComponent.Child.Cargo
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.Cargo)
+        }
+    }
+    override fun openComplaint(needBackToList: Boolean)  {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.Complaint }
+                ?.instance as? IRootComponent.Child.Complaint
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.Complaint)
+        }
+    }
     override fun openSettings() = nav.bringToFront(IRootComponent.Config.Settings)
     override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)
     override fun back() = nav.pop()

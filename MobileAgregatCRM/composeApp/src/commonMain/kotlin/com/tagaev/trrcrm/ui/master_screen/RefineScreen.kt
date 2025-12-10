@@ -16,7 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextOverflow
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
-import com.tagaev.trrcrm.ui.style.NeumoColors.RainbowRedFg
+import com.tagaev.trrcrm.ui.style.DefaultColors.RainbowRedFg
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.AlertTriangle
 

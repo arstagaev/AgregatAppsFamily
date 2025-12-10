@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -34,6 +35,7 @@ import com.tagaev.trrcrm.domain.messages.findDraftForGuid
 import com.tagaev.trrcrm.domain.messages.removeDraftIfMatches
 import com.tagaev.trrcrm.domain.messages.upsertDraftForGuid
 import com.tagaev.trrcrm.ui.custom.TextC
+import com.tagaev.trrcrm.ui.custom.TextCLinkPreview
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.work_order.LimitedOutlinedTextField
 
@@ -156,11 +158,12 @@ fun <T> DetailsWithMessagesSheet(
                         }
                     }
                     (msg.text)?.takeIf { it.isNotBlank() }?.let {
-                        TextC(
+                        TextCLinkPreview(
                             text = it,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
+                    HorizontalDivider(Modifier.fillMaxWidth())
                 }
             }
         }
@@ -228,13 +231,9 @@ fun <T> DetailsWithMessagesSheet(
                 Text("Отправить")
             }
         }
-
         Spacer(Modifier.height(12.dp))
     }
 }
-
-
-
 
 
 // same file: WorkOrdersScreen.kt
@@ -244,6 +243,6 @@ fun SectionTitle(text: String) {
         text = text,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+        modifier = Modifier.padding(top = 6.dp, bottom = 4.dp)
     )
 }
