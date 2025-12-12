@@ -156,7 +156,7 @@ fun EventCard(
 
             Spacer(Modifier.height(2.dp))
 
-            TextC(
+            Text(
                 ev.subject ?: (ev.content ?: ""),
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 2,
@@ -300,7 +300,7 @@ private fun EventMetaColumn(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        TextC(
+        Text(
             text = value,
             style = MaterialTheme.typography.labelSmall,
             maxLines = 3,

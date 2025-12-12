@@ -27,7 +27,7 @@ object HttpClientFactory {
 
     fun create(
         json: Json = defaultJson,
-        loggingEnabled: Boolean = true,
+        loggingEnabled: Boolean = false,
         logBodies: Boolean = false,
     ): HttpClient = HttpClient {
         // JSON

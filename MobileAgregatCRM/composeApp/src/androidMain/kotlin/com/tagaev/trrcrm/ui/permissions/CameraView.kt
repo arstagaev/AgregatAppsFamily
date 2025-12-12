@@ -49,7 +49,7 @@ actual fun CameraView(decodedString: (String) -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Button(onClick = { scanLauncher.launch(null) }) {
-            Text("Сканировать QR код ${last}")
+            Text("Сканировать QR код")
         }
     }
 }

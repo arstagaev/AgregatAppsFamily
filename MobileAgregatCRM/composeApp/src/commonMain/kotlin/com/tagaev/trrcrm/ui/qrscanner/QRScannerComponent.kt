@@ -7,23 +7,30 @@ import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.utils.getTimestamp
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import kotlin.getValue
+
 
 data class QRScannerViewState(
     val attempts: List<QRAttempt> = emptyList(),
     val isLoading: Boolean = false,
-    var lastSuccess: QRResponseTRS? = null,
     val lastError: String? = null,
-    val flashlight: Boolean = false
+    val flashlight: Boolean = false,
+    val selectedAttempt: QRAttempt? = null   // what dialog shows
 )
 
 interface IQRScannerComponent {
     val state: StateFlow<QRScannerViewState>
+
     fun onScanned(raw: String)
+    fun onAttemptClicked(attempt: QRAttempt)
+    fun onDialogDismissed()
     fun toggleFlash()
     fun clearHistory()
 }
@@ -31,7 +38,7 @@ interface IQRScannerComponent {
 enum class AttemptStatus { Loading, Success, Error }
 
 data class QRAttempt(
-    val id: String,
+    val id: Long,                 // unique key for LazyColumn + state updates
     val rawText: String,
     val startedAt: Long,
     val status: AttemptStatus,
@@ -47,25 +54,40 @@ class DefaultQRScannerComponent(
     private val api: EventsApi by inject()
     private val appScope: CoroutineScope by inject()
     private val apiConfig: ApiConfig by inject()
-//    private val eventsCacheStore: EventsCacheStore by inject()
     private val repo by lazy { MainRepository(api, apiConfig) }
 
     private val _state = MutableStateFlow(QRScannerViewState())
     override val state: StateFlow<QRScannerViewState> = _state.asStateFlow()
 
-    private var lastScanValue: String? = null
-    private var lastScanTs: Long = 0
+    // simple id generator for attempts
+    private var nextAttemptId = 0L
+    private fun newAttemptId(): Long = ++nextAttemptId
 
     override fun toggleFlash() {
         _state.update { it.copy(flashlight = !it.flashlight) }
     }
 
     override fun clearHistory() {
-        _state.update { it.copy(attempts = emptyList()) }
+        _state.update {
+            it.copy(
+                attempts = emptyList(),
+                selectedAttempt = null
+            )
+        }
+    }
+
+    override fun onDialogDismissed() {
+        _state.update { it.copy(selectedAttempt = null) }
+    }
+
+    override fun onAttemptClicked(attempt: QRAttempt) {
+        _state.update { current ->
+            val fresh = current.attempts.firstOrNull { it.id == attempt.id }
+            current.copy(selectedAttempt = fresh)
+        }
     }
 
     private fun extractQueryParam(input: String, name: String): String? {
-        // Works for: "... ?code=XYZ&...", "...&code=XYZ", "code=XYZ" and ignores fragments
         val query = input.substringAfter('?', missingDelimiterValue = input)
             .substringBefore('#')
         if (query.isEmpty()) return null
@@ -92,53 +114,74 @@ class DefaultQRScannerComponent(
 
     override fun onScanned(raw: String) {
         println("Scanned: $raw")
-        // simple dedupe/rate-limit: ignore same value within 2s
-        val now = getTimestamp
-        if (raw == lastScanValue && now - lastScanTs < 2000) return
-        lastScanValue = raw
-        lastScanTs = now
 
-        val id = (0..1_000_000).random().toString()
+        val now = getTimestamp
+        val attemptId = newAttemptId()
+
+        val loadingAttempt = QRAttempt(
+            id = attemptId,
+            rawText = raw,
+            startedAt = now,
+            status = AttemptStatus.Loading
+        )
+
+        // Add new attempt and show global loading dialog
         _state.update {
             it.copy(
                 isLoading = true,
                 lastError = null,
-                attempts = it.attempts + QRAttempt(
-                    id = id.toString(), rawText = raw, startedAt = now, status = AttemptStatus.Loading
-                )
+                attempts = it.attempts + loadingAttempt
             )
         }
 
         appScope.launch {
             val code = extractTRSCode(raw) ?: raw
-            println("QR >>> ${code}")
+            println("QR >>> $code")
+
             when (val res = repo.getTRSData(code)) {
                 is Resource.Loading -> {
                     _state.update { it.copy(isLoading = true) }
                 }
+
                 is Resource.Success -> {
                     val data = res.data
-                    _state.update {
-                        it.copy(
+                    _state.update { old ->
+                        val updatedAttempts = old.attempts.map { a ->
+                            if (a.id == attemptId) {
+                                a.copy(
+                                    status = AttemptStatus.Success,
+                                    response = data,
+                                    error = null
+                                )
+                            } else a
+                        }
+                        val selected = updatedAttempts.firstOrNull { it.id == attemptId }
+                        old.copy(
                             isLoading = false,
-                            lastSuccess = data,
-                            attempts = it.attempts.map { a ->
-                                if (a.id == id) a.copy(status = AttemptStatus.Success, response = data)
-                                else a
-                            }
+                            attempts = updatedAttempts,
+                            selectedAttempt = selected   // open dialog for THIS scan
                         )
                     }
                 }
+
                 is Resource.Error -> {
                     val err = res.causes ?: res.exception?.message ?: "Ошибка запроса"
-                    _state.update {
-                        it.copy(
+                    _state.update { old ->
+                        val updatedAttempts = old.attempts.map { a ->
+                            if (a.id == attemptId) {
+                                a.copy(
+                                    status = AttemptStatus.Error,
+                                    error = err,
+                                    response = null
+                                )
+                            } else a
+                        }
+                        val selected = updatedAttempts.firstOrNull { it.id == attemptId }
+                        old.copy(
                             isLoading = false,
-                            lastError = err,
-                            attempts = it.attempts.map { a ->
-                                if (a.id == id) a.copy(status = AttemptStatus.Error, error = err)
-                                else a
-                            }
+                            lastError = "Некорректный QR-код",
+                            attempts = updatedAttempts,
+                            selectedAttempt = selected   // show error dialog too
                         )
                     }
                 }

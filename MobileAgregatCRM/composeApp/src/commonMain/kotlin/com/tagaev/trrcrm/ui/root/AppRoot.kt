@@ -11,8 +11,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
@@ -152,6 +155,7 @@ fun AppBottomNavBar2(
         Row(
             modifier = Modifier
                 .horizontalScroll(rememberScrollState())
+                .height(IntrinsicSize.Min)
                 .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -231,6 +235,7 @@ private fun BottomNavChip(
         tonalElevation = if (selected) 2.dp else 0.dp,
         modifier = Modifier
             .padding(horizontal = 4.dp)
+            .fillMaxHeight()
 
     ) {
         Column(

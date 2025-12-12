@@ -10,6 +10,7 @@ import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
+import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.SentMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.utils.DefaultValuesConst
@@ -75,6 +76,9 @@ class MainRepository(
     suspend fun loadComplaints(ncount: Int, currentRefine: RefineState): Resource<List<ComplaintDto>> =
         api.getComplaints(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
+    suspend fun loadInnerOrders(ncount: Int, currentRefine: RefineState): Resource<List<InnerOrderDto>> =
+        api.getInnerOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+
     suspend fun loadWorkOrders(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
         runCatching { api.loadWorkOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
             .fold(
@@ -86,6 +90,8 @@ class MainRepository(
                     )
                 }
             )
+
+    /// MESSAGES /////
 
     suspend fun sendMessageComplaint(
         number: String,
@@ -106,7 +112,9 @@ class MainRepository(
         date: String,
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.WORK_ORDER, number = number, date = date, message = message)
-        //          api.sendMessage(api = cfg, number = number, date = date, message = message)
+
+
+    //          api.sendMessage(api = cfg, number = number, date = date, message = message)
 //        runCatching { api.sendMessage(api = cfg, number = number,date = date, message = message) }
 //            .fold(
 //                onSuccess = { Resource.Success(it) },
