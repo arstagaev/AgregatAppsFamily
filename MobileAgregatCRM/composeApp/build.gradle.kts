@@ -145,7 +145,7 @@ android {
         applicationId = "com.tagaev.trrcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 7 //
+        versionCode = 8 //
         versionName = version//"1.4.5"
     }
     packaging {
@@ -283,6 +283,10 @@ val countVersion: String = providers.gradleProperty("CVERSION").orNull
     ?: providers.environmentVariable("CVERSION").orNull
     ?: localProps.getProperty("CVERSION")
     ?: ""
+val isPublish: String = providers.gradleProperty("IS_PUBLISH").orNull
+    ?: providers.environmentVariable("IS_PUBLISH").orNull
+    ?: localProps.getProperty("IS_PUBLISH")
+    ?: ""
 
 // figure out which env we are building based on the Gradle tasks
 val requestedTasks = gradle.startParameter.taskNames
@@ -305,6 +309,7 @@ buildkonfig {
         buildConfigField(STRING, "VIEW_TYPE", viewType)
         buildConfigField(STRING, "VERSION", version)
         buildConfigField(STRING, "COUNTVERSION", countVersion)
+        buildConfigField(STRING, "IS_PUBLISH", isPublish)
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.
     defaultConfigs {

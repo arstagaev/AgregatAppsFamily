@@ -309,6 +309,10 @@ class EventsApi(
                     println("FilterByOption 3")
                 }
 
+                if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue)
+                }
 
                 if (currentRefine.searchQuery.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
@@ -358,6 +362,10 @@ class EventsApi(
                     println("FilterByOption 3")
                 }
 
+                if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue)
+                }
 
                 if (currentRefine.searchQuery.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
@@ -407,6 +415,10 @@ class EventsApi(
                     println("FilterByOption 3")
                 }
 
+                if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue)
+                }
 
                 if (currentRefine.searchQuery.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.searchQueryType.wire)

@@ -211,7 +211,7 @@ class DefaultRootComponent(
         reversed.forEach {
             println("childStack.items ${it.toString()}")
 
-            if (it.configuration is IRootComponent.Config.Cargo || it.configuration is IRootComponent.Config.Settings || it.configuration is IRootComponent.Config.Menu) {
+            if (it.configuration is IRootComponent.Config.Settings || it.configuration is IRootComponent.Config.Menu) {
 
                 if (childStack.active.configuration is IRootComponent.Config.Cargo || childStack.active.configuration is IRootComponent.Config.Settings ) {
                     nav.bringToFront(IRootComponent.Config.Menu)
@@ -219,9 +219,6 @@ class DefaultRootComponent(
                 }
 
                 when(it.configuration) {
-                    is IRootComponent.Config.Cargo -> {
-                        nav.bringToFront(IRootComponent.Config.Cargo)
-                    }
                     is IRootComponent.Config.Settings -> {
                         nav.bringToFront(IRootComponent.Config.Settings)
                     }

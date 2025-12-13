@@ -23,11 +23,15 @@ import com.tagaev.trrcrm.utils.Log
  * - DoubleReceive to safely read body for logs
  * - Timeouts, retries, JSON
  */
+
+// Common flag: actual implementations live in androidMain / iosMain
+expect val isPublish: Boolean
+
 object HttpClientFactory {
 
     fun create(
         json: Json = defaultJson,
-        loggingEnabled: Boolean = true,
+        loggingEnabled: Boolean = !isPublish,
         logBodies: Boolean = false,
     ): HttpClient = HttpClient {
         // JSON

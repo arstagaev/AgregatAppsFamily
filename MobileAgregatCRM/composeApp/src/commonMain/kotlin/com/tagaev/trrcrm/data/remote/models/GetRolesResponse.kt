@@ -25,7 +25,7 @@ enum class UserRole(val shortTitle: String) {
     FULL_ACCESS("Полные права"),
 
     @SerialName("Минимальный набор прав")
-    MINIMAL_ACCESS("Минимальный доступ"),
+    MINIMAL_ACCESS("Минимальный набор прав"),
 
     @SerialName("Обновление обмен ИФЗ")
     IFZ_SYNC("Обновление ИФЗ"),

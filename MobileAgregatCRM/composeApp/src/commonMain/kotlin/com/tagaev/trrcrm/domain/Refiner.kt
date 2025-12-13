@@ -70,10 +70,14 @@ sealed interface Refiner : ApiOption {
 @Serializable
 data class RefineState(
     val orderBy: Refiner.OrderBy = Refiner.OrderBy.DATE_LAST_MODIFICATION,
+
     val orderDir: Refiner.Dir = Refiner.Dir.DESC,
+
     val status: Refiner.Status = Refiner.Status.OFF,
+
     val filter: Refiner.Filter = Refiner.Filter.OFF,
     val filterValue: String = "",
+
     val searchQuery: String = "",
     val searchQueryType: Refiner.SearchQueryType = Refiner.SearchQueryType.TOPIC
 ) {

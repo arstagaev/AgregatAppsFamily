@@ -15,10 +15,17 @@ import compose.icons.lineawesomeicons.UndoSolid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextOverflow
+import com.tagaev.trrcrm.data.AppSettings
+import com.tagaev.trrcrm.data.AppSettingsKeys
+import com.tagaev.trrcrm.data.remote.models.UserRole
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import com.tagaev.trrcrm.ui.style.DefaultColors.RainbowRedFg
+import com.tagaev.trrcrm.ui.style.ThemeController
+import com.tagaev.trrcrm.utils.AVAILABLE_ROLES
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.AlertTriangle
+import org.koin.compose.koinInject
+import kotlin.collections.contains
 
 enum class RefineSection {
     STATUS,
@@ -43,10 +50,16 @@ fun RefineScreen(
     messageForUser: String? = null,
     sections: Set<RefineSection> = RefineSection.values().toSet()
 ) {
+    val appSettings = koinInject<AppSettings>()
+
+    val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
+    val departmentData = remember { appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED") }
+
     var selOrderBy by remember { mutableStateOf(current.orderBy) }
     var selOrderDir by remember { mutableStateOf(current.orderDir) }
     var setStatus by remember { mutableStateOf(current.status) }
     var setFilter by remember { mutableStateOf(current.filter) }
+    var setFilterValue by remember { mutableStateOf(current.filterValue) }
     var searchQuery by remember { mutableStateOf(current.searchQuery) }
     var searchQueryType by remember { mutableStateOf(current.searchQueryType) }
 
@@ -124,13 +137,19 @@ fun RefineScreen(
                     )
                 }
 
-                if (RefineSection.FILTER_VAL in sections) {
+                if (RefineSection.FILTER_VAL in sections && (AVAILABLE_ROLES.contains(UserRole.FULL_ACCESS.shortTitle))) {
                     // Фильтр
                     Text("Фильтр по подразделению", style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
                         options = Refiner.Filter.values().toList(),
                         selected = setFilter,
-                        onSelect = { setFilter = it },
+                        onSelect = {
+                            setFilter = it
+                            if (setFilter == Refiner.Filter.DEPARTMENT) {
+
+                                setFilterValue = departmentData
+                            }
+                        },
                         labelFor = { it.label }
                     )
                 }
@@ -190,6 +209,7 @@ fun RefineScreen(
                                 orderDir = selOrderDir,
                                 status = setStatus,
                                 filter = setFilter,
+                                filterValue = setFilterValue,
                                 searchQueryType = searchQueryType,
                                 searchQuery = searchQuery
                             )

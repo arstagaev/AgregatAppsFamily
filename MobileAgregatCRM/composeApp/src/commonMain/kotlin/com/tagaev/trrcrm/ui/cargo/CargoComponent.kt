@@ -153,7 +153,9 @@ class CargoComponent(
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
             return RefineState(
-                orderBy = Refiner.OrderBy.DATE
+                orderBy = Refiner.OrderBy.DATE,
+                filter = Refiner.Filter.DEPARTMENT,
+                filterValue = appSettings.getString(AppSettingsKeys.DEPARTMENT,"")
             )
         }
 

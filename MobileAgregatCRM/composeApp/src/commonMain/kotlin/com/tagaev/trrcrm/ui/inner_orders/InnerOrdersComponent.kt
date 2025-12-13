@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.inner_orders
 
+import androidx.compose.runtime.remember
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -146,7 +147,9 @@ class InnerOrdersComponent(
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
             return RefineState(
-                orderBy = Refiner.OrderBy.DATE
+                orderBy = Refiner.OrderBy.DATE,
+                filter = Refiner.Filter.DEPARTMENT,
+                filterValue = appSettings.getString(AppSettingsKeys.DEPARTMENT,"")
             )
         }
 
