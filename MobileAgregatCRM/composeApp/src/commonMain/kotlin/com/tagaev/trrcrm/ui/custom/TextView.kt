@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import kotlinx.coroutines.launch
 
 private val urlRegex =
@@ -55,6 +56,7 @@ fun TextCAnnotated(
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
+    val showSnackbar = LocalAppSnackbar.current
 
     // Build a new AnnotatedString with URL spans highlighted and annotated.
     val linkAnnotatedText = remember(text, linkColor) {
@@ -133,6 +135,8 @@ fun TextCAnnotated(
                                 )
                             }
                         }
+
+                        showSnackbar("Скопировано!")
                     }
                 )
             }

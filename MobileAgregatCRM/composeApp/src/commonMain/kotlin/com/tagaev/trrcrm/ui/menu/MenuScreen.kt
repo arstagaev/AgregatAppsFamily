@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tagaev.trrcrm.ui.custom.snowflakeBackground
 import compose.icons.FeatherIcons
 import compose.icons.LineAwesomeIcons
 import compose.icons.feathericons.Settings
@@ -49,7 +50,7 @@ fun MenuScreen(
 ) {
     Column(
         modifier = modifier
-            .fillMaxSize()
+            .fillMaxSize().snowflakeBackground()
             .padding(16.dp)
     ) {
         Text(
@@ -60,11 +61,11 @@ fun MenuScreen(
         MenuGridScreen(
             items = remember {
                 listOf(
-                    MenuCardData(
-                        id = "cargo",
-                        title = "Груз",
-                        iconRes = LineAwesomeIcons.TruckSolid // TODO: replace with actual resource
-                    ),
+//                    MenuCardData(
+//                        id = "cargo",
+//                        title = "Груз",
+//                        iconRes = LineAwesomeIcons.TruckSolid // TODO: replace with actual resource
+//                    ),
                     MenuCardData(
                         id = "settings",
                         title = "Настройки",

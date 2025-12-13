@@ -140,12 +140,12 @@ kotlin {
 android {
     namespace = "com.tagaev.trrcrm"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
-
+    println("COunt version: ${countVersion}")
     defaultConfig {
         applicationId = "com.tagaev.trrcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 6 //countVersion.toInt()
+        versionCode = 7 //
         versionName = version//"1.4.5"
     }
     packaging {
@@ -279,9 +279,9 @@ val version: String = providers.gradleProperty("VERSION").orNull
     ?: providers.environmentVariable("VERSION").orNull
     ?: localProps.getProperty("VERSION")
     ?: ""
-val countVersion: String = providers.gradleProperty("COUNTVERSION").orNull
-    ?: providers.environmentVariable("COUNTVERSION").orNull
-    ?: localProps.getProperty("COUNTVERSION")
+val countVersion: String = providers.gradleProperty("CVERSION").orNull
+    ?: providers.environmentVariable("CVERSION").orNull
+    ?: localProps.getProperty("CVERSION")
     ?: ""
 
 // figure out which env we are building based on the Gradle tasks

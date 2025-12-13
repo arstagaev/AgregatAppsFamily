@@ -10,6 +10,7 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.InnerOrderDto
+import com.tagaev.trrcrm.models.InnerOrderMessageDto
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.work_order.IListMaster
@@ -138,11 +139,7 @@ class InnerOrdersComponent(
         fullRefresh()
     }
 
-    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
-        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
-        return false
-    }
-    // ---------- Work Orders refine state ----------
+    // ---------- refine state ----------
 
     fun loadRefineState(): RefineState {
         val raw = appSettings.getStringOrNull(AppSettingsKeys.INNERORDER_REFINE_STATE)
@@ -165,6 +162,26 @@ class InnerOrdersComponent(
         val encoded = json.encodeToString(state)
         appSettings.setString(AppSettingsKeys.INNERORDER_REFINE_STATE, encoded)
     }
+
+    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
+        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return false
+        val res = repository.sendMessageInnerOrder(
+            itemNumber,
+            itemDate.substringBefore(' '),
+            message
+        )
+
+        return if (res is Resource.Success) {
+            // after successful send, refresh list so messages include new comment
+            //fullRefresh()   // still runs on appScope internally
+
+            true
+        } else {
+            false
+        }
+    }
+
     /**
      * Convenience helper: applies a local "add message" operation to a WorkOrder
      * identified by [orderGuid], using a simple MessageModel from the UI.
@@ -175,7 +192,17 @@ class InnerOrdersComponent(
         orderGuid: String?,
         message: MessageModel
     ) {
+        updateOrderLocally(orderGuid) { currentOrder ->
+            val newMessage = InnerOrderMessageDto(
+                author = message.author,
+                comment = message.text,
+                workDate = message.date
+            )
 
+            val updatedMessages = currentOrder.messages.orEmpty() + newMessage
+
+            currentOrder.copy(messages = updatedMessages)
+        }
     }
     /**
      * Applies a local update to a single WorkOrder in the in-memory cache,
@@ -211,7 +238,7 @@ class InnerOrdersComponent(
     }
 }
 
-enum class CargoStatus(val value: String) {
+enum class InnerOrderStatus(val value: String) {
     PROPOSAL("Заявка"),
     SENT("Отправлено"),
     RECEIVED("Получено"),

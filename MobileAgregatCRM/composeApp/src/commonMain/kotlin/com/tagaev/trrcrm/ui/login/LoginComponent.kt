@@ -9,6 +9,7 @@ import org.koin.core.component.inject
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.utils.AVAILABLE_ROLES
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,8 +107,25 @@ class LoginComponent(
                                 settings.setString(AppSettingsKeys.DEPARTMENT, "${data.department}")
 //                                settings.setString(AppSettingsKeys.FILTER_VAL, data.department)
                                 runCatching { apiConfig.token = data.token }
-                                _uiState.value = LoginUiState.Idle
-                                onLoginSuccess() // navigate (must be MAIN)
+
+                                AVAILABLE_ROLES.clear()
+                                val roles = repo.getRole()
+
+                                when (roles) {
+                                    is Resource.Success -> {
+                                        AVAILABLE_ROLES = roles.data.roles.toMutableList()
+                                        println("Current roles: ${AVAILABLE_ROLES.joinToString()}")
+                                        completeLogin()
+                                    }
+                                    is Resource.Loading -> {
+
+                                    }
+                                    is Resource.Error -> {
+                                        completeLogin()
+                                    }
+                                }
+
+
                             } else {
                                 _uiState.value = LoginUiState.Error("Пустой токен от сервера")
                             }
@@ -129,6 +147,13 @@ class LoginComponent(
                 }
             }
         }
+    }
+
+    private fun completeLogin() {
+
+        _uiState.value = LoginUiState.Idle
+        AVAILABLE_ROLES
+        onLoginSuccess() // navigate (must be MAIN)
     }
 
     override fun onLoginWithToken(token: String) {

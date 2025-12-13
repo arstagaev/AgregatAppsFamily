@@ -145,6 +145,8 @@ object DefaultColors {
 
 
     /// RAINBOW
+    val RainbowWhiteBg = Color(0xFFD0D0D0)
+    val RainbowWhiteFg = Color(0xFF454545)
 
     // Red – deep crimson
     val RainbowRedBg = Color(0xFFB4363C)
@@ -158,9 +160,15 @@ object DefaultColors {
     val RainbowYellowBg = Color(0xFFD2A52A)
     val RainbowYellowFg = Color(0xFFFFF7D9)
 
+    val RainbowBrownBg = Color(0xFFAD3A00)
+    val RainbowBrownFg = Color(0xFF000000)
+
     // Green – emerald / teal-ish, not acidic
     val RainbowGreenBg = Color(0xFF2C9B61)
     val RainbowGreenFg = Color(0xFFE3F7EE)
+
+    val RainbowDarkGreenBg = Color(0xFF2C6500)
+    val RainbowDarkGreenFg = Color(0xFF000000)
 
     // Blue – rich, slightly desaturated
     val RainbowBlueBg = Color(0xFF3472C9)
@@ -173,4 +181,58 @@ object DefaultColors {
     // Violet – softer magenta-violet accent
     val RainbowVioletBg = Color(0xFF9C4CCB)
     val RainbowVioletFg = Color(0xFFF7E6FF)
+
+    // --- Extra swatches to match 1C-style status colors ---
+
+    // Mint / teal (e.g. "В работе")
+    val RainbowMintBg = Color(0xFF5FC4A0)
+    val RainbowMintFg = Color(0xFF002018)
+
+    // Bright purple (e.g. "Выполнено")
+    val RainbowBrightPurpleBg = Color(0xFF7C66FC)
+    val RainbowBrightPurpleFg = Color(0xFFFFFFFF)
+
+    // Soft amber-orange (e.g. "В пути на основной склад")
+    val RainbowSoftAmberBg = Color(0xFFFC9C3F)
+    val RainbowSoftAmberFg = Color(0xFF3A1D00)
+
+    // Strong orange (e.g. "Готово к отгрузке")
+    val RainbowStrongOrangeBg = Color(0xFFFA811D)
+    val RainbowStrongOrangeFg = Color(0xFF321400)
+
+    // Neon magenta (e.g. "Заказано")
+    val RainbowNeonMagentaBg = Color(0xFFFE1EFD)
+    val RainbowNeonMagentaFg = Color(0xFF380037)
+
+    // Neutral grey row background (e.g. "Дефектовка")
+    val RainbowGreyBg = Color(0xFFB8B8B8)
+    val RainbowGreyFg = Color(0xFF1F1F1F)
+
+    // Olive / khaki (e.g. "Дефектовка (выполнено)")
+    val RainbowOliveBg = Color(0xFF6A643A)
+    val RainbowOliveFg = Color(0xFFFFF4D0)
+
+    // Neon lime green (e.g. "Сборка")
+    val RainbowNeonGreenBg = Color(0xFF1AFD21)
+    val RainbowNeonGreenFg = Color(0xFF002108)
+
+    // Dark teal / blue-grey (e.g. "ОТКАЗ")
+    val RainbowDarkTealBg = Color(0xFF0D202C)
+    val RainbowDarkTealFg = Color(0xFFE1F5FF)
+
+    // Sky blue (e.g. "Отправлено получателю")
+    val RainbowSkyBg = Color(0xFF28B8FD)
+    val RainbowSkyFg = Color(0xFF012235)
+
+    // Royal blue (alternate blue tone)
+    val RainbowRoyalBlueBg = Color(0xFF4D60B8)
+    val RainbowRoyalBlueFg = Color(0xFFE6EBFF)
+
+    // Aqua green (e.g. "Получено на основном складе")
+    val RainbowAquaBg = Color(0xFF1CD386)
+    val RainbowAquaFg = Color(0xFF001D12)
+
+    // Warm sand / beige (e.g. "Передано в производство")
+    val RainbowSandBg = Color(0xFFF1B75F)
+    val RainbowSandFg = Color(0xFF3A2300)
 }

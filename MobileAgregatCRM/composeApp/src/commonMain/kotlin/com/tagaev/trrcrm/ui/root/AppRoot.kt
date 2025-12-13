@@ -21,6 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,10 +47,12 @@ import org.koin.compose.koinInject
 import com.tagaev.trrcrm.ui.cargo.CargoScreen
 import com.tagaev.trrcrm.ui.complaints.ComplaintsScreen
 import com.tagaev.trrcrm.ui.events.EventsScreen
+import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
 import com.tagaev.trrcrm.ui.menu.MenuScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
 import compose.icons.LineAwesomeIcons
+import compose.icons.feathericons.Box
 import compose.icons.feathericons.Grid
 import compose.icons.feathericons.Truck
 import compose.icons.feathericons.Zap
@@ -54,6 +60,11 @@ import compose.icons.lineawesomeicons.CarSideSolid
 import compose.icons.lineawesomeicons.CheckCircle
 import compose.icons.lineawesomeicons.QrcodeSolid
 import compose.icons.lineawesomeicons.ToolsSolid
+import kotlinx.coroutines.launch
+
+val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
+    { _ -> }
+}
 
 @Composable
 fun AppRoot(root: IRootComponent) {
@@ -61,71 +72,97 @@ fun AppRoot(root: IRootComponent) {
     val activeChild = stack.active.instance
     val themeController = koinInject<ThemeController>()
     AppTheme(controller = themeController) {
-        Scaffold(
-            contentWindowInsets = WindowInsets.safeDrawing,
-            bottomBar = {
-                AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
-                    AppBottomNavBar2(
-                        activeChild = activeChild,
-                        onEvents = {
-                            val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
-                                false
-                            } else {
-                                true
-                            }
-                            root.openEvents(needBackToList)
-                        },
-                        onDetails = { if (activeChild !is IRootComponent.Child.Details) root.openDetails() },
-                        onWorkOrder = {
-                            val needBackToList = if (activeChild !is IRootComponent.Child.WorkOrder) {
-                                false
-                            } else {
-                                true
-                            }
-                            root.openWorkOrders(needBackToList)
-                        },
-                        onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
-                        onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
-                        onCargo = {
-                            val needBackToList = if (activeChild !is IRootComponent.Child.Cargo) {
-                                false
-                            } else {
-                                true
-                            }
-                            root.openCargo(needBackToList)
-                        },
-                        onComplaint = {
-                            val needBackToList = if (activeChild !is IRootComponent.Child.Complaint) {
-                                false
-                            } else {
-                                true
-                            }
-                            root.openComplaint(needBackToList)
-                        },
-                        onMenu = { if (activeChild !is IRootComponent.Child.Menu) root.openMenu() },
-                        onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
+        val snackbarHostState = remember { SnackbarHostState() }
+        val scope = rememberCoroutineScope()
+
+        CompositionLocalProvider(
+            LocalAppSnackbar provides { message: String ->
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = message,
+                        duration = SnackbarDuration.Short // ~4 seconds
                     )
                 }
             }
-        ) { padding ->
-            Children(
-                stack = root.childStack,
-                animation = stackAnimation(fade()),
-                modifier = Modifier
-                    .padding(padding)
-                    .consumeWindowInsets(padding)
-            ) { created ->
-                when (val c = created.instance) {
-                    is IRootComponent.Child.Events -> EventsScreen(c.component,)
-                    is IRootComponent.Child.Details -> DetailsScreen(c.component)
-                    is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
-                    is IRootComponent.Child.Cargo -> CargoScreen(c.component)
-                    is IRootComponent.Child.Complaint -> ComplaintsScreen(c.component)
-                    is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
-                    is IRootComponent.Child.Settings -> SettingsScreen(c.component)
-                    is IRootComponent.Child.Menu -> MenuScreen(c.component)
-                    is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
-                    is IRootComponent.Child.Login -> LoginScreen(c.component)
+        ) {
+            Scaffold(
+                contentWindowInsets = WindowInsets.safeDrawing,
+                snackbarHost = {
+                    SnackbarHost(hostState = snackbarHostState)
+                },
+                bottomBar = {
+                    AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
+                        AppBottomNavBar2(
+                            activeChild = activeChild,
+                            onEvents = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openEvents(needBackToList)
+                            },
+                            onDetails = { if (activeChild !is IRootComponent.Child.Details) root.openDetails() },
+                            onWorkOrder = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.WorkOrder) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openWorkOrders(needBackToList)
+                            },
+                            onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
+                            onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
+                            onCargo = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.Cargo) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openCargo(needBackToList)
+                            },
+                            onComplaint = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.Complaint) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openComplaint(needBackToList)
+                            },
+                            onInnerOrder = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.InnerOrder) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openInnerOrder(needBackToList)
+                            },
+                            onMenu = { if (activeChild !is IRootComponent.Child.Menu) root.openMenu() },
+                            onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
+                        )
+                    }
+                }
+            ) { padding ->
+                Children(
+                    stack = root.childStack,
+                    animation = stackAnimation(fade()),
+                    modifier = Modifier
+                        .padding(padding)
+                        .consumeWindowInsets(padding)
+                ) { created ->
+                    when (val c = created.instance) {
+                        is IRootComponent.Child.Events -> EventsScreen(c.component,)
+                        is IRootComponent.Child.Details -> DetailsScreen(c.component)
+                        is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
+                        is IRootComponent.Child.Cargo -> CargoScreen(c.component)
+                        is IRootComponent.Child.Complaint -> ComplaintsScreen(c.component)
+                        is IRootComponent.Child.InnerOrder -> InnerOrdersScreen(c.component)
+                        is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
+                        is IRootComponent.Child.Settings -> SettingsScreen(c.component)
+                        is IRootComponent.Child.Menu -> MenuScreen(c.component)
+                        is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
+                        is IRootComponent.Child.Login -> LoginScreen(c.component)
+                    }
                 }
             }
         }
@@ -143,7 +180,8 @@ fun AppBottomNavBar2(
     onFavorites: () -> Unit,
     onSettings: () -> Unit,
     onWorkOrder: () -> Unit,
-    onComplaint: () -> Unit
+    onComplaint: () -> Unit,
+    onInnerOrder: () -> Unit
 ) {
     // Use Surface to mimic NavigationBar style but control layout ourselves
     Surface(
@@ -185,6 +223,13 @@ fun AppBottomNavBar2(
                 onClick = onComplaint,
                 icon = { Icon(FeatherIcons.Zap, contentDescription = null) },
                 label = "Рекламации"
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.InnerOrder,
+                onClick = onInnerOrder,
+                icon = { Icon(FeatherIcons.Box, contentDescription = null) },
+                label = "Внутр. заказы"
             )
 
             BottomNavChip(

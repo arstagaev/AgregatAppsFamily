@@ -4,6 +4,7 @@ import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
 import com.tagaev.trrcrm.models.CargoDto
@@ -52,6 +53,8 @@ class MainRepository(
 
     suspend fun getToken(username: String, password: String): Resource<GetTokenResponse> = api.getToken(cfg, username, password)
 
+    suspend fun getRole(): Resource<GetRolesResponse> = api.getRole(cfg)
+
     suspend fun sendMessage(number: String, date: String, message: String): Resource<SentMessageResponse> =
         api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
 
@@ -92,20 +95,23 @@ class MainRepository(
             )
 
     /// MESSAGES /////
+    suspend fun sendMessageInnerOrder(
+        number: String,
+        date: String,
+        message: String
+    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.INNER_ORDER, number = number, date = date, message = message)
 
     suspend fun sendMessageComplaint(
         number: String,
         date: String,
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.COMPLAINT, number = number, date = date, message = message)
-//
 
     suspend fun sendMessageEvent(
         number: String,
         date: String,
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
-
 
     suspend fun sendMessageToWorkOrder(
         number: String,

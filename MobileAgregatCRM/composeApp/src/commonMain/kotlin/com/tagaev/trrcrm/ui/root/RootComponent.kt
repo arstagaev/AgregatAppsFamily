@@ -15,6 +15,7 @@ import com.tagaev.trrcrm.ui.complaints.ComplaintsComponent
 import com.tagaev.trrcrm.ui.details.DetailsComponent
 import com.tagaev.trrcrm.ui.events.EventsComponent
 import com.tagaev.trrcrm.ui.favorites.FavoritesComponent
+import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersComponent
 import com.tagaev.trrcrm.ui.login.ILoginComponent
 import com.tagaev.trrcrm.ui.login.LoginComponent
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -36,6 +37,7 @@ interface IRootComponent {
     fun openDetails()
     fun openCargo(needBackToList: Boolean)
     fun openComplaint(needBackToList: Boolean)
+    fun openInnerOrder(needBackToList: Boolean)
     fun openWorkOrders(needBackToList: Boolean)
     fun openQRScanner()
     fun openFavorites()
@@ -50,6 +52,7 @@ interface IRootComponent {
         data object WorkOrder : Config
         data object Cargo : Config
         data object Complaint : Config
+        data object InnerOrder : Config
         data object Favorites : Config
         data object Menu : Config
         data object Settings : Config
@@ -64,6 +67,7 @@ interface IRootComponent {
         data class Favorites(val component: FavoritesComponent) : Child
         data class Cargo(val component: CargoComponent) : Child
         data class Complaint(val component: ComplaintsComponent) : Child
+        data class InnerOrder(val component: InnerOrdersComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
         data class Menu(val component: IMenuComponent) : Child
         data class QRScanner(val component: IQRScannerComponent) : Child
@@ -125,6 +129,9 @@ class DefaultRootComponent(
 
             is IRootComponent.Config.Complaint ->
                 IRootComponent.Child.Complaint(ComplaintsComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.InnerOrder ->
+                IRootComponent.Child.InnerOrder(InnerOrdersComponent(ctx) { nav.pop() })
 
             is IRootComponent.Config.Menu ->
                 IRootComponent.Child.Menu(MenuComponent(ctx,
@@ -248,6 +255,18 @@ class DefaultRootComponent(
             nav.bringToFront(IRootComponent.Config.Complaint)
         }
     }
+
+    override fun openInnerOrder(needBackToList: Boolean)  {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.InnerOrder }
+                ?.instance as? IRootComponent.Child.InnerOrder
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.InnerOrder)
+        }
+    }
+
     override fun openSettings() = nav.bringToFront(IRootComponent.Config.Settings)
     override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)
     override fun back() = nav.pop()

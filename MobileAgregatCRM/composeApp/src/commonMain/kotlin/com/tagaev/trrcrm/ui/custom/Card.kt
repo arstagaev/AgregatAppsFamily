@@ -62,42 +62,58 @@ fun UniversalCardItem(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Left block: title + subtitle
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
-                ) {
+                if (topRightPrimary != null) {
                     TextC(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
                     )
-                    if (!subtitle.isNullOrBlank()) {
-                        Spacer(Modifier.height(2.dp))
+                    Box(
+                        modifier = Modifier.align(Alignment.CenterVertically)
+                    ) {
+                        topRightPrimary()
+                    }
+                } else {
+                    TextC(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            if (!subtitle.isNullOrBlank() || topRightSecondary != null) {
+                Spacer(Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    if (!subtitle.isNullOrBlank() && topRightSecondary != null) {
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-                }
-
-                // Right block: two composable views stacked
-                if (topRightPrimary != null || topRightSecondary != null) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f),
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        topRightPrimary?.let {
-                            it()
+                        Box(
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        ) {
+                            topRightSecondary()
                         }
-                        if (topRightSecondary != null && topRightPrimary != null) {
-                            Spacer(Modifier.height(4.dp))
-                        }
-                        topRightSecondary?.let {
-                            it()
+                    } else if (!subtitle.isNullOrBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else if (topRightSecondary != null) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            topRightSecondary()
                         }
                     }
                 }

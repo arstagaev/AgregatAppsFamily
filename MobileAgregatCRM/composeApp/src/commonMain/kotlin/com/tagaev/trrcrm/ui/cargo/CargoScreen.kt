@@ -40,7 +40,7 @@ fun CargoScreen(component: ICargoComponent) {
 //    var lastSendError by remember { mutableStateOf<String?>(null) }
 
     MasterScreen(
-        title = "Доставка",
+        title = "Доставки",
         resource = resource,
         emptyText = "Доставки не найдены",
         errorText = "Не удалось загрузить доставки",
