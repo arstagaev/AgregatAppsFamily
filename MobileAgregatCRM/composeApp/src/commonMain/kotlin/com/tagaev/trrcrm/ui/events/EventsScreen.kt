@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.mainscreen.StatusBadge
@@ -33,6 +36,7 @@ import com.tagaev.trrcrm.ui.mainscreen.format
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
 import kotlinx.coroutines.launch
 import kotlinx.datetime.format
@@ -50,6 +54,19 @@ fun EventsScreen(
     val scope = rememberCoroutineScope()
     var isSendingMessage by remember { mutableStateOf(false) }
     var lastSendError by remember { mutableStateOf<String?>(null) }
+
+    val showSnackbar = LocalAppSnackbar.current
+    val requestNotificationPermission =
+        rememberNotificationPermissionRequester { granted ->
+
+            if (!granted) {
+                showSnackbar("Необходимо разрешение на уведомления")
+            }
+        }
+
+    LaunchedEffect(Unit) {
+        requestNotificationPermission()
+    }
 
     MasterScreen(
         title = "События",
@@ -81,7 +98,8 @@ fun EventsScreen(
                     val number = ev.number.orEmpty()
                     val date = ev.date?.format(formatDDMMYYYY).orEmpty()
                     scope.launch {
-                        val ok = component.sendMessage(number, date, message)
+                        component.pickedEvent = ev
+                        val ok = component.sendMessage(itemNumber = number, itemDate = date, message = message)
                         if (ok) {
                             component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
                         }

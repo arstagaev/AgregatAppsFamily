@@ -2,7 +2,10 @@ package com.tagaev.trrcrm.ui.settings
 
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.AppSettings
+import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.db.EventsCacheStore
+import com.tagaev.trrcrm.getPlatform
+import com.tagaev.trrcrm.push.PushRegistration
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -27,6 +30,18 @@ class SettingsComponent(
     }
 
     override fun onLogout() {
+
+        val fullName = settings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA) // from your settings / repository
+        val platform = getPlatform().deviceSpecificInfo
+
+        if (!fullName.isNullOrBlank()) {
+            // FCM token optional here; platform+fullName is enough
+            PushRegistration.logoutCurrentDevice(
+                fullName = fullName,
+                platform = platform
+            )
+        }
+
         eventsCacheStore.clearAll()
 
         settings.clearAll()
@@ -35,6 +50,8 @@ class SettingsComponent(
 
         onLogoutAction.invoke()
     }
+
+
 
     override fun back() = onBack()
 }

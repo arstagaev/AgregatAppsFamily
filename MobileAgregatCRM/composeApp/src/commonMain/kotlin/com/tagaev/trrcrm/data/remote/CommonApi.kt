@@ -1,11 +1,13 @@
 package com.tagaev.trrcrm.data.remote
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
+import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
 import com.tagaev.trrcrm.domain.FilterByOption
+import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import io.ktor.client.*
@@ -23,9 +25,14 @@ import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.SentMessageResponse
+import com.tagaev.trrcrm.models.ThreadMessageRequest
+import com.tagaev.trrcrm.models.ThreadMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import io.ktor.client.plugins.expectSuccess
 import com.tagaev.trrcrm.models.cleanJsonStart
+import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_PUSH_URL
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 
 // https://api.aaaaaaaaa.ru/app/getdata.php?token=111111111&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
 // https://api.agregatka.ru/app/getdata.php?token=234234234&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
@@ -175,6 +182,39 @@ class EventsApi(
 
         val raw = response.bodyAsText()
         decodeOrWarning<SentMessageResponse>(json, raw)
+    }
+
+    suspend fun sendThreadMessage(
+        api: ApiConfig,
+        docId: String,
+        docTitle: String,
+        authorName: String,
+        messageText: String,
+        recipientNames: List<String>,
+    ): Resource<ThreadMessageResponse> = resourceify {
+        val url = GLOBAL_PUSH_URL.trimEnd('/') + "/push/thread-message"
+        println("sendThreadMessage -> docId ${docId} recipientNames ${recipientNames} | ${messageText}")
+        val response = client.post(url) {
+            header("X-API-Key", Secrets.PUSH_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(
+                ThreadMessageRequest(
+                    doc_id = docId,
+                    doc_title = docTitle,
+                    author_name = authorName,
+                    message_text = messageText,
+                    recipient_names = recipientNames,
+                )
+            )
+        }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<ThreadMessageResponse>(json, raw)
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=

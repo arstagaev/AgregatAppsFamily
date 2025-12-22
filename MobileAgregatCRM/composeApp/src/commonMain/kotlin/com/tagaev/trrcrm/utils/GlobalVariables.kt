@@ -2,7 +2,10 @@ package com.tagaev.trrcrm.utils
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import com.tagaev.secrets.Secrets
+import com.tagaev.secrets.Secrets.IS_PUBLISH
 import com.tagaev.trrcrm.domain.messages.DraftedMessage
+import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.models.EventItemDto
 
 
@@ -23,6 +26,8 @@ object DefaultValuesConst {
     // Выполнено Выполняется
     const val FILTER_TYPE = "list" // Выполнено Выполняется
     const val MESSAGE_MAX_CHARS = 500
+
+    val GLOBAL_PUSH_URL = if (IS_PUBLISH.toBoolean()) Secrets.PUSH_BASE_URL else getPlatform().baseDebugFCMurl
 
 //    var needBack
 }

@@ -57,6 +57,7 @@ kotlin {
             // Import the Firebase BoM
             // Firebase BoM – pin all Firebase libs to a consistent version
             implementation(project.dependencies.platform("com.google.firebase:firebase-bom:33.5.1"))
+            implementation("com.google.firebase:firebase-messaging-ktx")
 
             // Analytics (Kotlin devs now use the main artifact, not -ktx)
             implementation("com.google.firebase:firebase-analytics")
@@ -145,7 +146,7 @@ android {
         applicationId = "com.tagaev.trrcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 8 //
+        versionCode = 9 //
         versionName = version//"1.4.5"
     }
     packaging {
@@ -310,6 +311,9 @@ buildkonfig {
         buildConfigField(STRING, "VERSION", version)
         buildConfigField(STRING, "COUNTVERSION", countVersion)
         buildConfigField(STRING, "IS_PUBLISH", isPublish)
+
+        buildConfigField(STRING, "PUSH_BASE_URL", "http://10.0.2.2:8000/")
+        buildConfigField(STRING, "PUSH_API_KEY", "SUPERMAMIN_PUMPKIN_2004")
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.
     defaultConfigs {

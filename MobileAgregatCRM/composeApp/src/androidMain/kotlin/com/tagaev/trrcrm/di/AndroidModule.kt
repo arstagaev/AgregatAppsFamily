@@ -3,7 +3,10 @@ package com.tagaev.trrcrm.di
 import android.content.Context
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.SharedPreferencesSettings
+import com.tagaev.trrcrm.AndroidPlatform
+import com.tagaev.trrcrm.Platform
 import com.tagaev.trrcrm.data.db.DriverFactory
+import com.tagaev.trrcrm.utils.DeviceIdProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,4 +22,8 @@ val androidModule = module {
         val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         SharedPreferencesSettings(prefs, commit = false)
     }
+
+    single { DeviceIdProvider(androidContext()) }
+
+    single<Platform> { AndroidPlatform(get()) }
 }

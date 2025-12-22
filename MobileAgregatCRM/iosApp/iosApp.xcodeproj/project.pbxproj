@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		96256E972EF95FA4005042D3 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 96256E962EF95FA4005042D3 /* FirebaseAnalytics */; };
+		96256E992EF95FA4005042D3 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = 96256E982EF95FA4005042D3 /* FirebaseAnalyticsCore */; };
+		96256E9B2EF95FA4005042D3 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = 96256E9A2EF95FA4005042D3 /* FirebaseAnalyticsIdentitySupport */; };
+		96256E9D2EF95FA4005042D3 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 96256E9C2EF95FA4005042D3 /* FirebaseCore */; };
+		96256E9F2EF95FA4005042D3 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 96256E9E2EF95FA4005042D3 /* FirebaseMessaging */; };
 		96BD5F922EC78F980039A5A9 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 96BD5F912EC78F850039A5A9 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
 
@@ -46,6 +51,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				96256E9F2EF95FA4005042D3 /* FirebaseMessaging in Frameworks */,
+				96256E9B2EF95FA4005042D3 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
+				96256E9D2EF95FA4005042D3 /* FirebaseCore in Frameworks */,
+				96256E972EF95FA4005042D3 /* FirebaseAnalytics in Frameworks */,
+				96256E992EF95FA4005042D3 /* FirebaseAnalyticsCore in Frameworks */,
 				96BD5F922EC78F980039A5A9 /* libsqlite3.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -100,6 +110,11 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				96256E962EF95FA4005042D3 /* FirebaseAnalytics */,
+				96256E982EF95FA4005042D3 /* FirebaseAnalyticsCore */,
+				96256E9A2EF95FA4005042D3 /* FirebaseAnalyticsIdentitySupport */,
+				96256E9C2EF95FA4005042D3 /* FirebaseCore */,
+				96256E9E2EF95FA4005042D3 /* FirebaseMessaging */,
 			);
 			productName = iosApp;
 			productReference = F79824ADB39089317F78F352 /* mobileagregatcrm.app */;
@@ -129,6 +144,9 @@
 			);
 			mainGroup = D5097C5D14F43EBDC97883E6;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3580BD99EF9B9FD1D972FD9F /* Products */;
 			projectDirPath = "";
@@ -188,9 +206,10 @@
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = P8W9G2SFWN;
 				ENABLE_PREVIEWS = YES;
@@ -198,6 +217,7 @@
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "TRR CRM";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Нужна камера для сканирования QR-кодов";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -207,7 +227,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.20;
+				MARKETING_VERSION = 1.4.22;
 				PRODUCT_BUNDLE_IDENTIFIER = com.trrtai.app;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -290,9 +310,10 @@
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				DEVELOPMENT_TEAM = P8W9G2SFWN;
 				ENABLE_PREVIEWS = YES;
@@ -300,6 +321,7 @@
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "TRR CRM";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Нужна камера для сканирования QR-кодов";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -309,7 +331,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.4.20;
+				MARKETING_VERSION = 1.4.22;
 				PRODUCT_BUNDLE_IDENTIFIER = com.trrtai.app;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -401,6 +423,45 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		96256E962EF95FA4005042D3 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		96256E982EF95FA4005042D3 /* FirebaseAnalyticsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsCore;
+		};
+		96256E9A2EF95FA4005042D3 /* FirebaseAnalyticsIdentitySupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsIdentitySupport;
+		};
+		96256E9C2EF95FA4005042D3 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		96256E9E2EF95FA4005042D3 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 96256E952EF95FA4005042D3 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2EC216B955A126DFDF50F291 /* Project object */;
 }

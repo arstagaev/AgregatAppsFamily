@@ -33,8 +33,6 @@ class EventsCacheStore(
     }
 
     fun clearAll() {
-//        queries.deleteByKey(KEY)
-
         queries.clearEventsCache()
     }
 

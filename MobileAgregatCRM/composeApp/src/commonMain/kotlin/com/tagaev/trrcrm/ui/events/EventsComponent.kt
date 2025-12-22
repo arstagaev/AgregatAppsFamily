@@ -2,6 +2,7 @@ package com.tagaev.trrcrm.ui.events
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
+import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
@@ -25,6 +26,7 @@ import kotlin.getValue
 
 interface IEventsComponent : IListMaster{
     val events: StateFlow<Resource<List<EventItemDto>>>
+    var pickedEvent: EventItemDto?
 }
 
 class EventsComponent(
@@ -56,6 +58,8 @@ class EventsComponent(
 
     private val _selectedOrderGuid = MutableStateFlow<String?>(null)
     override val selectedItemGuid: StateFlow<String?> = _selectedOrderGuid
+
+    override var pickedEvent: EventItemDto? = null
 
     override fun selectItemFromList(guid: String?) {
         _selectedOrderGuid.value = guid
@@ -150,6 +154,25 @@ class EventsComponent(
             itemDate.substringBefore(' '),
             message
         )
+//        val users = pickedEvent?.users?.map { it.user }
+
+        val users = pickedEvent?.users?.mapNotNull { it.user }
+        val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
+        println("try to PUSH with FCM ${users?.joinToString()}")
+
+        if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+            println("try to PUSH with FCM 2. ${users?.joinToString()}")
+            repository.sendMessageEventPUSH(
+                docId = "${pickedEvent?.number}",
+                docTitle = "Событие ${pickedEvent?.number} (${pickedEvent?.companyDepartment})",
+                authorName = appSettings.getString(AppSettingsKeys.PERSONAL_DATA,"NO Name") ,
+                recipientNames = users,
+                message = "${author}:\n${message}"
+            )
+        } else {
+            println("PUSH FCM WONT WORK !!!")
+        }
+        //
 
         return if (res is Resource.Success) {
             // after successful send, refresh list so messages include new comment

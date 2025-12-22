@@ -13,6 +13,7 @@ import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.SentMessageResponse
+import com.tagaev.trrcrm.models.ThreadMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.utils.DefaultValuesConst
 import org.koin.core.component.KoinComponent
@@ -95,6 +96,12 @@ class MainRepository(
             )
 
     /// MESSAGES /////
+    suspend fun sendMessageEvent(
+        number: String,
+        date: String,
+        message: String
+    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
+
     suspend fun sendMessageInnerOrder(
         number: String,
         date: String,
@@ -107,17 +114,19 @@ class MainRepository(
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.COMPLAINT, number = number, date = date, message = message)
 
-    suspend fun sendMessageEvent(
-        number: String,
-        date: String,
-        message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
-
     suspend fun sendMessageToWorkOrder(
         number: String,
         date: String,
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.WORK_ORDER, number = number, date = date, message = message)
+
+    suspend fun sendMessageEventPUSH(
+        docId: String,
+        docTitle: String,
+        authorName: String,
+        recipientNames: List<String>,
+        message: String
+    ): Resource<ThreadMessageResponse> = api.sendThreadMessage(api = cfg, docId = docId, docTitle = docTitle, authorName = authorName, recipientNames = recipientNames, messageText = message)
 
 
     //          api.sendMessage(api = cfg, number = number, date = date, message = message)

@@ -3,6 +3,8 @@ package com.tagaev.trrcrm.di
 //import com.agregat.db.AppDatabase
 import com.agregat.db.Database
 import com.russhwolf.settings.Settings
+import com.tagaev.secrets.Secrets
+import com.tagaev.secrets.Secrets.IS_PUBLISH
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.db.EventsCacheStore
@@ -11,7 +13,10 @@ import com.tagaev.trrcrm.data.db.createDatabase
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.HttpClientFactory
+import com.tagaev.trrcrm.getPlatform
+import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.ui.style.ThemeController
+import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_PUSH_URL
 import io.ktor.client.HttpClient
 import org.koin.dsl.module
 import kotlinx.coroutines.CoroutineScope
@@ -40,13 +45,22 @@ val commonModule = module {
             client = get()   // get<HttpClient>()
         )
     }
-//    single { EventsApi() }
+
+//    single { provideHttpClient() } // you already have this
+
+    // configure push registration at startup
+    single(createdAtStart = true) {
+        val client: HttpClient = get()
+        PushRegistration.configure(
+            client = client,
+            baseUrl = GLOBAL_PUSH_URL,
+            apiKey = Secrets.PUSH_API_KEY,
+        )
+        PushRegistration
+    }
 
     // --- Repositories ---
     single { MainRepository(api = get(), cfg = get()) }
-
-//    single { get<Database>().events_cacheQueries }
-//    single { EventsCacheStore(get(), get()) } // needs Json too
 
     // --- Database (SQLDelight) ---
     // Provide Database
@@ -59,11 +73,6 @@ val commonModule = module {
     // Stores
     single { EventsCacheStore(get(), get()) }
     single { FavoritesStore(get()) }
-
-//    single { AppDatabase(get<DriverFactory>().createDriver()) }
-//    single { get<AppDatabase>().favoritesQueries }
-
-//    single { FavoritesRepository(get()) }
 
     // --- Settings / JSON ---
     single<Json> { Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false } }

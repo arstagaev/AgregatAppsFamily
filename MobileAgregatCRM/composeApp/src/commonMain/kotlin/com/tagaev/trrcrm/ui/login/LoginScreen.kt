@@ -42,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
+import com.tagaev.trrcrm.utils.anonim
 import mobileagregatcrm.composeapp.generated.resources.car1
 import mobileagregatcrm.composeapp.generated.resources.car2
 import mobileagregatcrm.composeapp.generated.resources.car3
@@ -317,7 +318,7 @@ fun LoginScreen(component: ILoginComponent) {
                             TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
                         },
                         title = { Text("Ошибка входа") },
-                        text = { Text(currentError) }
+                        text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
                     )
                 }
             }

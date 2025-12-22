@@ -9,6 +9,9 @@
     <uses-permission
             android:name="com.google.android.gms.permission.AD_ID"
             tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+
 
     <application
             android:name=".App"
@@ -20,6 +23,15 @@
             android:supportsRtl="true"
             tools:replace="android:name"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <service
+                android:name=".push.AppFirebaseMessagingService"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <activity
                 android:exported="true"
                 android:name=".MainActivity">

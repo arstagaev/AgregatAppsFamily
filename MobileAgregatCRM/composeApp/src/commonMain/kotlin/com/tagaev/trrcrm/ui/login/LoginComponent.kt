@@ -2,6 +2,7 @@ package com.tagaev.trrcrm.ui.login
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
+import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import org.koin.core.component.KoinComponent
@@ -9,6 +10,8 @@ import org.koin.core.component.inject
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.getPlatform
+import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.utils.AVAILABLE_ROLES
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -43,7 +46,7 @@ class LoginComponent(
     private val onBack: () -> Unit,
 ) : ILoginComponent, ComponentContext by componentContext, KoinComponent {
 
-    private val settings: AppSettings by inject()
+    private val appSettings: AppSettings by inject()
     private val apiConfig: ApiConfig by inject()
     private val repo: MainRepository by inject()
     private val appScope: CoroutineScope by inject()
@@ -56,18 +59,21 @@ class LoginComponent(
 
     init {
         if (
-            !settings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty()
-            && !settings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
+            !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty()
+            && !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
             ) {
             onLoginWithCredentials(
-                user = settings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
-                pass = settings.getString(AppSettingsKeys.PASS, defaultValue = "")
+                user = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
+                pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
             )
         } else {
             println("Email or Token is empty")
         }
 
         backHandler.register(backCallback)
+        if (!Secrets.IS_PUBLISH.toBoolean()) {
+            println("FCM TOKEN: " +appSettings.getString(AppSettingsKeys.FCM_TOKEN,"NULL"))
+        }
     }
 
     override fun onLoginWithCredentials(user: String, pass: String) {
@@ -88,8 +94,8 @@ class LoginComponent(
                     pass.encodeUtf8().sha256().hex()
                 }
                 println("onLoginWithCredentials> pass${pass}")
-                settings.setString(AppSettingsKeys.EMAIL, user)
-                settings.setString(AppSettingsKeys.PASS, passHash)
+                appSettings.setString(AppSettingsKeys.EMAIL, user)
+                appSettings.setString(AppSettingsKeys.PASS, passHash)
                 println("onLoginWithCredentials> ${passHash}")
                 // Call network on IO
                 val res = withContext(Dispatchers.IO) {
@@ -102,9 +108,9 @@ class LoginComponent(
                         val data = res.data
                         withContext(Dispatchers.Main.immediate) {
                             if (!data.token.isNullOrBlank()) {
-                                settings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
-                                settings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName}")
-                                settings.setString(AppSettingsKeys.DEPARTMENT, "${data.department}")
+                                appSettings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
+                                appSettings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName}")
+                                appSettings.setString(AppSettingsKeys.DEPARTMENT, "${data.department}")
 //                                settings.setString(AppSettingsKeys.FILTER_VAL, data.department)
                                 runCatching { apiConfig.token = data.token }
 
@@ -150,15 +156,28 @@ class LoginComponent(
     }
 
     private fun completeLogin() {
-
         _uiState.value = LoginUiState.Idle
-        AVAILABLE_ROLES
+        val token = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN)
+        val personalData = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
+
+        if (token.isNullOrBlank() || personalData.isNullOrBlank()) {
+            println("FCM token or personalData is empty, skip register $token / $personalData")
+
+        } else {
+            println("Register FCM token for user $personalData")
+            PushRegistration.registerCurrentUserToken(
+                fullName = personalData,
+                platform = "${getPlatform()}",
+                token = token
+            )
+        }
+
         onLoginSuccess() // navigate (must be MAIN)
     }
 
     override fun onLoginWithToken(token: String) {
         // Persist and update runtime config so API starts using it immediately
-        settings.setString("API_TOKEN", token)
+        appSettings.setString("API_TOKEN", token)
         runCatching { apiConfig.token = token }
         onLoginSuccess()
     }

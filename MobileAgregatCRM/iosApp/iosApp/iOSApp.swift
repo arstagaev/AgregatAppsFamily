@@ -5,6 +5,10 @@ struct iOSApp: App {
     // init() {
     //     _ = IosModuleKt.initKoinIos()
     // }
+    init() {
+            NotificationManager.shared.configure()
+        }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

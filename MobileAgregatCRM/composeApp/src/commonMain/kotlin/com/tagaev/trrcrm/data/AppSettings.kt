@@ -10,7 +10,7 @@ import com.tagaev.trrcrm.models.EventItemDto
 
 
 object AppSettingsKeys {
-    const val EVENTS_CACHE = "events_cache_v1"
+    const val EVENTS_CACHE = "events_cache_v2"
 
     const val FILTER_COUNT = "FILTER_COUNT"
     const val FILTER_NCOUNT = "FILTER_NCOUNT"
@@ -39,6 +39,11 @@ object AppSettingsKeys {
     const val DETAILS_MSGS_OPEN = "DETAILS_MSGS_OPEN"
     const val DETAILS_MSG_DRAFT = "DETAILS_MSG_DRAFT"
 
+
+    const val ERROR_LOGS = "ERROR_LOGS"
+    //FCM Token Cant registrate .         ;
+    //0 - not registered / 1 - registered ;
+
     const val EMAIL     = "EMAIL"
     const val PASS      = "PASS"
     const val TOKEN_KEY = "TOKEN_KEY"
@@ -47,11 +52,20 @@ object AppSettingsKeys {
 
     const val PERSONAL_DATA = "PERSONAL_DATA"
 
-    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
-    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
-    const val CARGO_REFINE_STATE = "CARGO_REFINE_STATE"
-    const val COMPLAINTS_REFINE_STATE = "COMPLAINTS_REFINE_STATE"
-    const val INNERORDER_REFINE_STATE = "COMPLAINTS_REFINE_STATE"
+    const val FCM_TOKEN = "NULL"
+
+    const val VERSION_CODE = "v2"
+    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE_"+VERSION_CODE
+    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE_"+VERSION_CODE
+    const val CARGO_REFINE_STATE = "CARGO_REFINE_STATE_"+VERSION_CODE
+    const val COMPLAINTS_REFINE_STATE = "COMPLAINTS_REFINE_STATE_"+VERSION_CODE
+    const val INNERORDER_REFINE_STATE = "COMPLAINTS_REFINE_STATE_"+VERSION_CODE
+
+//    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
+//    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
+//    const val CARGO_REFINE_STATE = "CARGO_REFINE_STATE"
+//    const val COMPLAINTS_REFINE_STATE = "COMPLAINTS_REFINE_STATE"
+//    const val INNERORDER_REFINE_STATE = "COMPLAINTS_REFINE_STATE"
 }
 
 //object PrefDef {
@@ -65,6 +79,13 @@ object AppSettingsKeys {
 //"username": "Ivan.a.a@my.Ivan.ru",
 //"ФИО": "Ivan Ivan Ivan",
 //"Должность": "Веб-программист",
+//    const val VERSION_CODE = "v2"
+//
+//    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE_"+VERSION_CODE
+//    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE_"+VERSION_CODE
+//    const val CARGO_REFINE_STATE = "CARGO_REFINE_STATE_"+VERSION_CODE
+//    const val COMPLAINTS_REFINE_STATE = "COMPLAINTS_REFINE_STATE_"+VERSION_CODE
+//    const val INNERORDER_REFINE_STATE = "COMPLAINTS_REFINE_STATE_"+VERSION_CODE
 
 ////////////////////////
 
