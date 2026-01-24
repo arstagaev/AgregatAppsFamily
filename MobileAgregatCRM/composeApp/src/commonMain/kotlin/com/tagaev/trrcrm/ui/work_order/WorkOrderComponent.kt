@@ -12,6 +12,7 @@ import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
@@ -19,28 +20,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-
-interface IListMaster {
-    val refineState: StateFlow<RefineState>
-    val ncount: StateFlow<Int>
-
-    val masterScreenPanel: StateFlow<MasterPanel>
-    val selectedItemGuid: StateFlow<String?>
-
-
-    fun setRefineState(newState: RefineState)
-    fun fullRefresh()
-    fun loadMore()
-    suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean
-
-    fun addLocalMessage(
-        orderGuid: String?,
-        message: MessageModel
-    )
-
-    fun selectItemFromList(guid: String?)
-    fun changePanel(masterDetailPanel: MasterPanel)
-}
 
 interface IWorkOrdersComponent: IListMaster {
     val workOrders: StateFlow<Resource<List<WorkOrderDto>>>

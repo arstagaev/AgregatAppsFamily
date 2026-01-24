@@ -10,11 +10,9 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.CargoDto
-import com.tagaev.trrcrm.models.EventItemDto
-import com.tagaev.trrcrm.ui.events.EventsComponent
+import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
-import com.tagaev.trrcrm.ui.work_order.IListMaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

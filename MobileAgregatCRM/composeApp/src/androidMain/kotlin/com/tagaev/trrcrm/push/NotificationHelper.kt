@@ -45,7 +45,7 @@ object NotificationHelper {
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.baseline_360_24) // add one in resources
+            .setSmallIcon(R.drawable.racecar2) // add one in resources
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)

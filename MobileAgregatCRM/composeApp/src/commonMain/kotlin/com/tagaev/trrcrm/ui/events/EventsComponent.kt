@@ -11,9 +11,9 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.MessageDto
+import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
-import com.tagaev.trrcrm.ui.work_order.IListMaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +24,7 @@ import kotlin.collections.orEmpty
 import kotlin.collections.plus
 import kotlin.getValue
 
-interface IEventsComponent : IListMaster{
+interface IEventsComponent : IListMaster {
     val events: StateFlow<Resource<List<EventItemDto>>>
     var pickedEvent: EventItemDto?
 }
@@ -158,7 +158,7 @@ class EventsComponent(
 
         val users = pickedEvent?.users?.mapNotNull { it.user }
         val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
-        println("try to PUSH with FCM ${users?.joinToString()}")
+        println("try to PUSracecarH with FCM ${users?.joinToString()}")
 
         if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
             println("try to PUSH with FCM 2. ${users?.joinToString()}")
