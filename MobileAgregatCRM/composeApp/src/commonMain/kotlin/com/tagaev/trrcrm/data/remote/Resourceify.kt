@@ -54,7 +54,15 @@ inline fun <reified T> decodeOrWarning(json: Json, raw: String): T {
     // Soft error branches first:
     obj?.get("warning")?.jsonPrimitive?.contentOrNull
         ?.takeIf { it.isNotBlank() }
-        ?.let { throw WarningException(it) }
+        ?.let { warning ->
+            // Backend sometimes returns {"warning":"Empty answers"} for empty lists.
+            // Treat it as an empty successful response so UI shows notFoundText (not errorText).
+            if (warning.equals("Empty answers", ignoreCase = true) && T::class == List::class) {
+                @Suppress("UNCHECKED_CAST")
+                return emptyList<Any?>() as T
+            }
+            throw WarningException(warning)
+        }
 
     obj?.get("error")?.jsonPrimitive?.contentOrNull
         ?.takeIf { it.isNotBlank() }

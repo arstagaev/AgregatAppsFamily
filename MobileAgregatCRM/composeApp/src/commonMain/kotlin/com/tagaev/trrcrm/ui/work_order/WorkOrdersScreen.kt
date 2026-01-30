@@ -39,7 +39,6 @@ fun WorkOrdersScreen(
     MasterScreen(
         title = "Заказ-наряды",
         resource = resource,
-        emptyText = "Заказ-наряды не найдены",
         errorText = "Не удалось загрузить заказ-наряды",
         notFoundText = "Заказ-наряды не найдены",
         refineState = refineState,
@@ -256,5 +255,4 @@ fun WorkOrderStatusBadge(status: String?) {
         )
     }
 }
-
 

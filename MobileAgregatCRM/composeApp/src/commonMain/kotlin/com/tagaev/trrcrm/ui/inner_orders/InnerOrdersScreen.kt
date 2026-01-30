@@ -60,7 +60,6 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     MasterScreen(
         title = "Внутренние заказы",
         resource = resource,
-        emptyText = "Внутренних заказов нет",
         errorText = "Не удалось загрузить внутренние заказы",
         notFoundText = "Внутренние заказы не найдены",
         refineState = refineState,

@@ -59,7 +59,6 @@ enum class MasterPanel {
 fun <T, F> MasterScreen(
     title: String,
     resource: Resource<List<T>>,
-    emptyText: String,
     errorText: String,
     notFoundText: String,
     refineState: F,

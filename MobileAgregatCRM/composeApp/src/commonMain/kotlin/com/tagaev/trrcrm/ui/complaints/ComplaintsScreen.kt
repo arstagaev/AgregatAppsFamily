@@ -60,7 +60,6 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
     MasterScreen(
         title = "Рекламации",
         resource = resource,
-        emptyText = "Рекламации не найдены",
         errorText = "Не удалось загрузить рекламации",
         notFoundText = "Рекламации не найдены",
         refineState = refineState,

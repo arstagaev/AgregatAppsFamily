@@ -42,7 +42,6 @@ fun CargoScreen(component: ICargoComponent) {
     MasterScreen(
         title = "Доставки",
         resource = resource,
-        emptyText = "Доставки не найдены",
         errorText = "Не удалось загрузить доставки",
         notFoundText = "Доставки не найдены",
         refineState = refineState,

@@ -71,7 +71,6 @@ fun EventsScreen(
     MasterScreen(
         title = "События",
         resource = resource,
-        emptyText = "События не найдены",
         errorText = "Не удалось загрузить события",
         notFoundText = "События не найдены",
         refineState = refineState,

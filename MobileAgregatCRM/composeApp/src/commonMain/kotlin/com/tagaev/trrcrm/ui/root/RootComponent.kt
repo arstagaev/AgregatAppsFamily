@@ -27,6 +27,9 @@ import com.tagaev.trrcrm.ui.settings.ISettingsComponent
 import com.tagaev.trrcrm.ui.settings.SettingsComponent
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersComponent
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.core.component.inject
 
 interface IRootComponent {
@@ -45,6 +48,13 @@ interface IRootComponent {
     fun openSettings()
     fun openLogin()
     fun back()
+    /**
+     * Handles deep link navigation from push notifications.
+     * Always refreshes the target screen's data before navigation.
+     * @param screen The target screen name (events, work_orders, cargo, complaints, inner_orders)
+     * @param docId Optional document ID to select after refresh
+     */
+    fun onDeepLink(screen: String, docId: String?)
 
     sealed interface Config {
         data object Events : Config
@@ -91,6 +101,9 @@ class DefaultRootComponent(
     private val api: EventsApi by inject()
 
     private val nav = StackNavigation<IRootComponent.Config>()
+    
+    // Store pending deep link to process after login
+    private var pendingDeepLink: Pair<String, String?>? = null
 
 //    private val _auth = MutableStateFlow<AuthState>(AuthState.Checking)
 //    val auth: StateFlow<AuthState> = _auth
@@ -170,7 +183,25 @@ class DefaultRootComponent(
             is IRootComponent.Config.Login ->
                 IRootComponent.Child.Login(LoginComponent(
                     componentContext = ctx,
-                    onLoginSuccess = { openEvents(false) },
+                    onLoginSuccess = { 
+                        println(">>> Login success callback: pendingDeepLink=$pendingDeepLink")
+                        // Check if there's a pending deep link to process
+                        val pending = pendingDeepLink
+                        pendingDeepLink = null
+                        if (pending != null) {
+                            val (screen, docId) = pending
+                            println(">>> Login success: Processing pending deep link: screen=$screen, docId=$docId")
+                            // Process the deep link after login
+                            appScope.launch(Dispatchers.Main.immediate) {
+                                delay(50) // let Login settle, then navigate on Main
+                                onDeepLink(screen, docId)
+                            }
+                        } else {
+                            println(">>> Login success: No pending deep link, navigating to Events")
+                            // Avoid keeping Login in the back stack
+                            nav.replaceAll(IRootComponent.Config.Events)
+                        }
+                    },
                 ) { nav.pop() })
         }
     @Deprecated("MIGRATE NEED")
@@ -267,4 +298,116 @@ class DefaultRootComponent(
     override fun openSettings() = nav.bringToFront(IRootComponent.Config.Settings)
     override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)
     override fun back() = nav.pop()
+
+    override fun onDeepLink(screen: String, docId: String?) {
+        val normalizedScreen = normalizeScreen(screen)
+        val normalizedDocId = extractGuidOrTrim(docId)
+        println(">>> onDeepLink called: screen='$screen' -> '$normalizedScreen', docId='$normalizedDocId' (raw='$docId')")
+
+        // Check if user is logged in by checking if token exists
+        val isLoggedIn = !appSettings.getString(AppSettingsKeys.TOKEN_KEY, "").isBlank()
+
+        // If we're currently on Login screen, always store the deep link.
+        // Login flow may auto-navigate to Events on success; pendingDeepLink prevents that override.
+        val currentConfig = childStack.value.active.configuration
+        if (currentConfig is IRootComponent.Config.Login) {
+            println(">>> onDeepLink: on Login; store pending deep link (isLoggedIn=$isLoggedIn)")
+            pendingDeepLink = normalizedScreen to normalizedDocId
+            if (!isLoggedIn) {
+                return
+            }
+        }
+
+        val config = mapScreenToConfig(normalizedScreen) ?: run {
+            println(">>> onDeepLink: Unknown screen '$screen', ignoring")
+            return
+        }
+
+        // Always navigate on Main (Decompose navigation is not thread-safe)
+        appScope.launch(Dispatchers.Main.immediate) {
+            val active = childStack.value.active.configuration
+            println(">>> onDeepLink: Mapped to config $config; active=$active")
+
+            // If we're coming from Login, replace stack to avoid Login staying in back stack
+            if (active is IRootComponent.Config.Login) {
+                nav.replaceAll(config)
+            } else {
+                nav.bringToFront(config)
+            }
+
+            // Wait until target child exists (navigation is async relative to composition)
+            val masterComponent = awaitMasterComponent(config)
+            if (masterComponent == null) {
+                println(">>> onDeepLink: Component not found for config $config")
+                return@launch
+            }
+
+            println(">>> onDeepLink: Found component; refresh + select docId=$normalizedDocId")
+
+            // Always refresh as requested
+            masterComponent.fullRefresh()
+
+            // If a document ID was provided, select and open details.
+            // We don't need to wait for refresh completion; the UI will update when data arrives.
+            if (!normalizedDocId.isNullOrBlank()) {
+                masterComponent.selectItemFromList(normalizedDocId)
+                masterComponent.changePanel(MasterPanel.Details)
+            } else {
+                masterComponent.changePanel(MasterPanel.List)
+            }
+        }
+    }
+
+    private suspend fun awaitMasterComponent(
+        config: IRootComponent.Config,
+        timeoutMs: Long = 1500,
+        pollMs: Long = 50,
+    ): com.tagaev.trrcrm.ui.master_screen.IListMaster? {
+        val attempts = ((timeoutMs / pollMs).toInt()).coerceAtLeast(1)
+        repeat(attempts) {
+            val targetChild = childStack.value.items.firstOrNull { it.configuration == config }
+            val childInstance = targetChild?.instance
+            val master = when (childInstance) {
+                is IRootComponent.Child.Events -> childInstance.component
+                is IRootComponent.Child.WorkOrder -> childInstance.component
+                is IRootComponent.Child.Cargo -> childInstance.component
+                is IRootComponent.Child.Complaint -> childInstance.component
+                is IRootComponent.Child.InnerOrder -> childInstance.component
+                else -> null
+            }
+            if (master != null) return master
+            delay(pollMs)
+        }
+        return null
+    }
+
+    private fun mapScreenToConfig(normalizedScreen: String): IRootComponent.Config? {
+        return when (normalizedScreen) {
+            "events", "event" -> IRootComponent.Config.Events
+            "work_orders", "workorders", "work_order", "workorder" -> IRootComponent.Config.WorkOrder
+            "cargo", "cargos" -> IRootComponent.Config.Cargo
+            "complaints", "complaint" -> IRootComponent.Config.Complaint
+            "inner_orders", "innerorders", "inner_order", "innerorder" -> IRootComponent.Config.InnerOrder
+            else -> null
+        }
+    }
+
+    private fun normalizeScreen(raw: String): String {
+        return raw
+            .trim()
+            .lowercase()
+            .replace('-', '_')
+            .replace(' ', '_')
+    }
+
+    private fun extractGuidOrTrim(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        val trimmed = value.trim()
+        val match = GUID_REGEX.find(trimmed)
+        return match?.value ?: trimmed
+    }
+
+    private companion object {
+        private val GUID_REGEX = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+    }
 }

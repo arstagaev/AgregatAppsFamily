@@ -11,8 +11,6 @@
             tools:node="remove" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-
-
     <application
             android:name=".App"
             android:allowBackup="true"
@@ -31,6 +29,15 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <receiver
+                android:name=".push.TestNotificationReceiver"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.tagaev.trrcrm.TEST_NOTIFICATION" />
+                <action android:name="com.tagaev.trrcrm.DEBUG_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
 
         <activity
                 android:exported="true"
