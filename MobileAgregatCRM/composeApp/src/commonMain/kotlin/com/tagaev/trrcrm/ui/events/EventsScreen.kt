@@ -2,13 +2,16 @@ package com.tagaev.trrcrm.ui.events
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -24,12 +27,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
-import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
+import com.tagaev.trrcrm.ui.custom.SessionTrrImage
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.mainscreen.StatusBadge
 import com.tagaev.trrcrm.ui.mainscreen.format
@@ -38,8 +43,14 @@ import com.tagaev.trrcrm.ui.master_screen.RefineScreen
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.format
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
+
+private const val EVENTS_LOADING_MIN_DELAY_MS = 900L
+private var eventsLoadingShownThisSession = false
 
 @Composable
 fun EventsScreen(
@@ -68,75 +79,140 @@ fun EventsScreen(
         requestNotificationPermission()
     }
 
-    MasterScreen(
-        title = "События",
-        resource = resource,
-        errorText = "Не удалось загрузить события",
-        notFoundText = "События не найдены",
-        refineState = refineState,
-        onRefresh = { component.fullRefresh() },
-        onLoadMore = { component.loadMore() },
-        onFilterChanged = { component.setRefineState(it) },
+    val isEventsLoading = when (val state = resource) {
+        is Resource.Loading -> true
+        is Resource.Success -> state.additionalLoading
+        is Resource.Error -> false
+    }
+    val sessionLoadingImage = remember { SessionTrrImage.get() }
+    var isLoadingOverlayVisible by remember { mutableStateOf(false) }
+    var wasLoading by remember { mutableStateOf(false) }
+    var loadingSessionId by remember { mutableStateOf(0) }
+    var minDelayPassed by remember { mutableStateOf(true) }
+    var shouldShowOverlayForCurrentLoad by remember { mutableStateOf(false) }
 
-        itemId = { it.guid.toString() },
-        isItemChanged = { old, new -> old.messages.size != new.messages.size },
+    LaunchedEffect(isEventsLoading) {
+        if (isEventsLoading && !wasLoading && !eventsLoadingShownThisSession) {
+            isLoadingOverlayVisible = true
+            minDelayPassed = false
+            loadingSessionId += 1
+            shouldShowOverlayForCurrentLoad = true
+            eventsLoadingShownThisSession = true
+        }
 
-        listItem = { order, isChanged, onClick ->
-            EventCard(
-                ev = order,
-                onClick = onClick
-            )
-        },
+        if (!isEventsLoading && wasLoading && shouldShowOverlayForCurrentLoad && minDelayPassed) {
+            isLoadingOverlayVisible = false
+            shouldShowOverlayForCurrentLoad = false
+        }
+        wasLoading = isEventsLoading
+    }
 
-        // Full-screen details content (not bottom-sheet)
-        detailsContent = { ev, onClose ->
-            EventDetailsSheet(
-                event = ev,
-                onBack = onClose,
-                onSendMessage = { message, onResult ->
-                    val number = ev.number.orEmpty()
-                    val date = ev.date?.format(formatDDMMYYYY).orEmpty()
-                    scope.launch {
-                        component.pickedEvent = ev
-                        val ok = component.sendMessage(itemNumber = number, itemDate = date, message = message)
-                        if (ok) {
-                            component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
+    LaunchedEffect(loadingSessionId) {
+        if (loadingSessionId == 0) return@LaunchedEffect
+        delay(EVENTS_LOADING_MIN_DELAY_MS)
+        minDelayPassed = true
+        if (!isEventsLoading && shouldShowOverlayForCurrentLoad) {
+            isLoadingOverlayVisible = false
+            shouldShowOverlayForCurrentLoad = false
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        MasterScreen(
+            title = "События",
+            resource = resource,
+            errorText = "Не удалось загрузить события",
+            notFoundText = "События не найдены",
+            refineState = refineState,
+            onRefresh = { component.fullRefresh() },
+            onLoadMore = { component.loadMore() },
+            onFilterChanged = { component.setRefineState(it) },
+
+            itemId = { it.guid.toString() },
+            isItemChanged = { old, new -> old.messages.size != new.messages.size },
+
+            listItem = { order, isChanged, onClick ->
+                EventCard(
+                    ev = order,
+                    onClick = onClick
+                )
+            },
+
+            // Full-screen details content (not bottom-sheet)
+            detailsContent = { ev, onClose ->
+                EventDetailsSheet(
+                    event = ev,
+                    onBack = onClose,
+                    onSendMessage = { message, onResult ->
+                        val number = ev.number.orEmpty()
+                        val date = ev.date?.format(formatDDMMYYYY).orEmpty()
+                        scope.launch {
+                            component.pickedEvent = ev
+                            val ok = component.sendMessage(itemNumber = number, itemDate = date, message = message)
+                            if (ok) {
+                                component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
+                            }
+                            onResult(ok) // this notifies the sheet
                         }
-                        onResult(ok) // this notifies the sheet
+                    },
+                    isSendingMessage = isSendingMessage,
+                    lastSendError = lastSendError,
+                    onErrorDismiss = { lastSendError = null }
+                )
+            },
+
+            // Full-screen filter screen (not dialog)
+            filterScreen = { current, onDismiss, onApply ->
+                RefineScreen(
+                    current = current,
+                    onBack = onDismiss,
+                    onApply = { newState ->
+                        println(">>>>>> ${newState.toString()}")
+                        println(">>>>>> ${newState.searchQueryType.wire}")
+                        component.setRefineState(newState)
+                        onApply(newState)     // MasterDetailFilterScreen получит обновлённый стейт
+
                     }
-                },
-                isSendingMessage = isSendingMessage,
-                lastSendError = lastSendError,
-                onErrorDismiss = { lastSendError = null }
+                )
+            },
+
+            panel = panel,
+            onPanelChange = {
+                component.changePanel(it)
+
+            },
+
+            selectedItemId = selectedId,
+            onSelectedItemChange = { id -> component.selectItemFromList(id) },
+
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (isLoadingOverlayVisible) {
+            EventsLoadingImageOverlay(
+                image = sessionLoadingImage,
+                modifier = Modifier.fillMaxSize()
             )
-        },
+        }
+    }
+}
 
-        // Full-screen filter screen (not dialog)
-        filterScreen = { current, onDismiss, onApply ->
-            RefineScreen(
-                current = current,
-                onBack = onDismiss,
-                onApply = { newState ->
-                    println(">>>>>> ${newState.toString()}")
-                    println(">>>>>> ${newState.searchQueryType.wire}")
-                    component.setRefineState(newState)
-                    onApply(newState)     // MasterDetailFilterScreen получит обновлённый стейт
-
-                }
-            )
-        },
-
-        panel = panel,
-        onPanelChange = {
-            component.changePanel(it)
-
-        },
-
-        selectedItemId = selectedId,
-        onSelectedItemChange = { id -> component.selectItemFromList(id) },
-
-        modifier = modifier
-    )
+@Composable
+private fun EventsLoadingImageOverlay(
+    image: DrawableResource,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(image),
+            contentDescription = "Загрузка событий",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 

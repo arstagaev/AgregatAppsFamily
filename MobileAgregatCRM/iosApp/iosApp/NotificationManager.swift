@@ -56,22 +56,22 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
 extension NotificationManager: MessagingDelegate {
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        guard
-            let token = fcmToken,
-            let fullName = CurrentUser.shared.fullName, // adapt this to your shared user store
-            !fullName.isEmpty
-        else {
-            print("FCM(iOS): missing fullName or token")
-            return
-        }
-
-        print("FCM token (iOS): \(token)")
-        
-        PushRegistration.shared.registerCurrentUserToken(
-            fullName: fullName,
-            platform: "ios",
-            token: token
-        )
+//        guard
+//            let token = fcmToken,
+//            let fullName = CurrentUser.shared.fullName, // adapt this to your shared user store
+//            !fullName.isEmpty
+//        else {
+//            print("FCM(iOS): missing fullName or token")
+//            return
+//        }
+//
+//        print("FCM token (iOS): \(token)")
+//        
+//        PushRegistration.shared.registerCurrentUserToken(
+//            fullName: fullName,
+//            platform: "ios",
+//            token: token
+//        )
         
     }
 }

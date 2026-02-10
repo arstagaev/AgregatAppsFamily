@@ -12,6 +12,8 @@ import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.RedirectResponseException
+import io.ktor.client.plugins.ServerResponseException
 import io.ktor.client.request.*
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -53,6 +55,28 @@ sealed class Resource<out R> {
 class EventsApi(
     private val client: HttpClient
 ) {
+    suspend fun probeStartup(apiConfig: ApiConfig): Resource<Unit> = resourceify {
+        // Lightweight cold-start probe:
+        // - 200 means server reachable (even if credentials are invalid later)
+        // - 3xx..5xx are mapped to server error path
+        val response = client.get(apiConfig.baseUrl) {
+            expectSuccess = true
+            url {
+                parameters.append("task", "gettoken")
+                parameters.append("user", "startup_probe")
+                parameters.append("pass", "startup_probe")
+            }
+        }
+
+        when (val code = response.status.value) {
+            in 300..399 -> throw RedirectResponseException(response, "HTTP $code")
+            in 400..499 -> throw ClientRequestException(response, "HTTP $code")
+            in 500..599 -> throw ServerResponseException(response, "HTTP $code")
+        }
+
+        Unit
+    }
+
     //
     //https://agrapp.agregatka.ru/?token=92139A5BFBBF4D644BA0E49BC0D35E842EE78F188DE445BF1C01F5BBE069B389&&task=getitemslist&type=Документ&name=Событие&count=50&ncount=0&orderby=Дата&orderdir=desc&filterby=Тема&filterval=Настройка&filtertype=value
     suspend fun getEvents(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<EventItemDto>> = resourceify {

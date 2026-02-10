@@ -187,6 +187,7 @@ fun <T, F> MasterScreen(
                                     contentChanged = isItemChanged,
                                     modifier = Modifier.fillMaxSize(),
                                     listState = listState,
+                                    isLoading = state.additionalLoading,
                                     onRefresh = { _, _ -> onRefresh() },
                                     onLoadMore = { _, _ ->
                                         onLoadMore()

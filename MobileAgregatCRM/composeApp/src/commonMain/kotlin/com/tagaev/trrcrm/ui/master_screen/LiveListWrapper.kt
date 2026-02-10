@@ -80,10 +80,14 @@ fun <T, Id> LiveListWrapper(
     var isPaginating by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
 
-    // When the items list changes (after refresh/load), stop the refresh spinner and reset paginating flag
-    LaunchedEffect(items.size) {
-        if (refreshing) refreshing = false
-        isPaginating = false
+    // Stop pull-to-refresh even when item count is unchanged (request finished or failed).
+    LaunchedEffect(items.size, isLoading, errorMessage) {
+        if (refreshing && (!isLoading || errorMessage != null)) {
+            refreshing = false
+        }
+        if (!isLoading || errorMessage != null) {
+            isPaginating = false
+        }
     }
 
     // Infinite scroll: only trigger when we have at least one full page (30 items)
@@ -117,6 +121,7 @@ fun <T, Id> LiveListWrapper(
                 onRefresh(items.size, maxItems)
             }
         },
+        indicator = {},
         modifier = modifier.fillMaxSize()
     ) {
         LazyColumn(

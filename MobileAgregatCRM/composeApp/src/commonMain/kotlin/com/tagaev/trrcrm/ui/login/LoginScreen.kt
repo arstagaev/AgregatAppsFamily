@@ -1,6 +1,5 @@
 package com.tagaev.trrcrm.ui.login
 
-import InfiniteImageTrain
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
@@ -17,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -39,18 +39,10 @@ import mobileagregatcrm.composeapp.generated.resources.botlogo
 
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
 import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
+import com.tagaev.trrcrm.ui.custom.SessionTrrImage
 import com.tagaev.trrcrm.utils.anonim
-import mobileagregatcrm.composeapp.generated.resources.car1
-import mobileagregatcrm.composeapp.generated.resources.car2
-import mobileagregatcrm.composeapp.generated.resources.car3
-import mobileagregatcrm.composeapp.generated.resources.car4
-import mobileagregatcrm.composeapp.generated.resources.car5
-import mobileagregatcrm.composeapp.generated.resources.car6left
-import mobileagregatcrm.composeapp.generated.resources.car7left
-import mobileagregatcrm.composeapp.generated.resources.car8right
 import mobileagregatcrm.composeapp.generated.resources.carv
 
 /**
@@ -88,12 +80,17 @@ fun LoginScreen(component: ILoginComponent) {
     val uiState by component.uiState.collectAsState()
     var showErrorDialog by rememberSaveable { mutableStateOf(true) }
     var currentError by remember { mutableStateOf("") }
+    var showManualLoginFromBlocked by rememberSaveable { mutableStateOf(false) }
 
     var keepSplash by rememberSaveable { mutableStateOf(true) }
+    val startupBlocked = uiState as? LoginUiState.StartupBlocked
 
     // Keep the loading splash on screen a bit longer when leaving Login,
     // so the forms never flash during navigation to MainList.
     LaunchedEffect(uiState) {
+        if (uiState !is LoginUiState.StartupBlocked) {
+            showManualLoginFromBlocked = false
+        }
         when (uiState) {
             is LoginUiState.Loading -> keepSplash = true
             is LoginUiState.Error -> {
@@ -101,6 +98,9 @@ fun LoginScreen(component: ILoginComponent) {
                 val e = uiState as LoginUiState.Error
                 showErrorDialog = true
                 currentError = e.message
+            }
+            is LoginUiState.StartupBlocked -> {
+                keepSplash = false
             }
             else -> {
                 // Navigation / success / idle — hold splash briefly
@@ -181,6 +181,21 @@ fun LoginScreen(component: ILoginComponent) {
     }
 
     val showSplash = keepSplash || (uiState is LoginUiState.Loading)
+    val splashImage = remember { SessionTrrImage.get() }
+
+    if (startupBlocked != null && !showManualLoginFromBlocked) {
+        StartupBlockedScreen(
+            image = splashImage,
+            onRefresh = {
+                showManualLoginFromBlocked = false
+                component.retryStartup()
+            },
+            onRelogin = {
+                showManualLoginFromBlocked = true
+            }
+        )
+        return
+    }
 
     if (!showSplash) {
         ScreenWithDismissableKeyboard {
@@ -327,55 +342,86 @@ fun LoginScreen(component: ILoginComponent) {
 
     if (showSplash) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            InfiniteImageTrain(
-                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
-                images = listOf(
-                    Res.drawable.car4,
-                    Res.drawable.car5,
-                    Res.drawable.car3,
-                    Res.drawable.car6left,
-                    Res.drawable.car7left,
-//                    Res.drawable,
-                ),
-                direction = TrainDirection.LeftToRight,
-                rowHeight = 150.dp,
-                speedPxPerSecond = 15f // slower/faster here
+            Image(
+                painter = painterResource(splashImage),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
-            //TRR APP
 
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f))
+            )
             ShimmerTitle(
-                text = "TRR APP",
-            )
-
-//            Image(
-//                painter = painterResource(Res.drawable.botlogo),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .fillMaxWidth(0.5f)
-//                    .wrapContentHeight()
-//            )
-
-            InfiniteImageTrain(
-                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
-                images = listOf(
-                    Res.drawable.car1,
-                    Res.drawable.car2,
-                    Res.drawable.car8right,
-//                    Res.drawable.car3,
-                ),
-                direction = TrainDirection.RightToLeft,
-                rowHeight = 150.dp,
-                speedPxPerSecond = 15f // slower/faster here
+                text = "Загрузка ...",
             )
         }
     }
 
 
+}
+
+@Composable
+private fun StartupBlockedScreen(
+    image: org.jetbrains.compose.resources.DrawableResource,
+    onRefresh: () -> Unit,
+    onRelogin: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(image),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+        )
+
+        Surface(
+            color = Color.Gray.copy(alpha = 0.88f),
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 48.dp, start = 20.dp, end = 20.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Connection Error",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onRefresh,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Refresh")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onRelogin,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Re-login")
+                }
+            }
+        }
+    }
 }
 
 

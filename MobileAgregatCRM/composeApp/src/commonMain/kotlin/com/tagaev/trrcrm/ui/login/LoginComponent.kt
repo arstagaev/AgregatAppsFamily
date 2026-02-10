@@ -21,11 +21,20 @@ import okio.ByteString.Companion.encodeUtf8
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.RedirectResponseException
+import io.ktor.client.plugins.ServerResponseException
 
 sealed interface LoginUiState {
     data object Idle : LoginUiState
     data object Loading : LoginUiState
     data class Error(val message: String) : LoginUiState
+    data class StartupBlocked(val reason: StartupBlockReason) : LoginUiState
+}
+
+enum class StartupBlockReason {
+    NoInternet,
+    ServerError
 }
 
 /**
@@ -37,6 +46,7 @@ interface ILoginComponent {
 
     fun onLoginWithCredentials(user: String, pass: String)
     fun onLoginWithToken(token: String)
+    fun retryStartup()
     fun back()
 }
 
@@ -45,6 +55,9 @@ class LoginComponent(
     private val onLoginSuccess: () -> Unit,
     private val onBack: () -> Unit,
 ) : ILoginComponent, ComponentContext by componentContext, KoinComponent {
+    companion object {
+        private var startupCheckPassedThisSession = false
+    }
 
     private val appSettings: AppSettings by inject()
     private val apiConfig: ApiConfig by inject()
@@ -58,10 +71,54 @@ class LoginComponent(
     override val uiState: StateFlow<LoginUiState> = _uiState
 
     init {
-        if (
-            !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty()
-            && !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
-            ) {
+        appScope.launch {
+            coldStartGateAndContinue()
+        }
+
+        backHandler.register(backCallback)
+        if (!Secrets.IS_PUBLISH.toBoolean()) {
+            println("FCM TOKEN: " +appSettings.getString(AppSettingsKeys.FCM_TOKEN,"NULL"))
+        }
+    }
+
+    override fun retryStartup() {
+        appScope.launch {
+            coldStartGateAndContinue()
+        }
+    }
+
+    private suspend fun coldStartGateAndContinue() {
+        if (!startupCheckPassedThisSession) {
+            withContext(Dispatchers.Main.immediate) {
+                _uiState.value = LoginUiState.Loading
+            }
+            val probe = withContext(Dispatchers.IO) { repo.probeStartup() }
+            val blockReason = (probe as? Resource.Error)?.let {
+                classifyStartupBlock(it) ?: StartupBlockReason.NoInternet
+            }
+
+            if (blockReason != null) {
+                withContext(Dispatchers.Main.immediate) {
+                    _uiState.value = LoginUiState.StartupBlocked(blockReason)
+                }
+                return
+            }
+            startupCheckPassedThisSession = true
+        }
+
+        continueAsUsual()
+    }
+
+    private suspend fun continueAsUsual() {
+        val hasSavedCredentials =
+            !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() &&
+                    !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
+
+        withContext(Dispatchers.Main.immediate) {
+            _uiState.value = LoginUiState.Idle
+        }
+
+        if (hasSavedCredentials) {
             onLoginWithCredentials(
                 user = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
                 pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
@@ -69,11 +126,47 @@ class LoginComponent(
         } else {
             println("Email or Token is empty")
         }
+    }
 
-        backHandler.register(backCallback)
-        if (!Secrets.IS_PUBLISH.toBoolean()) {
-            println("FCM TOKEN: " +appSettings.getString(AppSettingsKeys.FCM_TOKEN,"NULL"))
+    private fun classifyStartupBlock(error: Resource.Error<*>): StartupBlockReason? {
+        val ex = error.exception
+        val message = (error.causes ?: ex?.message).orEmpty()
+        val lower = message.lowercase()
+        val codeFromMessage = Regex("""\b([3-5]\d{2})\b""")
+            .find(message)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+
+        val serverStatusByType =
+            ex is RedirectResponseException ||
+                    ex is ClientRequestException ||
+                    ex is ServerResponseException
+
+        if (serverStatusByType || (codeFromMessage != null && codeFromMessage in 300..599)) {
+            return StartupBlockReason.ServerError
         }
+
+        val noInternetHints = listOf(
+            "unresolvedaddress",
+            "unknownhost",
+            "connectexception",
+            "sockettimeout",
+            "network is unreachable",
+            "failed to connect",
+            "connection refused",
+            "timed out"
+        )
+        if (noInternetHints.any { lower.contains(it) }) {
+            return StartupBlockReason.NoInternet
+        }
+
+        // Any other probe failure should still block cold start as connection problem.
+        if (ex != null || message.isNotBlank()) {
+            return StartupBlockReason.NoInternet
+        }
+
+        return null
     }
 
     override fun onLoginWithCredentials(user: String, pass: String) {

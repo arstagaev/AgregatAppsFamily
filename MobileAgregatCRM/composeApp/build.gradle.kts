@@ -138,15 +138,60 @@ kotlin {
     }
 }
 
+////////////////////
+// build properties
+////////////////////
+
+// Load local.properties (root of the project)
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use(::load)
+}
+
+// Resolve the key from (1) Gradle prop, (2) ENV, (3) local.properties
+val base_url: String = providers.gradleProperty("BASE_URL").orNull
+    ?: providers.environmentVariable("BASE_URL").orNull
+    ?: localProps.getProperty("BASE_URL")
+    ?: ""
+val viewType: String = providers.gradleProperty("VIEW_TYPE").orNull
+    ?: providers.environmentVariable("VIEW_TYPE").orNull
+    ?: localProps.getProperty("VIEW_TYPE")
+    ?: ""
+val version: String = providers.gradleProperty("VERSION").orNull
+    ?: providers.environmentVariable("VERSION").orNull
+    ?: localProps.getProperty("VERSION")
+    ?: ""
+val countVersion: String = providers.gradleProperty("CVERSION").orNull
+    ?: providers.environmentVariable("CVERSION").orNull
+    ?: localProps.getProperty("CVERSION")
+    ?: ""
+val countVersionInt: Int = countVersion.trim().toIntOrNull()
+    ?.takeIf { it > 0 }
+    ?: error("CVERSION must be a positive integer (> 0), but was '$countVersion'")
+val isPublish: String = providers.gradleProperty("IS_PUBLISH").orNull
+    ?: providers.environmentVariable("IS_PUBLISH").orNull
+    ?: localProps.getProperty("IS_PUBLISH")
+    ?: ""
+
+// figure out which env we are building based on the Gradle tasks
+val requestedTasks = gradle.startParameter.taskNames
+val appEnv: String = when {
+    requestedTasks.any { it.contains("assembleProd", ignoreCase = true) ||
+            it.contains("installProd", ignoreCase = true) } -> "prod"
+    requestedTasks.any { it.contains("assembleDebug", ignoreCase = true) ||
+            it.contains("installDebug", ignoreCase = true) } -> "debug"
+    else -> (project.findProperty("APP_ENV") as String?) ?: "prod"
+}
+
 android {
     namespace = "com.tagaev.trrcrm"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
-    println("COunt version: ${countVersion}")
+    println("Count version: $countVersion (int=$countVersionInt)")
     defaultConfig {
         applicationId = "com.tagaev.trrcrm"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 9 //
+        versionCode = countVersionInt
         versionName = version//"1.4.5"
     }
     packaging {
@@ -261,44 +306,6 @@ sqldelight {
 ////////////////////
 // buildkonfig
 ////////////////////
-// Load local.properties (root of the project)
-val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use(::load)
-}
-
-// Resolve the key from (1) Gradle prop, (2) ENV, (3) local.properties
-val base_url: String = providers.gradleProperty("BASE_URL").orNull
-    ?: providers.environmentVariable("BASE_URL").orNull
-    ?: localProps.getProperty("BASE_URL")
-    ?: ""
-val viewType: String = providers.gradleProperty("VIEW_TYPE").orNull
-    ?: providers.environmentVariable("VIEW_TYPE").orNull
-    ?: localProps.getProperty("VIEW_TYPE")
-    ?: ""
-val version: String = providers.gradleProperty("VERSION").orNull
-    ?: providers.environmentVariable("VERSION").orNull
-    ?: localProps.getProperty("VERSION")
-    ?: ""
-val countVersion: String = providers.gradleProperty("CVERSION").orNull
-    ?: providers.environmentVariable("CVERSION").orNull
-    ?: localProps.getProperty("CVERSION")
-    ?: ""
-val isPublish: String = providers.gradleProperty("IS_PUBLISH").orNull
-    ?: providers.environmentVariable("IS_PUBLISH").orNull
-    ?: localProps.getProperty("IS_PUBLISH")
-    ?: ""
-
-// figure out which env we are building based on the Gradle tasks
-val requestedTasks = gradle.startParameter.taskNames
-
-val appEnv: String = when {
-    requestedTasks.any { it.contains("assembleProd", ignoreCase = true) ||
-            it.contains("installProd", ignoreCase = true) } -> "prod"
-    requestedTasks.any { it.contains("assembleDebug", ignoreCase = true) ||
-            it.contains("installDebug", ignoreCase = true) } -> "debug"
-    else -> (project.findProperty("APP_ENV") as String?) ?: "prod"
-}
 
 buildkonfig {
     packageName = "com.tagaev.secrets"   // choose any package you like

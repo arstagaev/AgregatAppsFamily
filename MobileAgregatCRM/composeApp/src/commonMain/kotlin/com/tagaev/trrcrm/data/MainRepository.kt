@@ -54,6 +54,8 @@ class MainRepository(
 
     suspend fun getToken(username: String, password: String): Resource<GetTokenResponse> = api.getToken(cfg, username, password)
 
+    suspend fun probeStartup(): Resource<Unit> = api.probeStartup(cfg)
+
     suspend fun getRole(): Resource<GetRolesResponse> = api.getRole(cfg)
 
     suspend fun sendMessage(number: String, date: String, message: String): Resource<SentMessageResponse> =

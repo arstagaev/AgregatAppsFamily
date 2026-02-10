@@ -50,7 +50,7 @@ fun MenuScreen(
 ) {
     Column(
         modifier = modifier
-            .fillMaxSize().snowflakeBackground()
+            .fillMaxSize()//.snowflakeBackground()
             .padding(16.dp)
     ) {
         Text(
