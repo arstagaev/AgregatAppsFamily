@@ -38,6 +38,12 @@ fun QRScannerScreen(component: IQRScannerComponent) {
     LaunchedEffect(state.lastError) {
         state.lastError?.let { snackbarHostState.showSnackbar(it) }
     }
+    LaunchedEffect(state.openComplectationError) {
+        state.openComplectationError?.let {
+            snackbarHostState.showSnackbar(it)
+            component.onOpenComplectationErrorShown()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -123,6 +129,8 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                     attempt = attempt,
                     clipboard = clipboard,
                     snackbarHostState = snackbarHostState,
+                    isOpeningComplectation = state.isOpeningComplectation,
+                    onOpenComplectation = { component.onOpenComplectationClicked() },
                     onDismiss = { component.onDialogDismissed() }
                 )
             }
@@ -176,14 +184,37 @@ private fun AttemptDetailsDialog(
     attempt: QRAttempt,
     clipboard: ClipboardManager,
     snackbarHostState: SnackbarHostState,
+    isOpeningComplectation: Boolean,
+    onOpenComplectation: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val canOpenComplectation = attempt.status == AttemptStatus.Success &&
+            !attempt.response?.completionNumber.isNullOrBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("OK") }
+        },
+        dismissButton = {
+            if (canOpenComplectation) {
+                TextButton(
+                    onClick = onOpenComplectation,
+                    enabled = !isOpeningComplectation
+                ) {
+                    if (isOpeningComplectation) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Открытие...")
+                    } else {
+                        Text("Открыть Комплектацию")
+                    }
+                }
+            }
         },
         title = {
             Text(

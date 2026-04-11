@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.inject
 
 interface IRootComponent {
@@ -169,7 +170,13 @@ class DefaultRootComponent(
 
 
             is IRootComponent.Config.QRScanner ->
-                IRootComponent.Child.QRScanner(DefaultQRScannerComponent(ctx) { nav.pop() })
+                IRootComponent.Child.QRScanner(
+                    DefaultQRScannerComponent(
+                        componentContext = ctx,
+                        onBack = { nav.pop() },
+                        openComplectationByNumber = { number -> openComplectationByNumberFromQr(number) }
+                    )
+                )
 
 
             is IRootComponent.Config.Favorites ->
@@ -400,6 +407,33 @@ class DefaultRootComponent(
             delay(pollMs)
         }
         return null
+    }
+
+    private suspend fun awaitComplectationComponent(
+        timeoutMs: Long = 1500,
+        pollMs: Long = 50,
+    ): ComplectationComponent? {
+        val attempts = ((timeoutMs / pollMs).toInt()).coerceAtLeast(1)
+        repeat(attempts) {
+            val child = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.Complectation }
+                ?.instance as? IRootComponent.Child.Complectation
+            if (child != null) return child.component
+            delay(pollMs)
+        }
+        return null
+    }
+
+    private suspend fun openComplectationByNumberFromQr(number: String): Boolean {
+        val targetNumber = number.trim()
+        if (targetNumber.isBlank()) return false
+
+        withContext(Dispatchers.Main.immediate) {
+            nav.bringToFront(IRootComponent.Config.Complectation)
+        }
+
+        val component = awaitComplectationComponent() ?: return false
+        return component.openDetailsByNumber(targetNumber)
     }
 
     private fun mapScreenToConfig(normalizedScreen: String): IRootComponent.Config? {

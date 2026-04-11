@@ -18,6 +18,8 @@ import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -34,6 +36,7 @@ class ComplectationComponent(
 
     companion object {
         private const val PAGE_SIZE = 30
+        private const val MAX_QR_LOOKUP_PAGES = 40
     }
 
     private val appScope: CoroutineScope by inject()
@@ -64,6 +67,7 @@ class ComplectationComponent(
     private val loadedOrders = mutableListOf<WorkOrderDto>()
 
     private val loadedKeys = mutableSetOf<String>()
+    private val loadMutex = Mutex()
 
 
 
@@ -83,61 +87,110 @@ class ComplectationComponent(
 
     override fun fullRefresh() {
         appScope.launch {
-            //_complectations.value = Resource.Loading
-            _complectations.value = Resource.Success(data = loadedOrders, additionalLoading = true)
+            loadMutex.withLock {
+                //_complectations.value = Resource.Loading
+                _complectations.value = Resource.Success(data = loadedOrders, additionalLoading = true)
 
+                _refineState.value = loadRefineState()
+                _ncount.value = 0
 
-            _refineState.value = loadRefineState()
-            _ncount.value = 0
+                val result = repository.loadComplectations(0, refineState.value)
+                if (result is Resource.Success) {
+                    val newItems = result.data ?: emptyList()
 
-            val result = repository.loadComplectations(0, refineState.value)
-            if (result is Resource.Success) {
+                    loadedOrders.clear()
+                    loadedKeys.clear()
 
-                val newItems = result.data ?: emptyList()
-
-                loadedOrders.clear()
-                loadedKeys.clear()
-
-                for (order in newItems) {
-                    val key = order.key()
-                    if (loadedKeys.add(key)) {
-                        loadedOrders.add(order)
+                    for (order in newItems) {
+                        val key = order.key()
+                        if (loadedKeys.add(key)) {
+                            loadedOrders.add(order)
+                        }
                     }
+                    _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+                } else {
+                    _complectations.value = result
                 }
-                _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
-            } else {
-                _complectations.value = result
             }
         }
     }
 
     override fun loadMore() {
         appScope.launch {
-//            if ( _complectations.value is Resource.Loading) return@launch
-//            _complectations.value = Resource.Loading
-            _complectations.value = Resource.Success(data = loadedOrders, additionalLoading = true)
-            val nextOffset = _ncount.value + PAGE_SIZE
-            val result = repository.loadComplectations(nextOffset, refineState.value)
-            if (result is Resource.Success) {
-                _ncount.value = nextOffset
-                val newItems = result.data ?: emptyList()
-                for (order in newItems) {
-                    val key = order.key()
-                    if (loadedKeys.add(key)) {
-                        loadedOrders.add(order)
+            loadMutex.withLock {
+                _complectations.value = Resource.Success(data = loadedOrders, additionalLoading = true)
+                val nextOffset = _ncount.value + PAGE_SIZE
+                val result = repository.loadComplectations(nextOffset, refineState.value)
+                if (result is Resource.Success) {
+                    _ncount.value = nextOffset
+                    val newItems = result.data ?: emptyList()
+                    for (order in newItems) {
+                        val key = order.key()
+                        if (loadedKeys.add(key)) {
+                            loadedOrders.add(order)
+                        }
                     }
+                    _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+                } else {
+                    _complectations.value = result
                 }
-                _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
-            } else {
-                _complectations.value = result
             }
-
-//            _isLoadingMore.value = false
         }
     }
 
     override fun changePanel(masterDetailPanel: MasterPanel) {
         _masterScreenPanel.value = masterDetailPanel
+    }
+
+    suspend fun openDetailsByNumber(number: String): Boolean {
+        val target = normalizeDocNumber(number) ?: return false
+        val runtimeRefine = refineState.value.copy(
+            status = Refiner.Status.OFF,
+            searchQueryType = Refiner.SearchQueryType.CODE,
+            searchQuery = target
+        )
+
+        return loadMutex.withLock {
+            var offset = 0
+
+            repeat(MAX_QR_LOOKUP_PAGES) {
+                val result = repository.loadComplectations(offset, runtimeRefine)
+                if (result !is Resource.Success) {
+                    return@withLock false
+                }
+
+                val page = result.data.orEmpty()
+                if (page.isEmpty()) {
+                    return@withLock false
+                }
+
+                val found = page.firstOrNull { workOrder ->
+                    numbersMatch(workOrder.number, target)
+                }
+                if (found != null) {
+                    loadedOrders.clear()
+                    loadedKeys.clear()
+
+                    val foundKey = found.key()
+                    loadedKeys.add(foundKey)
+                    loadedOrders.add(found)
+
+                    _ncount.value = 0
+                    _selectedOrderGuid.value = found.guid.toString()
+                    _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+                    _masterScreenPanel.value = MasterPanel.Details
+
+                    return@withLock true
+                }
+
+                if (page.size < PAGE_SIZE) {
+                    return@withLock false
+                }
+                offset += PAGE_SIZE
+            }
+
+            false
+        }
     }
 
 
@@ -242,5 +295,26 @@ class ComplectationComponent(
     fun saveRefineState(state: RefineState) {
         val encoded = json.encodeToString(state)
         appSettings.setString(AppSettingsKeys.COMPLECTATION_REFINE_STATE, encoded)
+    }
+
+    private fun normalizeDocNumber(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        return value
+            .replace(Regex("\\s+"), "")
+            .trim()
+            .takeIf { it.isNotBlank() }
+    }
+
+    private fun normalizeWithoutLeadingZeros(value: String): String {
+        val noLeadingZeros = value.trimStart('0')
+        return if (noLeadingZeros.isBlank()) "0" else noLeadingZeros
+    }
+
+    private fun numbersMatch(candidate: String?, target: String): Boolean {
+        val normalizedCandidate = normalizeDocNumber(candidate) ?: return false
+        if (normalizedCandidate == target) return true
+
+        return normalizeWithoutLeadingZeros(normalizedCandidate) ==
+                normalizeWithoutLeadingZeros(target)
     }
 }

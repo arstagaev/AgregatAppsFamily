@@ -22,7 +22,9 @@ data class QRScannerViewState(
     val isLoading: Boolean = false,
     val lastError: String? = null,
     val flashlight: Boolean = false,
-    val selectedAttempt: QRAttempt? = null   // what dialog shows
+    val selectedAttempt: QRAttempt? = null,   // what dialog shows
+    val isOpeningComplectation: Boolean = false,
+    val openComplectationError: String? = null
 )
 
 interface IQRScannerComponent {
@@ -31,6 +33,8 @@ interface IQRScannerComponent {
     fun onScanned(raw: String)
     fun onAttemptClicked(attempt: QRAttempt)
     fun onDialogDismissed()
+    fun onOpenComplectationClicked()
+    fun onOpenComplectationErrorShown()
     fun toggleFlash()
     fun clearHistory()
 }
@@ -49,6 +53,7 @@ data class QRAttempt(
 class DefaultQRScannerComponent(
     componentContext: ComponentContext,
     private val onBack: () -> Unit,
+    private val openComplectationByNumber: suspend (String) -> Boolean,
 ) : IQRScannerComponent, ComponentContext by componentContext, KoinComponent {
 
     private val api: EventsApi by inject()
@@ -71,19 +76,77 @@ class DefaultQRScannerComponent(
         _state.update {
             it.copy(
                 attempts = emptyList(),
-                selectedAttempt = null
+                selectedAttempt = null,
+                openComplectationError = null
             )
         }
     }
 
     override fun onDialogDismissed() {
-        _state.update { it.copy(selectedAttempt = null) }
+        _state.update { it.copy(selectedAttempt = null, openComplectationError = null) }
     }
 
     override fun onAttemptClicked(attempt: QRAttempt) {
         _state.update { current ->
             val fresh = current.attempts.firstOrNull { it.id == attempt.id }
-            current.copy(selectedAttempt = fresh)
+            current.copy(
+                selectedAttempt = fresh,
+                openComplectationError = null
+            )
+        }
+    }
+
+    override fun onOpenComplectationErrorShown() {
+        _state.update { it.copy(openComplectationError = null) }
+    }
+
+    override fun onOpenComplectationClicked() {
+        val snapshot = _state.value
+        if (snapshot.isOpeningComplectation) return
+
+        val selected = snapshot.selectedAttempt
+        if (selected == null || selected.status != AttemptStatus.Success) return
+
+        val completionNumber = selected.response?.completionNumber?.trim().orEmpty()
+        if (completionNumber.isBlank()) {
+            _state.update {
+                it.copy(openComplectationError = "В QR нет номера комплектации")
+            }
+            return
+        }
+
+        appScope.launch {
+            _state.update {
+                it.copy(
+                    isOpeningComplectation = true,
+                    openComplectationError = null
+                )
+            }
+
+            try {
+                val opened = openComplectationByNumber(completionNumber)
+                _state.update {
+                    if (opened) {
+                        it.copy(
+                            isOpeningComplectation = false,
+                            selectedAttempt = null,
+                            openComplectationError = null
+                        )
+                    } else {
+                        it.copy(
+                            isOpeningComplectation = false,
+                            openComplectationError = "Комплектация №$completionNumber не найдена"
+                        )
+                    }
+                }
+            } catch (t: Throwable) {
+                _state.update {
+                    it.copy(
+                        isOpeningComplectation = false,
+                        openComplectationError = t.message ?: "Не удалось открыть комплектацию"
+                    )
+                }
+            }
         }
     }
 
@@ -130,6 +193,7 @@ class DefaultQRScannerComponent(
             it.copy(
                 isLoading = true,
                 lastError = null,
+                openComplectationError = null,
                 attempts = it.attempts + loadingAttempt
             )
         }
