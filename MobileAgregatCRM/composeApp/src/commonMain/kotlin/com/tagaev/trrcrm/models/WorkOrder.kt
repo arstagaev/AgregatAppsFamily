@@ -25,7 +25,10 @@ data class WorkOrderDto(
     @SerialName("Комментарий") val comment: String? = null,
     @SerialName("ХозОперация") val operation: String? = null,
     @SerialName("ВидРемонта") val repairType: String? = null,
+    @SerialName("ВидРемонтаКомплектация") val complectationRepairType: String? = null,
     @SerialName("Состояние") val status: String? = null,
+    @SerialName("СуммаДокумента") val documentAmount: String? = null,
+    @SerialName("Комплект") val complectationKit: String? = null,
 
     @SerialName("Заказчик") val customer: String? = null,
     @SerialName("Автомобиль") val car: String? = null,

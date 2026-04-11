@@ -97,6 +97,18 @@ class MainRepository(
                 }
             )
 
+    suspend fun loadComplectations(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
+        runCatching { api.loadComplectations(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
+            .fold(
+                onSuccess = { Resource.Success(it) },
+                onFailure = {
+                    Resource.Error(
+                        exception = it as Exception?,
+                        causes = it.message ?: "Ошибка загрузки комплектаций"
+                    )
+                }
+            )
+
     /// MESSAGES /////
     suspend fun sendMessageEvent(
         number: String,
@@ -121,6 +133,12 @@ class MainRepository(
         date: String,
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.WORK_ORDER, number = number, date = date, message = message)
+
+    suspend fun sendMessageToComplectation(
+        number: String,
+        date: String,
+        message: String
+    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.COMPLECTATION, number = number, date = date, message = message)
 
     suspend fun sendMessageEventPUSH(
         docId: String,

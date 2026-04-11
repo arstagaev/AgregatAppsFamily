@@ -9,7 +9,6 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.observer.ResponseObserver
 import io.ktor.client.request.header
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
@@ -56,9 +55,9 @@ object HttpClientFactory {
 
         // Default headers
         install(DefaultRequest) {
-            header(HttpHeaders.Accept, ContentType.Application.Json)
-            header(HttpHeaders.ContentType, ContentType.Application.Json)
-            header(HttpHeaders.UserAgent, "KMP-CRM/1.0 (+ktor)")
+            // Keep browser requests "simple" (no forced Content-Type/User-Agent),
+            // otherwise wasm/js can fail with CORS/preflight errors.
+            header(HttpHeaders.Accept, "application/json")
         }
         if (loggingEnabled) {
             install(Logging) {

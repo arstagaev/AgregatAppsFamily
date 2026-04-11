@@ -88,13 +88,13 @@ class EventsComponent(
 
 
             _refineState.value = loadRefineState()
+            _ncount.value = 0
 
-            val result = repository.loadEvents(_ncount.value, refineState.value)
+            val result = repository.loadEvents(0, refineState.value)
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()
 
-                _ncount.value = 0
                 loadedEvents.clear()
                 loadedKeys.clear()
 
@@ -143,6 +143,7 @@ class EventsComponent(
     override fun setRefineState(newState: RefineState) {
         _refineState.value = newState.copy(searchQuery = newState.searchQuery.trimStart().trimEnd())
         saveRefineState(_refineState.value)
+        _ncount.value = 0
         fullRefresh()
     }
 

@@ -6,13 +6,15 @@ import com.android.build.api.artifact.SingleArtifact
 import java.util.Locale
 //import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
 import org.gradle.api.file.DuplicatesStrategy
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    kotlin("plugin.serialization") version "2.2.0"
+    kotlin("plugin.serialization") version "2.2.21"
     id("app.cash.sqldelight") version "2.1.0"
     id("com.codingfeline.buildkonfig")
     id("com.google.gms.google-services")
@@ -36,6 +38,25 @@ kotlin {
             // 👇 this is the important line
             binaryOption("bundleId", "com.tagaev.trrcrm.shared")
         }
+    }
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            commonWebpackConfig {
+                devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
+                    proxy = mutableListOf(
+                        KotlinWebpackConfig.DevServer.Proxy(
+                            context = mutableListOf("/api"),
+                            target = "https://agrapp.agregatka.ru",
+                            pathRewrite = mutableMapOf("^/api" to ""),
+                            secure = true,
+                            changeOrigin = true
+                        )
+                    )
+                }
+            }
+        }
+        binaries.executable()
     }
 
     sourceSets {
@@ -61,6 +82,10 @@ kotlin {
 
             // Analytics (Kotlin devs now use the main artifact, not -ktx)
             implementation("com.google.firebase:firebase-analytics")
+
+            // QR scanner (Android only)
+            implementation("io.github.ismai117:KScan:0.4.0")
+            implementation("io.github.g00fy2.quickie:quickie-bundled:1.11.0")
 
         }
         commonMain.dependencies {
@@ -108,13 +133,6 @@ kotlin {
             implementation(libs.okio)
 
             implementation("org.slf4j:slf4j-nop:1.7.36")   // if slf4j-api is 1.7.x
-            //qr
-            implementation("io.github.ismai117:KScan:0.4.0")
-//            implementation("network.chaintech:qr-kit:3.1.3")
-//            implementation("io.github.kalinjul.easyqrscan:scanner:0.5.0")
-
-            implementation("io.github.g00fy2.quickie:quickie-bundled:1.11.0")
-
             // image
             // Compose Multiplatform image loading
             implementation("io.coil-kt.coil3:coil-compose:3.3.0")
@@ -126,6 +144,9 @@ kotlin {
             implementation("app.cash.sqldelight:native-driver:2.1.0")
 //            implementation("com.squareup.sqldelight:native-driver:1.5.5")
             implementation("io.ktor:ktor-client-darwin:$ktor")  // <— REQUIRED
+        }
+        wasmJsMain.dependencies {
+            implementation("io.ktor:ktor-client-js:$ktor")
         }
 
 //        commonTest.dependencies {

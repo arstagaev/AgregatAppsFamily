@@ -5,20 +5,29 @@ import com.agregatcrm.db.FavoritesQueries
 import kotlin.time.ExperimentalTime
 
 class FavoritesStore(
-    private val queries: FavoritesQueries
+    private val queries: FavoritesQueries? = null
 ) {
-    fun list(): List<Favorites> = queries.selectAll().executeAsList()
+    private val memoryFavorites = LinkedHashSet<String>()
 
-    fun isFavorite(number: String): Boolean =
-        queries.selectByNumber(number).executeAsOneOrNull() != null
+    fun list(): List<Favorites> = queries?.selectAll()?.executeAsList() ?: emptyList()
+
+    fun isFavorite(number: String): Boolean = queries?.selectByNumber(number)?.executeAsOneOrNull() != null || number in memoryFavorites
 
     @OptIn(ExperimentalTime::class)
     fun add(number: String) {
-        queries.insertOrReplace(number, kotlin.time.Clock.System.now().toEpochMilliseconds())
+        if (queries != null) {
+            queries.insertOrReplace(number, kotlin.time.Clock.System.now().toEpochMilliseconds())
+        } else {
+            memoryFavorites.add(number)
+        }
     }
 
     fun remove(number: String) {
-        queries.deleteByNumber(number)
+        if (queries != null) {
+            queries.deleteByNumber(number)
+        } else {
+            memoryFavorites.remove(number)
+        }
     }
 
     fun toggle(number: String) {

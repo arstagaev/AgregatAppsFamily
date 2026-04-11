@@ -13,6 +13,7 @@ enum class DocumentTypes(val requestName: String) {
     EVENT("Событие"),
     WORK_ORDER("ЗаказНаряд"),
     COMPLAINT("Рекламация"),
+    COMPLECTATION("Комплектация"),
     INNER_ORDER("ЗаказВнутренний")
 }
 

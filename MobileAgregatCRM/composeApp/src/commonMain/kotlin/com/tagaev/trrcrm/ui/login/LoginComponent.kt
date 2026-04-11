@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import okio.ByteString.Companion.encodeUtf8
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -92,7 +91,7 @@ class LoginComponent(
             withContext(Dispatchers.Main.immediate) {
                 _uiState.value = LoginUiState.Loading
             }
-            val probe = withContext(Dispatchers.IO) { repo.probeStartup() }
+            val probe = withContext(Dispatchers.Default) { repo.probeStartup() }
             val blockReason = (probe as? Resource.Error)?.let {
                 classifyStartupBlock(it) ?: StartupBlockReason.NoInternet
             }
@@ -191,7 +190,7 @@ class LoginComponent(
                 appSettings.setString(AppSettingsKeys.PASS, passHash)
                 println("onLoginWithCredentials> ${passHash}")
                 // Call network on IO
-                val res = withContext(Dispatchers.IO) {
+                val res = withContext(Dispatchers.Default) {
                     repo.getToken(username = user, password = passHash)
                 }
 

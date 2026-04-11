@@ -45,6 +45,7 @@ import com.tagaev.trrcrm.ui.style.ThemeController
 import compose.icons.FeatherIcons
 import org.koin.compose.koinInject
 import com.tagaev.trrcrm.ui.cargo.CargoScreen
+import com.tagaev.trrcrm.ui.complectation.ComplectationsScreen
 import com.tagaev.trrcrm.ui.complaints.ComplaintsScreen
 import com.tagaev.trrcrm.ui.events.EventsScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
@@ -111,6 +112,14 @@ fun AppRoot(root: IRootComponent) {
                                 }
                                 root.openWorkOrders(needBackToList)
                             },
+                            onComplectation = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.Complectation) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openComplectation(needBackToList)
+                            },
                             onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
                             onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
                             onCargo = {
@@ -154,6 +163,7 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.Events -> EventsScreen(c.component,)
                         is IRootComponent.Child.Details -> DetailsScreen(c.component)
                         is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
+                        is IRootComponent.Child.Complectation -> ComplectationsScreen(c.component)
                         is IRootComponent.Child.Cargo -> CargoScreen(c.component)
                         is IRootComponent.Child.Complaint -> ComplaintsScreen(c.component)
                         is IRootComponent.Child.InnerOrder -> InnerOrdersScreen(c.component)
@@ -180,6 +190,7 @@ fun AppBottomNavBar2(
     onFavorites: () -> Unit,
     onSettings: () -> Unit,
     onWorkOrder: () -> Unit,
+    onComplectation: () -> Unit,
     onComplaint: () -> Unit,
     onInnerOrder: () -> Unit
 ) {
@@ -209,6 +220,13 @@ fun AppBottomNavBar2(
                 onClick = onWorkOrder,
                 icon = { Icon(LineAwesomeIcons.CarSideSolid, contentDescription = null) },
                 label = "Заказ-Наряды"
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.Complectation,
+                onClick = onComplectation,
+                icon = { Icon(LineAwesomeIcons.ToolsSolid, contentDescription = null) },
+                label = "Комплектация"
             )
 
             BottomNavChip(

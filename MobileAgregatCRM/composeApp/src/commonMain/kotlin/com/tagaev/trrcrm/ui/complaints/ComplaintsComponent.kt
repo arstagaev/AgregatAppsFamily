@@ -82,13 +82,13 @@ class ComplaintsComponent(
 
 
             _refineState.value = loadRefineState()
+            _ncount.value = 0
 
-            val result = repository.loadComplaints(_ncount.value, refineState.value)
+            val result = repository.loadComplaints(0, refineState.value)
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()
 
-                _ncount.value = 0
                 loadedCargos.clear()
                 loadedKeys.clear()
 
@@ -137,6 +137,7 @@ class ComplaintsComponent(
     override fun setRefineState(newState: RefineState) {
         _refineState.value = newState.copy(searchQuery = newState.searchQuery.trimStart().trimEnd())
         saveRefineState(_refineState.value)
+        _ncount.value = 0
         fullRefresh()
     }
 

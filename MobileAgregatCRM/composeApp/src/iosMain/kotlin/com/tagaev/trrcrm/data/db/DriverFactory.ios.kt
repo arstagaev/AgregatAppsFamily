@@ -9,3 +9,5 @@ actual class DriverFactory {
         return NativeSqliteDriver(Database.Schema, "crm.db")
     }
 }
+
+actual val isSqlDriverAvailable: Boolean = true

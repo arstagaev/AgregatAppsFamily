@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TRR Server Endpoint Checker</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --line: #d6dae1;
+      --text: #172033;
+      --muted: #596579;
+      --ok-bg: #d9f7ef;
+      --ok-fg: #0f766e;
+      --warn-bg: #fff3cd;
+      --warn-fg: #92400e;
+      --fail-bg: #fde8e8;
+      --fail-fg: #b91c1c;
+      --btn: #0b57d0;
+      --btn-fg: #ffffff;
+      --btn-alt: #e7ebf2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #f7f9fc 0%, #edf2f8 100%);
+    }
+    .wrap {
+      max-width: 1260px;
+      margin: 24px auto;
+      padding: 0 16px 32px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      padding: 14px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+    .hint {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 14px;
+      color: var(--text);
+      background: #fff;
+    }
+    .actions {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.05s ease;
+    }
+    button:active {
+      transform: translateY(1px);
+    }
+    .primary {
+      background: var(--btn);
+      color: var(--btn-fg);
+    }
+    .secondary {
+      background: var(--btn-alt);
+      color: var(--text);
+    }
+    .status-line {
+      margin-top: 10px;
+      min-height: 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .table-wrap {
+      margin-top: 14px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      min-width: 1080px;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th {
+      text-align: left;
+      font-size: 12px;
+      color: var(--muted);
+      background: #f7f9fc;
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+    }
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      font-size: 14px;
+      vertical-align: top;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      word-break: break-all;
+      color: #334155;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-weight: 600;
+      font-size: 12px;
+      background: #e5e7eb;
+      color: #1f2937;
+    }
+    .pass { background: var(--ok-bg); color: var(--ok-fg); }
+    .warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .fail { background: var(--fail-bg); color: var(--fail-fg); }
+    pre {
+      margin: 0;
+      background: #0b1220;
+      border: 1px solid #1e2a44;
+      color: #cde4ff;
+      border-radius: 10px;
+      max-height: 340px;
+      overflow: auto;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>TRR Server Endpoint Checker</h1>
+      <p class="hint">
+        Open this file locally in browser, set host/token/credentials, click <strong>Check All</strong>.
+        Debug-only mode: for reliable health verdicts use CLI checker <strong>deploy/tools/server-healthcheck.sh</strong>.
+        If browser blocks requests, you will see a fetch/CORS error in result.
+      </p>
+      <div class="grid">
+        <div>
+          <label for="baseUrl">Host Address</label>
+          <input id="baseUrl" placeholder="https://agrapp.agregatka.ru/" />
+        </div>
+        <div>
+          <label for="user">User</label>
+          <input id="user" placeholder="user@my.agregatka.ru" />
+        </div>
+        <div>
+          <label for="pass">Pass (plain/hash)</label>
+          <input id="pass" placeholder="password or sha256 hash" />
+        </div>
+        <div>
+          <label for="token">Token</label>
+          <input id="token" placeholder="API token" />
+        </div>
+        <div>
+          <label for="qrCode">QR Code</label>
+          <input id="qrCode" placeholder="TRS111405064" />
+        </div>
+        <div>
+          <label for="count">Count</label>
+          <input id="count" placeholder="30" />
+        </div>
+        <div>
+          <label for="ncount">NCount</label>
+          <input id="ncount" placeholder="0" />
+        </div>
+        <div>
+          <label for="orderby">Order By</label>
+          <input id="orderby" placeholder="ДатаМод" />
+        </div>
+        <div>
+          <label for="orderdir">Order Dir</label>
+          <input id="orderdir" placeholder="desc" />
+        </div>
+        <div>
+          <label for="viewtype">View Type</label>
+          <input id="viewtype" placeholder="onlymy1" />
+        </div>
+      </div>
+      <div class="actions">
+        <button id="saveBtn" class="secondary">Save Inputs</button>
+        <button id="checkAllBtn" class="primary">Check All Endpoints</button>
+        <button id="clearBtn" class="secondary">Clear Results</button>
+      </div>
+      <div id="globalStatus" class="status-line"></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Status</th>
+            <th>HTTP</th>
+            <th>Time</th>
+            <th>Short Error</th>
+            <th>URL</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top: 14px;">
+      <strong style="display:block; margin-bottom: 8px;">Response Body</strong>
+      <pre id="responseBox">Click "Check" or "View JSON" for any endpoint.</pre>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "trr-server-healthcheck-html-v1";
+
+    const els = {
+      baseUrl: document.getElementById("baseUrl"),
+      user: document.getElementById("user"),
+      pass: document.getElementById("pass"),
+      token: document.getElementById("token"),
+      qrCode: document.getElementById("qrCode"),
+      count: document.getElementById("count"),
+      ncount: document.getElementById("ncount"),
+      orderby: document.getElementById("orderby"),
+      orderdir: document.getElementById("orderdir"),
+      viewtype: document.getElementById("viewtype"),
+      saveBtn: document.getElementById("saveBtn"),
+      checkAllBtn: document.getElementById("checkAllBtn"),
+      clearBtn: document.getElementById("clearBtn"),
+      globalStatus: document.getElementById("globalStatus"),
+      rows: document.getElementById("rows"),
+      responseBox: document.getElementById("responseBox"),
+    };
+
+    const checks = [
+      {
+        id: "gettoken",
+        title: "Get Token",
+        requires: ["user", "pass"],
+        params: (c) => ({ task: "gettoken", user: c.user, pass: c.pass }),
+      },
+      {
+        id: "getroles",
+        title: "Get Roles",
+        requires: ["token"],
+        params: (c) => ({ task: "getroles", token: c.token }),
+      },
+      {
+        id: "events",
+        title: "Events",
+        requires: ["token"],
+        params: (c) => ({
+          task: "getitemslist",
+          token: c.token,
+          type: "Документ",
+          name: "Событие",
+          count: c.count,
+          ncount: c.ncount,
+          orderby: c.orderby,
+          orderdir: c.orderdir,
+          viewtype: c.viewtype,
+        }),
+      },
+      {
+        id: "workorders",
+        title: "Work Orders",
+        requires: ["token"],
+        params: (c) => ({
+          task: "getitemslist",
+          token: c.token,
+          type: "Документ",
+          name: "ЗаказНаряд",
+          count: c.count,
+          ncount: c.ncount,
+          orderby: c.orderby,
+          orderdir: c.orderdir,
+          viewtype: c.viewtype,
+        }),
+      },
+      {
+        id: "complaints",
+        title: "Complaints",
+        requires: ["token"],
+        params: (c) => ({
+          task: "getitemslist",
+          token: c.token,
+          type: "Документ",
+          name: "Рекламация",
+          count: c.count,
+          ncount: c.ncount,
+          orderby: c.orderby,
+          orderdir: c.orderdir,
+          viewtype: c.viewtype,
+        }),
+      },
+      {
+        id: "inner_orders",
+        title: "Inner Orders",
+        requires: ["token"],
+        params: (c) => ({
+          task: "getitemslist",
+          token: c.token,
+          type: "Документ",
+          name: "ЗаказВнутренний",
+          count: c.count,
+          ncount: c.ncount,
+          orderby: c.orderby,
+          orderdir: c.orderdir,
+          viewtype: c.viewtype,
+        }),
+      },
+      {
+        id: "cargo",
+        title: "Cargo",
+        requires: ["token"],
+        params: (c) => ({
+          task: "getitemslist",
+          token: c.token,
+          type: "Документ",
+          name: "Груз",
+          count: c.count,
+          ncount: c.ncount,
+          orderby: c.orderby,
+          orderdir: c.orderdir,
+          viewtype: c.viewtype,
+        }),
+      },
+      {
+        id: "qr_info",
+        title: "QR Collect Info",
+        requires: ["token", "qrCode"],
+        params: (c) => ({
+          task: "getqrcomlectinfo",
+          token: c.token,
+          code: c.qrCode,
+        }),
+      },
+    ];
+
+    const state = {};
+
+    function defaults() {
+      return {
+        baseUrl: "https://agrapp.agregatka.ru/",
+        user: "",
+        pass: "",
+        token: "",
+        qrCode: "TRS111405064",
+        count: "30",
+        ncount: "0",
+        orderby: "ДатаМод",
+        orderdir: "desc",
+        viewtype: "onlymy1",
+      };
+    }
+
+    function context() {
+      return {
+        baseUrl: (els.baseUrl.value || "").trim(),
+        user: (els.user.value || "").trim(),
+        pass: (els.pass.value || "").trim(),
+        token: (els.token.value || "").trim(),
+        qrCode: (els.qrCode.value || "").trim(),
+        count: (els.count.value || "30").trim() || "30",
+        ncount: (els.ncount.value || "0").trim() || "0",
+        orderby: (els.orderby.value || "ДатаМод").trim() || "ДатаМод",
+        orderdir: (els.orderdir.value || "desc").trim() || "desc",
+        viewtype: (els.viewtype.value || "onlymy1").trim() || "onlymy1",
+      };
+    }
+
+    function loadInputs() {
+      const saved = (() => {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        } catch {
+          return {};
+        }
+      })();
+      const v = { ...defaults(), ...saved };
+      Object.keys(v).forEach((k) => {
+        if (els[k]) els[k].value = v[k];
+      });
+    }
+
+    function saveInputs() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(context()));
+      setGlobal("Inputs saved.");
+    }
+
+    function normalizeHost(v) {
+      if (!v) return defaults().baseUrl;
+      return v.endsWith("/") ? v : `${v}/`;
+    }
+
+    function buildRequestUrl(base, params) {
+      const u = new URL(normalizeHost(base));
+      Object.entries(params).forEach(([k, val]) => {
+        if (val !== undefined && val !== null && String(val).length > 0) {
+          u.searchParams.set(k, val);
+        }
+      });
+      return u.toString();
+    }
+
+    function buildDisplayUrl(base, params) {
+      const b = normalizeHost(base);
+      const parts = Object.entries(params)
+        .filter(([, val]) => val !== undefined && val !== null && String(val).length > 0)
+        .map(([k, val]) => `${k}=${String(val)}`);
+      if (parts.length === 0) return b;
+      return `${b}?${parts.join("&")}`;
+    }
+
+    function setGlobal(text, isError = false) {
+      els.globalStatus.textContent = text;
+      els.globalStatus.style.color = isError ? "var(--fail-fg)" : "var(--muted)";
+    }
+
+    function shortError(input) {
+      const text = String(input || "").replace(/\s+/g, " ").trim();
+      return text.length > 72 ? `${text.slice(0, 69)}...` : text;
+    }
+
+    function isWarnByBody(bodyText) {
+      try {
+        const parsed = JSON.parse(bodyText);
+        return parsed && Object.prototype.hasOwnProperty.call(parsed, "error");
+      } catch {
+        return /"error"\s*:/.test(bodyText);
+      }
+    }
+
+    function extractToken(bodyText) {
+      try {
+        const parsed = JSON.parse(bodyText);
+        return parsed && parsed.token ? String(parsed.token) : "";
+      } catch {
+        const m = bodyText.match(/"token"\s*:\s*"([^"]+)"/i);
+        return m ? m[1] : "";
+      }
+    }
+
+    function setRowResult(id, r) {
+      state[id] = r;
+      const statusEl = document.getElementById(`status-${id}`);
+      const httpEl = document.getElementById(`http-${id}`);
+      const timeEl = document.getElementById(`time-${id}`);
+      const errEl = document.getElementById(`err-${id}`);
+      const urlEl = document.getElementById(`url-${id}`);
+
+      statusEl.className = `pill ${r.verdict.toLowerCase()}`;
+      statusEl.textContent = r.verdict;
+      httpEl.textContent = r.http;
+      timeEl.textContent = `${r.timeMs} ms`;
+      errEl.textContent = r.error || "-";
+      urlEl.textContent = r.url;
+    }
+
+    function renderRows() {
+      els.rows.innerHTML = "";
+      checks.forEach((ch) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${ch.title}</strong></td>
+          <td><span id="status-${ch.id}" class="pill">NOT RUN</span></td>
+          <td id="http-${ch.id}">-</td>
+          <td id="time-${ch.id}">-</td>
+          <td id="err-${ch.id}">-</td>
+          <td id="url-${ch.id}" class="mono">-</td>
+          <td>
+            <button class="secondary" data-action="check" data-id="${ch.id}">Check</button>
+            <button class="secondary" data-action="view" data-id="${ch.id}">View JSON</button>
+          </td>
+        `;
+        els.rows.appendChild(tr);
+      });
+      refreshPreviewUrls();
+    }
+
+    function refreshPreviewUrls() {
+      const c = context();
+      checks.forEach((ch) => {
+        const url = buildDisplayUrl(c.baseUrl, ch.params(c));
+        const cell = document.getElementById(`url-${ch.id}`);
+        if (cell) cell.textContent = url;
+      });
+    }
+
+    function clearResults() {
+      Object.keys(state).forEach((k) => delete state[k]);
+      checks.forEach((ch) => {
+        const statusEl = document.getElementById(`status-${ch.id}`);
+        statusEl.className = "pill";
+        statusEl.textContent = "NOT RUN";
+        document.getElementById(`http-${ch.id}`).textContent = "-";
+        document.getElementById(`time-${ch.id}`).textContent = "-";
+        document.getElementById(`err-${ch.id}`).textContent = "-";
+      });
+      els.responseBox.textContent = "Click \"Check\" or \"View JSON\" for any endpoint.";
+      setGlobal("Results cleared.");
+      refreshPreviewUrls();
+    }
+
+    function missingRequired(required, c) {
+      return required.filter((name) => !c[name]);
+    }
+
+    async function executeCheck(ch, c) {
+      const missing = missingRequired(ch.requires, c);
+      const params = ch.params(c);
+      const requestUrl = buildRequestUrl(c.baseUrl, params);
+      const displayUrl = buildDisplayUrl(c.baseUrl, params);
+      if (missing.length > 0) {
+        const msg = `missing: ${missing.join(", ")}`;
+        setRowResult(ch.id, {
+          verdict: "FAIL",
+          http: "-",
+          timeMs: 0,
+          error: msg,
+          url: displayUrl,
+          requestUrl,
+          body: msg,
+        });
+        return state[ch.id];
+      }
+
+      const start = performance.now();
+      try {
+        const res = await fetch(requestUrl, { method: "GET" });
+        const body = await res.text();
+        const elapsed = Math.round(performance.now() - start);
+        const warn = res.status === 200 && isWarnByBody(body);
+        const verdict = res.status !== 200 ? "FAIL" : warn ? "WARN" : "PASS";
+        const err = verdict === "PASS" ? "-" : shortError(body);
+        setRowResult(ch.id, {
+          verdict,
+          http: String(res.status),
+          timeMs: elapsed,
+          error: err,
+          url: displayUrl,
+          requestUrl,
+          body,
+        });
+        return state[ch.id];
+      } catch (e) {
+        const elapsed = Math.round(performance.now() - start);
+        const rawMsg = shortError(e && e.message ? e.message : String(e));
+        const msg = /failed to fetch/i.test(rawMsg)
+          ? "Failed to fetch (CORS/SSL blocked by browser)"
+          : rawMsg;
+        setRowResult(ch.id, {
+          verdict: "FAIL",
+          http: "ERR",
+          timeMs: elapsed,
+          error: msg,
+          url: displayUrl,
+          requestUrl,
+          body: msg,
+        });
+        return state[ch.id];
+      }
+    }
+
+    async function checkAll() {
+      setGlobal("Running checks...");
+      const c = context();
+
+      if (!c.token && c.user && c.pass) {
+        const tokenCheck = checks.find((x) => x.id === "gettoken");
+        const result = await executeCheck(tokenCheck, c);
+        const token = extractToken(result.body || "");
+        if (token) {
+          els.token.value = token;
+          c.token = token;
+          setGlobal("Token acquired from gettoken. Continuing checks...");
+        }
+      }
+
+      for (const ch of checks) {
+        if (ch.id === "gettoken") continue;
+        await executeCheck(ch, c);
+      }
+
+      const verdicts = Object.values(state).map((r) => r.verdict);
+      if (verdicts.some((v) => v === "FAIL")) {
+        setGlobal("Completed with FAIL rows.", true);
+      } else if (verdicts.some((v) => v === "WARN")) {
+        setGlobal("Completed with WARN rows.");
+      } else {
+        setGlobal("All checks PASS.");
+      }
+    }
+
+    function showJson(id) {
+      const row = state[id];
+      if (!row) {
+        els.responseBox.textContent = "No response yet. Run check first.";
+        return;
+      }
+      let pretty = row.body || "";
+      try {
+        pretty = JSON.stringify(JSON.parse(row.body), null, 2);
+      } catch {
+        // keep plain text as is
+      }
+      els.responseBox.textContent =
+        `[${id}] ${row.verdict} HTTP=${row.http} ${row.timeMs}ms\nURL: ${row.url}\nRequest URL: ${row.requestUrl || row.url}\n\n${pretty}`;
+    }
+
+    els.saveBtn.addEventListener("click", saveInputs);
+    els.checkAllBtn.addEventListener("click", checkAll);
+    els.clearBtn.addEventListener("click", clearResults);
+
+    [
+      els.baseUrl, els.user, els.pass, els.token, els.qrCode,
+      els.count, els.ncount, els.orderby, els.orderdir, els.viewtype
+    ].forEach((input) => input.addEventListener("input", refreshPreviewUrls));
+
+    els.rows.addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const id = btn.getAttribute("data-id");
+      const action = btn.getAttribute("data-action");
+      const c = context();
+      const ch = checks.find((x) => x.id === id);
+      if (!ch) return;
+
+      if (action === "check") {
+        await executeCheck(ch, c);
+      } else if (action === "view") {
+        showJson(id);
+      }
+    });
+
+    loadInputs();
+    renderRows();
+    clearResults();
+    if (window.location.protocol === "file:") {
+      setGlobal("Running from file://. Browser may block cross-origin calls (CORS).", true);
+    }
+  </script>
+</body>
+</html>

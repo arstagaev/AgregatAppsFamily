@@ -57,24 +57,19 @@ class EventsApi(
 ) {
     suspend fun probeStartup(apiConfig: ApiConfig): Resource<Unit> = resourceify {
         // Lightweight cold-start probe:
-        // - 200 means server reachable (even if credentials are invalid later)
-        // - 3xx..5xx are mapped to server error path
+        // - hit API root without fake credentials (avoids backend-side 500 on invalid gettoken probes)
+        // - still classify 3xx..5xx as server-side startup block
         val response = client.get(apiConfig.baseUrl) {
-            expectSuccess = true
-            url {
-                parameters.append("task", "gettoken")
-                parameters.append("user", "startup_probe")
-                parameters.append("pass", "startup_probe")
-            }
+            expectSuccess = false
         }
 
         when (val code = response.status.value) {
+            in 200..299 -> Unit
             in 300..399 -> throw RedirectResponseException(response, "HTTP $code")
             in 400..499 -> throw ClientRequestException(response, "HTTP $code")
             in 500..599 -> throw ServerResponseException(response, "HTTP $code")
+            else -> throw IllegalStateException("Unexpected HTTP status: $code")
         }
-
-        Unit
     }
 
     //
@@ -313,9 +308,52 @@ class EventsApi(
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
                     parameters.append("filterval", currentRefine.searchQuery)
 //                    parameters.append("filtertype", "list")
+                } else if (!currentRefine.filter.wire.isNullOrEmpty()) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", city)
                 }
 
-                if (!currentRefine.filter.wire.isNullOrEmpty()) {
+
+                if (currentRefine.status == Refiner.Status.ACTIVE) {
+                    println("FilterByOption 1")
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (currentRefine.status == Refiner.Status.DONE) {
+                    println("FilterByOption 2")
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                } else {
+                    println("FilterByOption 3")
+                }
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            val errBody = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw IllegalStateException(
+                "HTTP ${response.status.value} ${response.status.description}" +
+                        (if (errBody.isNullOrBlank()) "" else " | $errBody")
+            )
+        }
+
+        val raw = response.bodyAsText().cleanJsonStart()
+        return json.decodeFromString<List<WorkOrderDto>>(raw)
+    }
+
+    suspend fun loadComplectations(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): List<WorkOrderDto> {
+        val response = client.get(apiConfig.baseUrl) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+
+                parameters.append("type", "Документ")
+                parameters.append("name", "Комплектация")
+
+                parameters.append("ncount", ncount.toString())
+                parameters.append("count", "30")
+
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    parameters.append("filterby", currentRefine.searchQueryType.wire)
+                    parameters.append("filterval", currentRefine.searchQuery)
+                } else if (!currentRefine.filter.wire.isNullOrEmpty()) {
                     parameters.append("filterby", currentRefine.filter.wire)
                     parameters.append("filterval", city)
                 }
@@ -373,15 +411,13 @@ class EventsApi(
                     println("FilterByOption 3")
                 }
 
-                if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
-                    parameters.append("filterby", currentRefine.filter.wire)
-                    parameters.append("filterval", currentRefine.filterValue)
-                }
-
                 if (currentRefine.searchQuery.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
                     parameters.append("filterval", currentRefine.searchQuery)
 //                    parameters.append("filtertype", "list")
+                } else if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue)
                 }
 
 
@@ -426,15 +462,13 @@ class EventsApi(
                     println("FilterByOption 3")
                 }
 
-                if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
-                    parameters.append("filterby", currentRefine.filter.wire)
-                    parameters.append("filterval", currentRefine.filterValue)
-                }
-
                 if (currentRefine.searchQuery.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
                     parameters.append("filterval", currentRefine.searchQuery)
 //                    parameters.append("filtertype", "list")
+                } else if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue)
                 }
 
 
@@ -479,15 +513,13 @@ class EventsApi(
                     println("FilterByOption 3")
                 }
 
-                if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
-                    parameters.append("filterby", currentRefine.filter.wire)
-                    parameters.append("filterval", currentRefine.filterValue)
-                }
-
                 if (currentRefine.searchQuery.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
                     parameters.append("filterval", currentRefine.searchQuery)
 //                    parameters.append("filtertype", "list")
+                } else if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue)
                 }
 
 

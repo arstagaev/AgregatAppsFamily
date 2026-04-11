@@ -11,6 +11,7 @@ import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.ui.cargo.CargoComponent
+import com.tagaev.trrcrm.ui.complectation.ComplectationComponent
 import com.tagaev.trrcrm.ui.complaints.ComplaintsComponent
 import com.tagaev.trrcrm.ui.details.DetailsComponent
 import com.tagaev.trrcrm.ui.events.EventsComponent
@@ -41,6 +42,7 @@ interface IRootComponent {
     fun openCargo(needBackToList: Boolean)
     fun openComplaint(needBackToList: Boolean)
     fun openInnerOrder(needBackToList: Boolean)
+    fun openComplectation(needBackToList: Boolean)
     fun openWorkOrders(needBackToList: Boolean)
     fun openQRScanner()
     fun openFavorites()
@@ -51,7 +53,8 @@ interface IRootComponent {
     /**
      * Handles deep link navigation from push notifications.
      * Always refreshes the target screen's data before navigation.
-     * @param screen The target screen name (events, work_orders, cargo, complaints, inner_orders)
+     * @param screen The target screen name
+     * (events, work_orders, cargo, complaints, inner_orders, complectation)
      * @param docId Optional document ID to select after refresh
      */
     fun onDeepLink(screen: String, docId: String?)
@@ -60,6 +63,7 @@ interface IRootComponent {
         data object Events : Config
         data object Details : Config
         data object WorkOrder : Config
+        data object Complectation : Config
         data object Cargo : Config
         data object Complaint : Config
         data object InnerOrder : Config
@@ -74,6 +78,7 @@ interface IRootComponent {
         data class Events(val component: EventsComponent) : Child
         data class Details(val component: DetailsComponent) : Child
         data class WorkOrder(val component: WorkOrdersComponent) : Child
+        data class Complectation(val component: ComplectationComponent) : Child
         data class Favorites(val component: FavoritesComponent) : Child
         data class Cargo(val component: CargoComponent) : Child
         data class Complaint(val component: ComplaintsComponent) : Child
@@ -136,6 +141,9 @@ class DefaultRootComponent(
 
             is IRootComponent.Config.WorkOrder ->
                 IRootComponent.Child.WorkOrder(WorkOrdersComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.Complectation ->
+                IRootComponent.Child.Complectation(ComplectationComponent(ctx) { nav.pop() })
 
             is IRootComponent.Config.Cargo ->
                 IRootComponent.Child.Cargo(CargoComponent(ctx) { nav.pop() })
@@ -231,6 +239,18 @@ class DefaultRootComponent(
             nav.bringToFront(IRootComponent.Config.WorkOrder)
         }
     }
+
+    override fun openComplectation(needBackToList: Boolean) {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.Complectation }
+                ?.instance as? IRootComponent.Child.Complectation
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.Complectation)
+        }
+    }
+
     override fun openQRScanner() = nav.bringToFront(IRootComponent.Config.QRScanner)
 
     override fun openMenu() {
@@ -370,6 +390,7 @@ class DefaultRootComponent(
             val master = when (childInstance) {
                 is IRootComponent.Child.Events -> childInstance.component
                 is IRootComponent.Child.WorkOrder -> childInstance.component
+                is IRootComponent.Child.Complectation -> childInstance.component
                 is IRootComponent.Child.Cargo -> childInstance.component
                 is IRootComponent.Child.Complaint -> childInstance.component
                 is IRootComponent.Child.InnerOrder -> childInstance.component
@@ -385,6 +406,7 @@ class DefaultRootComponent(
         return when (normalizedScreen) {
             "events", "event" -> IRootComponent.Config.Events
             "work_orders", "workorders", "work_order", "workorder" -> IRootComponent.Config.WorkOrder
+            "complectation", "complectations", "complectation_orders" -> IRootComponent.Config.Complectation
             "cargo", "cargos" -> IRootComponent.Config.Cargo
             "complaints", "complaint" -> IRootComponent.Config.Complaint
             "inner_orders", "innerorders", "inner_order", "innerorder" -> IRootComponent.Config.InnerOrder

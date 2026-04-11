@@ -88,13 +88,13 @@ class WorkOrdersComponent(
 
 
             _refineState.value = loadRefineState()
+            _ncount.value = 0
 
-            val result = repository.loadWorkOrders(_ncount.value, refineState.value)
+            val result = repository.loadWorkOrders(0, refineState.value)
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()
 
-                _ncount.value = 0
                 loadedOrders.clear()
                 loadedKeys.clear()
 
@@ -144,6 +144,7 @@ class WorkOrdersComponent(
     override fun setRefineState(newState: RefineState) {
         _refineState.value = newState.copy(searchQuery = newState.searchQuery.trimStart().trimEnd())
         saveRefineState(_refineState.value)
+        _ncount.value = 0
         fullRefresh()
     }
 
