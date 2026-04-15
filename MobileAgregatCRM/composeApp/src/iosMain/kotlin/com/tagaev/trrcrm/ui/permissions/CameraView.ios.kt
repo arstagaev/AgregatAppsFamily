@@ -40,7 +40,10 @@ import platform.darwin.dispatch_get_main_queue
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-actual fun CameraView(decodedString: (String) -> Unit) {
+actual fun CameraView(
+    decodedString: (String) -> Unit,
+    autoStart: Boolean
+) {
     // Create and remember the capture session for this composable lifecycle
     val captureSession = remember { AVCaptureSession() }
     var configured by remember { mutableStateOf(false) }

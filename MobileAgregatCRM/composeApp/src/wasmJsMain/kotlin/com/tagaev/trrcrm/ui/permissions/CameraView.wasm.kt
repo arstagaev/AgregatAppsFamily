@@ -11,7 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-actual fun CameraView(decodedString: (String) -> Unit) {
+actual fun CameraView(
+    decodedString: (String) -> Unit,
+    autoStart: Boolean
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,10 +38,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import com.tagaev.trrcrm.ui.custom.snowflakeBackground
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
 import kotlin.collections.orEmpty
@@ -79,6 +82,10 @@ fun <T, F> MasterScreen(
     modifier: Modifier = Modifier,
     selectedItemId: String?,
     onSelectedItemChange: (String?) -> Unit,
+    topBarNavigationIcon: (@Composable () -> Unit)? = null,
+    topBarTitleContent: (@Composable () -> Unit)? = null,
+    topBarActionsContent: (@Composable RowScope.(isLoadingTopBar: Boolean) -> Unit)? = null,
+    topBarBottomContent: (@Composable () -> Unit)? = null,
 ) {
     val listState: LazyListState = rememberLazyListState()
     val isLoadingTopBar = resource is Resource.Loading ||
@@ -87,35 +94,76 @@ fun <T, F> MasterScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(Modifier.clickable {
-                        onPanelChange(MasterPanel.List)
-                    }) {
-                        Text(text = title, modifier = Modifier.padding(horizontal = 10.dp))
-                    }
-                },
-                actions = {
-                    if (panel == MasterPanel.List) {
-//                    if (true) {
-                        IconButton(onClick = { onPanelChange(MasterPanel.Filter) }) {
-                            Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
-                        }
-                        if (isLoadingTopBar) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            IconButton(onClick = onRefresh) {
-                                Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val titleSlot: @Composable () -> Unit = {
+                    when {
+                        topBarTitleContent != null -> topBarTitleContent()
+                        else -> {
+                            Row(Modifier.clickable {
+                                onPanelChange(MasterPanel.List)
+                            }) {
+                                Text(text = title, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 10.dp))
                             }
                         }
                     }
                 }
-            )
+                val actionsSlot: @Composable RowScope.() -> Unit = {
+                    when {
+                        topBarActionsContent != null -> topBarActionsContent(isLoadingTopBar)
+                        panel == MasterPanel.List -> {
+                            IconButton(onClick = { onPanelChange(MasterPanel.Filter) }) {
+                                Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                            }
+                            if (isLoadingTopBar) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .padding(horizontal = 8.dp)
+                                        .size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                IconButton(onClick = onRefresh) {
+                                    Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val navigationIconSlot: (@Composable () -> Unit)? = when {
+                    panel == MasterPanel.Details -> {
+                        {
+                            IconButton(
+                                onClick = {
+                                    onSelectedItemChange(null)
+                                    onPanelChange(MasterPanel.List)
+                                }
+                            ) {
+                                Icon(
+                                    FeatherIcons.ArrowLeft,
+                                    contentDescription = "Назад к списку"
+                                )
+                            }
+                        }
+                    }
+                    topBarNavigationIcon != null -> topBarNavigationIcon
+                    else -> null
+                }
+
+                if (navigationIconSlot != null) {
+                    TopAppBar(
+                        navigationIcon = navigationIconSlot,
+                        title = titleSlot,
+                        actions = actionsSlot
+                    )
+                } else {
+                    TopAppBar(
+                        title = titleSlot,
+                        actions = actionsSlot
+                    )
+                }
+                topBarBottomContent?.invoke()
+            }
         }
     ) { padding ->
         Box(

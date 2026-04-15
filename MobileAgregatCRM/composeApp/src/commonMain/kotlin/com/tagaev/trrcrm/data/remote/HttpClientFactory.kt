@@ -10,6 +10,7 @@ import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.observer.ResponseObserver
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import com.tagaev.trrcrm.utils.HumanLogger
@@ -43,12 +44,11 @@ object HttpClientFactory {
             socketTimeoutMillis  = 60_000
         }
 
-        // Retries (idempotent GETs; backoff)
+        // Retries: only idempotent requests (not POST) on 5xx
         install(HttpRequestRetry) {
             maxRetries = 2
             retryIf { request, response ->
-                // retry on 5xx
-                response.status.value >= 500
+                request.method != HttpMethod.Post && response.status.value >= 500
             }
             exponentialDelay()
         }

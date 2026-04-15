@@ -1,7 +1,9 @@
 package com.tagaev.trrcrm.domain
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,7 +16,9 @@ enum class DocumentTypes(val requestName: String) {
     WORK_ORDER("ЗаказНаряд"),
     COMPLAINT("Рекламация"),
     COMPLECTATION("Комплектация"),
-    INNER_ORDER("ЗаказВнутренний")
+    INNER_ORDER("ЗаказВнутренний"),
+    BUYER_ORDER("ЗаказПокупателя"),
+    SUPPLIER_ORDER("ЗаказПоставщику")
 }
 
 enum class FilterByOption(val label: String, val wire: String) {
@@ -39,6 +43,37 @@ fun <T> OptionChipsRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { opt ->
+            FilterChip(
+                selected = opt == selected,
+                onClick = { onSelect(opt) },
+                label = {
+                    Text(
+                        labelFor(opt),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            )
+        }
+    }
+}
+
+/** Same as [OptionChipsRow] but chips stay on one line and scroll horizontally when they do not fit. */
+@Composable
+fun <T> OptionChipsScrollingRow(
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    labelFor: (T) -> String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         options.forEach { opt ->
             FilterChip(

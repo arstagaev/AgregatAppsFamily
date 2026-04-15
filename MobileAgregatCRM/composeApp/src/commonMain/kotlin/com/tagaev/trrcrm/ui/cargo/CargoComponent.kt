@@ -141,9 +141,8 @@ class CargoComponent(
         fullRefresh()
     }
 
-    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
-        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
-        return false
+    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
+        return "Отправка сообщений недоступна для данного типа документа"
     }
     // ---------- Work Orders refine state ----------
 

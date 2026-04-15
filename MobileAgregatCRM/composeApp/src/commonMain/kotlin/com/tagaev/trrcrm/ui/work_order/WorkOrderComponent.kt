@@ -148,23 +148,17 @@ class WorkOrdersComponent(
         fullRefresh()
     }
 
-    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
-        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return false
-        // call repository directly (suspend) – no extra launch here
+    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
         val res = repository.sendMessageToWorkOrder(
             itemNumber,
             itemDate.substringBefore(' '),
             message
         )
-
-        return if (res is Resource.Success) {
-            // after successful send, refresh list so messages include new comment
-            //fullRefresh()   // still runs on appScope internally
-
-            true
-        } else {
-            false
+        return when (res) {
+            is Resource.Success -> null
+            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            else -> "Ошибка отправки сообщения"
         }
     }
 
@@ -225,22 +219,33 @@ class WorkOrdersComponent(
     // ---------- Work Orders refine state ----------
 
     fun loadRefineState(): RefineState {
-        val raw = appSettings.getStringOrNull(AppSettingsKeys.CARGO_REFINE_STATE)
+        val primaryRaw = appSettings.getStringOrNull(AppSettingsKeys.WORK_ORDERS_REFINE_STATE)
+        val legacyRaw = appSettings.getStringOrNull(AppSettingsKeys.CARGO_REFINE_STATE)
+        val usingLegacyValue = primaryRaw.isNullOrBlank() && !legacyRaw.isNullOrBlank()
+        val raw = if (usingLegacyValue) legacyRaw else primaryRaw
+
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
             return RefineState()
         }
 
-        return runCatching {
+        val decoded = runCatching {
             json.decodeFromString<RefineState>(raw)
         }.getOrElse {
             // if schema changed or data corrupted – fail gracefully
             RefineState()
         }
+
+        // One-time migration path from old key to isolated work-order key.
+        if (usingLegacyValue) {
+            saveRefineState(decoded)
+        }
+
+        return decoded
     }
 
     fun saveRefineState(state: RefineState) {
         val encoded = json.encodeToString(state)
-        appSettings.setString(AppSettingsKeys.CARGO_REFINE_STATE, encoded)
+        appSettings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE, encoded)
     }
 }

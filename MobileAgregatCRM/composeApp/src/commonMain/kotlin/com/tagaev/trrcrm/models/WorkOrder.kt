@@ -29,6 +29,10 @@ data class WorkOrderDto(
     @SerialName("Состояние") val status: String? = null,
     @SerialName("СуммаДокумента") val documentAmount: String? = null,
     @SerialName("Комплект") val complectationKit: String? = null,
+    @SerialName("ХарактеристикаКомплекта") val complectationCharacteristic: String? = null,
+    @SerialName("КоличествоКомплектов") val complectationQuantity: String? = null,
+    @SerialName("КомплектЕдиницаИзмерения") val complectationUnit: String? = null,
+    @SerialName("ЦенаКомплекта") val complectationPrice: String? = null,
 
     @SerialName("Заказчик") val customer: String? = null,
     @SerialName("Автомобиль") val car: String? = null,
@@ -58,7 +62,10 @@ data class WorkOrderDto(
     @SerialName("Товары2") val products2: List<WorkOrderProductDto> = emptyList(),
 
     @SerialName("Работы2") val jobs2: List<WorkOrderJobDto> = emptyList(),
+    @SerialName("Планирование") val planning: List<ComplectationPlanningRowDto> = emptyList(),
     @SerialName("ДефектТаб") val defects: List<WorkOrderDefectDto> = emptyList(),
+    @SerialName("ДефектТабНов") val defectsNew: List<WorkOrderDefectDto> = emptyList(),
+    @SerialName("ЧекЛист") val checklist: List<ComplectationChecklistItemDto> = emptyList(),
     @SerialName("messages") val messages: List<WorkOrderMessageDto> = emptyList(),
 
     @SerialName("recomendations") val recommendations: List<Map<String, String>> = emptyList(),
@@ -69,6 +76,8 @@ data class WorkOrderDto(
 data class WorkOrderJobDto(
     @SerialName("НомерСтроки") val lineNumber: String? = null,
     @SerialName("Работа") val work: String? = null,
+    /** Часто заполняется из 1С, когда `Работа` пустая */
+    @SerialName("Работа1") val workLine1: String? = null,
     @SerialName("ИдентификаторРаботы") val workId: String? = null,
     @SerialName("Количество") val quantity: String? = null,
     @SerialName("Нормочас") val normHour: String? = null,
@@ -147,8 +156,35 @@ data class WorkOrderExecutorDto(
 )
 
 @Serializable
+data class ComplectationPlanningRowDto(
+    @SerialName("НомерСтроки") val lineNumber: String? = null,
+    @SerialName("Авторабота") val autoWork: String? = null,
+    @SerialName("РабочееМесто") val workplace: String? = null,
+    @SerialName("Исполнитель") val executor: String? = null,
+    @SerialName("НачалоВыполнения") val startAt: String? = null,
+    @SerialName("ОкончаниеВыполнения") val endAt: String? = null,
+    @SerialName("Продолжительность") val duration: String? = null,
+    @SerialName("ИдентификаторРаботы") val workId: String? = null,
+)
+
+@Serializable
+data class ComplectationChecklistItemDto(
+    @SerialName("НомерСтроки") val lineNumber: String? = null,
+    @SerialName("Автор") val author: String? = null,
+    @SerialName("Дата") val date: String? = null,
+    @SerialName("Наименование") val name: String? = null,
+    @SerialName("Состояние") val state: String? = null,
+    @SerialName("Решение") val decision: String? = null,
+    @SerialName("Пояснение") val description: String? = null,
+    @SerialName("Фото") val photo: String? = null,
+    @SerialName("Инстр") val action: String? = null,
+)
+
+@Serializable
 data class WorkOrderDefectDto(
     @SerialName("НомерСтроки") val lineNumber: String? = null,
+    @SerialName("Автор") val author: String? = null,
+    @SerialName("Дата") val date: String? = null,
     @SerialName("Наименование") val name: String? = null,
     @SerialName("Состояние") val state: String? = null,
     @SerialName("Решение") val decision: String? = null,

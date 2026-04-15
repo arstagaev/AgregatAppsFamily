@@ -20,6 +20,7 @@ import compose.icons.FeatherIcons
 import compose.icons.feathericons.AlertCircle
 import compose.icons.feathericons.CheckCircle
 import compose.icons.feathericons.Copy
+import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.CameraView
 import com.tagaev.trrcrm.utils.getTimestamp
@@ -31,6 +32,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun QRScannerScreen(component: IQRScannerComponent) {
     val state by component.state.collectAsState()
+    val isDesktopTarget = remember { getPlatform().name.startsWith("Desktop") }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -72,9 +74,27 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                         .weight(0.58f)
                         .background(Color.Black)
                 ) {
-                    CameraPermissionGate(rationaleText = "Для сканирования нужен доступ к камере.") {
-                        CameraView { decodedString ->
-                            component.onScanned(decodedString)
+                    if (isDesktopTarget) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "QR-сканер пока недоступен на desktop",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.White
+                            )
+                        }
+                    } else {
+                        CameraPermissionGate(rationaleText = "Для сканирования нужен доступ к камере.") {
+                            CameraView(
+                                decodedString = { decodedString ->
+                                    component.onScanned(decodedString)
+                                },
+                                autoStart = false
+                            )
                         }
                     }
                 }

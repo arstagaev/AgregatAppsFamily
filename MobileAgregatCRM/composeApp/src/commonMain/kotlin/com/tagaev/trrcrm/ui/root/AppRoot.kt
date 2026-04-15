@@ -45,12 +45,14 @@ import com.tagaev.trrcrm.ui.style.ThemeController
 import compose.icons.FeatherIcons
 import org.koin.compose.koinInject
 import com.tagaev.trrcrm.ui.cargo.CargoScreen
+import com.tagaev.trrcrm.ui.buyer_order.BuyerOrdersScreen
 import com.tagaev.trrcrm.ui.complectation.ComplectationsScreen
 import com.tagaev.trrcrm.ui.complaints.ComplaintsScreen
 import com.tagaev.trrcrm.ui.events.EventsScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
 import com.tagaev.trrcrm.ui.menu.MenuScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
+import com.tagaev.trrcrm.ui.supplier_order.SupplierOrdersScreen
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
 import compose.icons.LineAwesomeIcons
 import compose.icons.feathericons.Box
@@ -130,6 +132,22 @@ fun AppRoot(root: IRootComponent) {
                                 }
                                 root.openCargo(needBackToList)
                             },
+                            onBuyerOrder = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.BuyerOrder) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openBuyerOrders(needBackToList)
+                            },
+                            onSupplierOrder = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.SupplierOrder) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openSupplierOrders(needBackToList)
+                            },
                             onComplaint = {
                                 val needBackToList = if (activeChild !is IRootComponent.Child.Complaint) {
                                     false
@@ -165,6 +183,8 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
                         is IRootComponent.Child.Complectation -> ComplectationsScreen(c.component)
                         is IRootComponent.Child.Cargo -> CargoScreen(c.component)
+                        is IRootComponent.Child.BuyerOrder -> BuyerOrdersScreen(c.component)
+                        is IRootComponent.Child.SupplierOrder -> SupplierOrdersScreen(c.component)
                         is IRootComponent.Child.Complaint -> ComplaintsScreen(c.component)
                         is IRootComponent.Child.InnerOrder -> InnerOrdersScreen(c.component)
                         is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
@@ -187,6 +207,8 @@ fun AppBottomNavBar2(
     onQRScanner: () -> Unit,
     onMenu: () -> Unit,
     onCargo: () -> Unit,
+    onBuyerOrder: () -> Unit,
+    onSupplierOrder: () -> Unit,
     onFavorites: () -> Unit,
     onSettings: () -> Unit,
     onWorkOrder: () -> Unit,
@@ -234,6 +256,20 @@ fun AppBottomNavBar2(
                 onClick = onCargo,
                 icon = { Icon(FeatherIcons.Truck, contentDescription = null) },
                 label = "Доставки"
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.BuyerOrder,
+                onClick = onBuyerOrder,
+                icon = { Icon(FeatherIcons.Box, contentDescription = null) },
+                label = "Заказы покуп."
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.SupplierOrder,
+                onClick = onSupplierOrder,
+                icon = { Icon(FeatherIcons.Box, contentDescription = null) },
+                label = "Заказы пост."
             )
 
             BottomNavChip(

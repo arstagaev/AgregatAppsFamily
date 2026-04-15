@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,8 +21,12 @@ import io.github.g00fy2.quickie.ScanQRCode
 
 
 @Composable
-actual fun CameraView(decodedString: (String) -> Unit) {
+actual fun CameraView(
+    decodedString: (String) -> Unit,
+    autoStart: Boolean
+) {
     var last by remember { mutableStateOf<String?>(null) }
+    var autoLaunchDone by remember { mutableStateOf(false) }
 
     // Quickie launcher opens the camera UI and returns a QRResult
     val scanLauncher = rememberLauncherForActivityResult(ScanQRCode()) { result ->
@@ -43,13 +48,22 @@ actual fun CameraView(decodedString: (String) -> Unit) {
         }
     }
 
+    LaunchedEffect(autoStart, autoLaunchDone) {
+        if (autoStart && !autoLaunchDone) {
+            autoLaunchDone = true
+            scanLauncher.launch(null)
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Button(onClick = { scanLauncher.launch(null) }) {
-            Text("Сканировать QR код")
+        if (!autoStart) {
+            Button(onClick = { scanLauncher.launch(null) }) {
+                Text("Сканировать QR код")
+            }
         }
     }
 }

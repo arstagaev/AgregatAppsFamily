@@ -15,7 +15,8 @@ interface IListMaster {
     fun setRefineState(newState: RefineState)
     fun fullRefresh()
     fun loadMore()
-    suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean
+    /** Returns null on success, or a human-readable error string on failure. */
+    suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String?
 
     fun addLocalMessage(
         orderGuid: String?,

@@ -28,10 +28,7 @@ import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 fun WorkOrderDetailsSheet(
     order: WorkOrderDto,
     onBack: () -> Unit,
-    onSendMessage: (String, (Boolean) -> Unit) -> Unit,
-    isSendingMessage: Boolean = false,
-    lastSendError: String? = null,
-    onErrorDismiss: () -> Unit = {},
+    onSendMessage: (String, (String?) -> Unit) -> Unit,
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -41,9 +38,6 @@ fun WorkOrderDetailsSheet(
         messages = order.messages.map { MessageModel(author = it.author ?: "no author", text = it.comment ?: "", date = it.workDate ?: "no date") },
         onBack = onBack,
         onSendMessage = onSendMessage,
-        //isSendingMessage = isSendingMessage,
-        lastSendError = lastSendError,
-        onErrorDismiss = onErrorDismiss,
         initialDraft = initialDraft,
         onDraftChanged = onDraftChanged,
         isSendEnabled = { draft, wo ->
@@ -342,7 +336,7 @@ fun WorkOrderDetailsSheet(
                         val qty = product.quantity?.takeIf { it.isNotBlank() }
                         val unit = product.unit?.takeIf { it.isNotBlank() }
                         if (qty != null) {
-                            Text(
+                            TextC(
                                 text = buildString {
                                     append("Кол-во: ")
                                     append(qty)
@@ -365,14 +359,14 @@ fun WorkOrderDetailsSheet(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         product.amount?.takeIf { it.isNotBlank() }?.let {
-                            Text(
+                            TextC(
                                 text = "$it ₽",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
                         product.price?.takeIf { it.isNotBlank() }?.let {
-                            Text(
+                            TextC(
                                 text = "Цена: $it",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant

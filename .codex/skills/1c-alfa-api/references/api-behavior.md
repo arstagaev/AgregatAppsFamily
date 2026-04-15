@@ -1,39 +1,47 @@
 # 1C Alfa API Behavior Reference
 
-This reference summarizes stable behavior used by the app integration.
+This reference summarizes stable behavior used by the app integration, aligned with the repository export [`1c_alfa_common_modules.txt`](../../../../1c_alfa_common_modules.txt) (search `ОбработкаДляПриложенияGet`, `ПолучитьСписокСущностей`, `ПолучитьСписокДокументов`).
 
-## Core Endpoint Routing
+## Core Endpoint Routing (`ОбработкаДляПриложенияGet`)
 
-- `task=getitemslist` -> list entities/documents.
-- `task=getitem` -> get one entity.
-- `task=setmessage` -> append message to document thread.
-- `task=getroles` -> fetch user roles by token.
-- `task=getqrcomlectinfo` -> QR lookup.
+- `task=gettoken` — login; **no** prior token check.
+- `task=getmetadata` — `ПолучитьМетаДатуБазы`.
+- `task=getitemslist` — `ПолучитьСписокСущностей` (dispatches on `type`).
+- `task=getitem` — `ПолучитьСущность`.
+- `task=setmessage` — `ДобавитьСообщениеВПереписку` (needs `type`, `name`, `number`, `date`, `message`; finds row by exact `Номер` + day of `date`).
+- `task=getqrcomlectinfo` — `ПолучитьДанныеКомплектацииПоQR`.
+- `task=getroles` — `ПолучитьРолиПользователя`.
+
+POST body is URL-decoded JSON and forwarded through the same GET handler.
 
 ## `getitemslist` Notes
 
-- `type=Документ` + `name=<ДокументИмя>` is required for document lists.
-- `count` controls page size.
-- `ncount` is offset (not page index).
+- `type` + `name` must match metadata (`Документ.<name>`, `Справочник.<name>`, etc.).
+- **`count`** for Справочник/Документ: coerced to **1..100** (missing/0/>100 → 100).
+- **`ncount`** is an **offset into the ordered result**, not a page index.
 
 ### Filtering
 
-- For `filtertype=value`, backend query uses `ПОДОБНО` with `%filterval%`.
-- Number searches can match padded numbers (`162795` -> `0000162795`).
+- Default `filtertype` is `value`: backend uses **`ПОДОБНО`** with parameter **`%filterval%`** (catalog-style refs use `.Наименование`).
+- Other modes in document lists include `code`, `bool`, `int`, and `list` (latter specialized for `Событие` / `Состояние`).
+- Invalid `filterby` / `orderby` → warning structures (`No item filterby requisite`, `No item orderby requisite`).
 
-### Pagination
+### Pagination (important)
 
-- Backend fetches up to `count + ncount`.
-- Then skips first `ncount` rows in iteration.
-- Result: valid match can disappear if `ncount` is non-zero on new query.
+- **Документ (`ПолучитьСписокДокументов`):** query uses **`ПЕРВЫЕ count + ncount`**, then the server **skips the first `ncount` rows** when building the response. A single match disappears if `ncount > 0`.
+- **Справочник (`ПолучитьСписокСправочников`):** different SQL shape — **`ПЕРВЫЕ count`** with **`НЕ В (ВЫБРАТЬ ПЕРВЫЕ ncount ...)`** subquery. Same **client rule:** reset `ncount` when anything in the query signature changes.
+
+### Extra restrictions (documents)
+
+- `Событие`: role-based and optional `viewtype=onlymy` visibility.
+- `ЗаказНаряд`: department scoping unless user has **«Полные права»**.
+- `state=активно` / `неактивно`: extra predicates for `Событие` / `ЗаказНаряд`.
 
 ## Client Reliability Contract
 
-1. Reset `ncount=0` when query signature changes.
-2. Increment `ncount` only for "Load more" with unchanged query signature.
-3. Send one effective `filterby/filterval` pair:
-   - search pair when search text is present
-   - otherwise fallback filter (for example, department).
+1. Reset `ncount=0` when query signature changes (`type`, `name`, filters, sort, `state`, `viewtype`, search).
+2. Increment `ncount` only for "load more" with an **unchanged** signature.
+3. Send one effective `filterby`/`filterval` pair (do not assume multiple simultaneous filters).
 
 ## Fast Incident Triage
 
@@ -41,6 +49,7 @@ This reference summarizes stable behavior used by the app integration.
 2. Re-run with `ncount=0`.
 3. Compare request builders in client to ensure:
    - no stale offset at refresh
-   - no duplicate `filterby/filterval` assignment.
+   - no duplicate or conflicting filter assignment
+4. If the list is `Событие` / `ЗаказНаряд`, check server-side visibility (`state`, roles, departments).
 
 If step 2 fixes the issue, treat it as pagination-state bug first.

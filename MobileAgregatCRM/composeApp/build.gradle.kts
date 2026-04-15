@@ -8,6 +8,7 @@ import java.util.Locale
 import org.gradle.api.file.DuplicatesStrategy
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -57,6 +58,12 @@ kotlin {
             }
         }
         binaries.executable()
+    }
+
+    jvm("desktop") {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
     }
 
     sourceSets {
@@ -148,6 +155,15 @@ kotlin {
         wasmJsMain.dependencies {
             implementation("io.ktor:ktor-client-js:$ktor")
         }
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation("io.ktor:ktor-client-cio:$ktor")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
+                implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
+                implementation("com.russhwolf:multiplatform-settings-no-arg:1.3.0")
+            }
+        }
 
 //        commonTest.dependencies {
 //            implementation(libs.kotlin.test)
@@ -156,6 +172,17 @@ kotlin {
 //            implementation(compose.desktop.currentOs)
 ////            implementation(libs.kotlinx.coroutinesSwing)
 //        }
+    }
+}
+
+compose.desktop {
+    application {
+        mainClass = "com.tagaev.trrcrm.Main_desktopKt"
+        nativeDistributions {
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            packageName = "MobileAgregatCRM"
+            packageVersion = "1.0.0"
+        }
     }
 }
 
@@ -224,8 +251,8 @@ android {
         // Debug: for IDE / local dev, no minify, no shrink
         //./gradlew assembleDebug
         getByName("debug") {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             // no proguardFiles here
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

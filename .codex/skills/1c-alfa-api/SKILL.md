@@ -14,10 +14,12 @@ Follow this workflow for incidents and implementation tasks related to the 1C Al
 3. Verify if more than one `filterby/filterval` pair is being sent by client code.
 4. Check client pagination reset behavior:
    - `ncount` must reset to `0` on new search/filter/sort.
-5. Confirm backend behavior in module dump (`1c_alfa_common_modules.txt`):
-   - `getitemslist` routing
-   - `ПОДОБНО`/`filtertype=value`
-   - skip-by-`ncount` logic after query result
+5. Confirm backend behavior in the repo export `1c_alfa_common_modules.txt` (repository root):
+   - `ОбработкаДляПриложенияGet` task table (`gettoken` … `getroles`)
+   - `getitemslist` → `ПолучитьСписокСущностей` → branch by `type`
+   - **Документ:** `ПЕРВЫЕ count+ncount` + skip first `ncount` rows in the selection loop
+   - **Справочник:** `NOT IN (SELECT ПЕРВЫЕ ncount …)` + outer `ПЕРВЫЕ count` (different SQL; same reset rule)
+   - `filtertype=value` → `ПОДОБНО` with `%filterval%`
 6. Propose the smallest safe fix:
    - client-side reset first
    - backend hardening only as optional defense
@@ -39,3 +41,4 @@ Follow this workflow for incidents and implementation tasks related to the 1C Al
 ## References
 
 - Read [API behavior reference](references/api-behavior.md) for known endpoint semantics and troubleshooting shortcuts.
+- Cross-check behavior against [`1c_alfa_common_modules.txt`](../../../1c_alfa_common_modules.txt) at the repository root when triaging server-side edge cases.

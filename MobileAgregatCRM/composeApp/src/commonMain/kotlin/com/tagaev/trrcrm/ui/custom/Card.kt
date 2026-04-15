@@ -90,7 +90,7 @@ fun UniversalCardItem(
                     verticalAlignment = Alignment.Top
                 ) {
                     if (!subtitle.isNullOrBlank() && topRightSecondary != null) {
-                        Text(
+                        TextC(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -102,7 +102,7 @@ fun UniversalCardItem(
                             topRightSecondary()
                         }
                     } else if (!subtitle.isNullOrBlank()) {
-                        Text(
+                        TextC(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -129,21 +129,21 @@ fun UniversalCardItem(
                 Spacer(Modifier.height(6.dp))
                 Column {
                     bigText1?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                     bigText2?.takeIf { it.isNotBlank() }?.let {
                         Spacer(Modifier.height(2.dp))
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                     bigText3?.takeIf { it.isNotBlank() }?.let {
                         Spacer(Modifier.height(2.dp))
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -161,7 +161,7 @@ fun UniversalCardItem(
                     verticalAlignment = Alignment.Top
                 ) {
                     midBText1?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f)
@@ -169,7 +169,7 @@ fun UniversalCardItem(
                     } ?: Spacer(Modifier.weight(1f))
 
                     midBText2?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f)
@@ -188,7 +188,7 @@ fun UniversalCardItem(
                     verticalAlignment = Alignment.Top
                 ) {
                     midCText1?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f)
@@ -196,7 +196,7 @@ fun UniversalCardItem(
                     } ?: Spacer(Modifier.weight(1f))
 
                     midCText2?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f)
@@ -216,7 +216,7 @@ fun UniversalCardItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     bottomLeftText?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -226,7 +226,7 @@ fun UniversalCardItem(
                     Spacer(Modifier.weight(1f))
 
                     bottomRightText?.takeIf { it.isNotBlank() }?.let {
-                        Text(
+                        TextC(
                             text = it,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant

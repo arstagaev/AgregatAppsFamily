@@ -2,419 +2,816 @@ package com.tagaev.trrcrm.ui.complectation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.tagaev.trrcrm.models.ComplectationChecklistItemDto
+import com.tagaev.trrcrm.models.ComplectationPlanningRowDto
+import com.tagaev.trrcrm.models.WorkOrderDefectDto
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.models.WorkOrderExecutorDto
+import com.tagaev.trrcrm.models.WorkOrderJobDto
+import com.tagaev.trrcrm.models.WorkOrderProductDto
 import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
-import com.tagaev.trrcrm.ui.master_screen.SectionTitle
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.CheckCircle
+import compose.icons.feathericons.Circle
 
+private val ComplectationExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 
+/** Matches horizontal padding of [ComplectationExpandableListPadding] for edge-to-edge dividers */
+private val ComplectationExpandableDividerOutdent = 8.dp
+
+/** Material green 700 — checklist «выполнено» icon */
+private val ChecklistCompleteIconGreen = Color(0xFF388E3C)
+
+private fun complectationProductsForDisplay(wo: WorkOrderDto): List<WorkOrderProductDto> =
+    wo.products.orEmpty().ifEmpty { wo.products2.orEmpty() }
+
+private fun complectationJobsForDisplay(wo: WorkOrderDto): List<WorkOrderJobDto> =
+    wo.jobs.orEmpty().ifEmpty { wo.jobs2.orEmpty() }
+
+private fun productDisplayTitle(p: WorkOrderProductDto): String {
+    val line = p.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> "Стр. $ln" }
+    return sequenceOf(p.name, p.characteristic, p.note, p.notePrint, p.article, line)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .firstOrNull()
+        ?: "—"
+}
+
+private fun jobDisplayTitle(j: WorkOrderJobDto): String {
+    val line = j.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> "Стр. $ln" }
+    return sequenceOf(j.work, j.workLine1, j.note, j.notePrint, j.workPackageNumber, line)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .firstOrNull()
+        ?: "—"
+}
+
+private fun productCharacteristicTitle(p: WorkOrderProductDto): String =
+    sequenceOf(p.characteristic, p.note, p.notePrint, p.article)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .firstOrNull() ?: "—"
+
+private fun jobQuantityTitle(j: WorkOrderJobDto): String =
+    sequenceOf(j.quantity, j.normHour)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .firstOrNull() ?: "—"
+
+private fun jobUnitTitle(j: WorkOrderJobDto): String =
+    when {
+        !j.normHour.isNullOrBlank() -> "н/ч"
+        !j.coefficient.isNullOrBlank() -> "коэф."
+        else -> "—"
+    }
+
+private fun jobCharacteristicTitle(j: WorkOrderJobDto): String =
+    sequenceOf(j.note, j.notePrint, j.workPackageNumber, j.workId)
+        .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
+        .firstOrNull() ?: "—"
+
+private fun jobExecutorTitle(job: WorkOrderJobDto, executors: List<WorkOrderExecutorDto>): String {
+    val id = job.workId?.trim().orEmpty()
+    if (id.isBlank()) return "—"
+    return executors.asSequence()
+        .filter { it.workId?.trim() == id }
+        .mapNotNull { it.executor?.trim()?.takeIf(String::isNotBlank) }
+        .distinct()
+        .joinToString(", ")
+        .ifBlank { "—" }
+}
+
+private fun planningWorkTitle(row: ComplectationPlanningRowDto): String {
+    val work = row.autoWork?.trim().orEmpty()
+    val duration = row.duration?.trim().orEmpty()
+    return when {
+        work.isNotBlank() && duration.isNotBlank() -> "$work ($duration ч)"
+        work.isNotBlank() -> work
+        duration.isNotBlank() -> "Продолжительность: $duration ч"
+        else -> "—"
+    }
+}
+
+private fun isPlanningZeroDate(raw: String?): Boolean =
+    raw?.trim()?.startsWith("01.01.0001") == true
+
+private fun planningDateValue(raw: String?): String? {
+    val value = raw?.trim().orEmpty()
+    if (value.isBlank()) return null
+    if (isPlanningZeroDate(value)) return null
+    return value
+}
+
+private fun planningDateRange(row: ComplectationPlanningRowDto): String? {
+    val start = planningDateValue(row.startAt)
+    val end = planningDateValue(row.endAt)
+    if (start == null && end == null) return null
+    return "${start ?: "—"}  -  ${end ?: "—"}"
+}
+
+private fun dashOr(text: String?): String =
+    text?.trim()?.takeIf { it.isNotBlank() } ?: "—"
+
+private fun formatRubleAmount(raw: String?): String {
+    val s = raw?.trim().orEmpty()
+    if (s.isBlank()) return "—"
+    return if (s.contains('₽')) s else "$s ₽"
+}
 
 @Composable
 fun ComplectationDetailsSheet(
     order: WorkOrderDto,
     onBack: () -> Unit,
-    onSendMessage: (String, (Boolean) -> Unit) -> Unit,
-    isSendingMessage: Boolean = false,
-    lastSendError: String? = null,
-    onErrorDismiss: () -> Unit = {},
+    onSendMessage: (String, (String?) -> Unit) -> Unit,
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
     DetailsWithMessagesSheet(
         item = order,
         guid = order.guid.toString(),
-        messages = order.messages.map { MessageModel(author = it.author ?: "no author", text = it.comment ?: "", date = it.workDate ?: "no date") },
+        messages = order.messages.map {
+            MessageModel(
+                author = it.author ?: "no author",
+                text = it.comment ?: "",
+                date = it.workDate ?: "no date"
+            )
+        },
         onBack = onBack,
         onSendMessage = onSendMessage,
-        //isSendingMessage = isSendingMessage,
-        lastSendError = lastSendError,
-        onErrorDismiss = onErrorDismiss,
         initialDraft = initialDraft,
         onDraftChanged = onDraftChanged,
         isSendEnabled = { draft, wo ->
             draft.isNotBlank() &&
-                    !wo.number.isNullOrBlank() &&
-                    !wo.date.isNullOrBlank()
+                !wo.number.isNullOrBlank() &&
+                !wo.date.isNullOrBlank()
+        },
+        historyTitle = "История",
+        historyEmptyText = "Записей нет",
+        historyPagerDescription = { showAll, total ->
+            if (showAll) "Показаны все $total записей"
+            else "Показаны последние 10 из $total"
+        },
+        addCommentTitle = "Добавить запись",
+        composerPlaceholder = "Текст записи…",
+        sendingDialogTitle = "Отправка записи",
+        headerContent = { wo ->
+            wireframeComplectationHeader(wo)
         }
-    ) { wo ->
-        // 1. Организация + подразделение (две колонки)
-        if (!wo.organization.isNullOrBlank() || !wo.branch.isNullOrBlank()) {
+    )
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (!wo.organization.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Организация:")
-                        TextC(
-                            text = wo.organization.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
-                if (!wo.branch.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Подразделение:")
-                        TextC(
-                            text = wo.branch.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
+@Composable
+private fun CompactSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 4.dp, bottom = 1.dp),
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+    )
+}
 
-        // 2. Документ + заказчик (две колонки)
-        if (!wo.link.isNullOrBlank() || !wo.customer.isNullOrBlank()) {
+@Composable
+private fun CompactBody(text: String, color: Color = MaterialTheme.colorScheme.onSurface) {
+    TextC(
+        text = text,
+        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 14.sp),
+        color = color,
+        maxLines = 6,
+        overflow = TextOverflow.Clip
+    )
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (!wo.link.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Документ:")
-                        TextC(
-                            text = wo.link.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
-                if (!wo.customer.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Заказчик:")
-                        TextC(
-                            text = wo.customer.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
+@Composable
+private fun CompactMuted(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 13.sp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 4,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
 
-        // 4. Автомобиль
-        wo.car?.takeIf { it.isNotBlank() }?.let {
-            SectionTitle("Автомобиль:")
-            TextC(
-                text = it,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        // 5. Тип КПП / Тип двигателя / Пробег / Год
-        if (!wo.gearboxType.isNullOrBlank() ||
-            !wo.engineType.isNullOrBlank() ||
-            !wo.mileage.isNullOrBlank() ||
-            !wo.carAge.isNullOrBlank()
+@Composable
+private fun wireframeComplectationHeader(wo: WorkOrderDto) {
+    if (!wo.organization.isNullOrBlank() || !wo.branch.isNullOrBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
         ) {
-            SectionTitle("Хар-ки автомобиля:")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (!wo.gearboxType.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Тип КПП:",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        TextC(
-                            text = wo.gearboxType.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+            if (!wo.organization.isNullOrBlank()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    CompactSectionTitle("Организация:")
+                    CompactBody(wo.organization.orEmpty())
                 }
-                if (!wo.engineType.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Тип ДВС:",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        TextC(
-                            text = wo.engineType.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            if (!wo.branch.isNullOrBlank()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    CompactSectionTitle("Подразделение:")
+                    CompactBody(wo.branch.orEmpty())
                 }
-                if (!wo.mileage.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Пробег:",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        TextC(
-                            text = wo.mileage.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-                if (!wo.carAge.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Год выпуска:",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        TextC(
-                            text = wo.carAge.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
+            } else {
+                Spacer(Modifier.weight(1f))
             }
         }
+    }
 
-        // 6. Состояние + Вид ремонта (две колонки)
-        val repairType = wo.repairType?.takeIf { it.isNotBlank() }
-            ?: wo.complectationRepairType?.takeIf { it.isNotBlank() }
-        if (!wo.status.isNullOrBlank() || repairType != null) {
-            Row(
-                verticalAlignment = Alignment.Top,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (!wo.status.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Состояние")
+    if (!wo.link.isNullOrBlank()) {
+        CompactSectionTitle("Ссылка:")
+        CompactBody(wo.link.orEmpty())
+    }
 
-                        Spacer(Modifier.height(4.dp))
-                        ComplectationStatusBadge(wo.status.orEmpty())
-                    }
-                }
+    val docSubtitle = buildString {
+        if (!wo.number.isNullOrBlank()) append("№ ${wo.number}")
+        if (!wo.date.isNullOrBlank()) {
+            if (isNotEmpty()) append(" · ")
+            append(wo.date)
+        }
+    }
+    if (docSubtitle.isNotBlank()) {
+        CompactMuted(docSubtitle)
+    }
+
+    CompactSectionTitle("Комплект:")
+    CompactBody(dashOr(wo.complectationKit))
+
+    CompactSectionTitle("Характеристика комплекта:")
+    CompactBody(wo.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—")
+
+    CompactSectionTitle("Количество комплектов:")
+    CompactBody(dashOr(wo.complectationQuantity))
+
+    CompactSectionTitle("Ед. изм. комплекта:")
+    CompactBody(dashOr(wo.complectationUnit))
+
+    CompactSectionTitle("Цена комплекта:")
+    CompactBody(formatRubleAmount(wo.complectationPrice))
+
+    CompactSectionTitle("Сумма документа:")
+    CompactBody(formatRubleAmount(wo.documentAmount))
+
+    val repairType = wo.repairType?.takeIf { it.isNotBlank() }
+        ?: wo.complectationRepairType?.takeIf { it.isNotBlank() }
+    if (repairType != null || !wo.status.isNullOrBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                CompactSectionTitle("Вид ремонта:")
                 if (repairType != null) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Вид ремонта:")
-
-                        Text(
-                            text = repairType,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-
-        // 7. Ошибка + Причина обращения (две колонки)
-        if (!wo.errorCodes.isNullOrBlank() || !wo.reason.isNullOrBlank()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (!wo.errorCodes.isNullOrBlank()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Коды ошибок:")
-                        val lines = remember(wo.errorCodes) {
-                            wo.errorCodes!!
-                                .split("\\r".toRegex())
-                                .map { it.trim() }
-                                .filter { it.isNotEmpty() }
-                        }
-                        if (lines.isNotEmpty()) {
-                            lines.forEach { line ->
-                                Text(
-                                    text = "• $line",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = wo.errorCodes ?: "Нету",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-                if (!wo.reason.isNullOrBlank()) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 8.dp)
-                    ) {
-                        SectionTitle("Причина обращения:")
-
-                        Text(
-                            text = wo.reason.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
-
-        // 8. Выполненные работы по комплектации (используем только "Работы")
-        val jobs = wo.jobs.orEmpty()
-        ExpandableListSection(
-            title = "Выполненные работы по комплектации",
-            items = jobs,
-            initiallyExpanded = false
-        ) { job ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    TextC(
-                        text = job.work.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium
+                    Text(
+                        text = repairType,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    val qty = job.quantity?.takeIf { it.isNotBlank() }
-                    if (qty != null) {
-                        Text(
-                            text = "Кол-во: $qty",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                } else {
+                    CompactMuted("—")
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    job.amount?.takeIf { it.isNotBlank() }?.let {
-                        Text(
-                            text = "$it ₽",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    job.price?.takeIf { it.isNotBlank() }?.let {
-                        Text(
-                            text = "Цена: $it",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                CompactSectionTitle("Состояние")
+                Spacer(Modifier.height(2.dp))
+                if (!wo.status.isNullOrBlank()) {
+                    ComplectationStatusBadge(wo.status.orEmpty())
+                } else {
+                    CompactMuted("—")
                 }
             }
         }
+    }
 
-        // 9. Товары по комплектации (используем только "Товары")
-        val products = wo.products.orEmpty()
-        ExpandableListSection(
-            title = "Товары по комплектации",
-            items = products,
-            initiallyExpanded = false
-        ) { product ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    TextC(
-                        text = product.name.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    val qty = product.quantity?.takeIf { it.isNotBlank() }
-                    val unit = product.unit?.takeIf { it.isNotBlank() }
-                    if (qty != null) {
-                        Text(
-                            text = buildString {
-                                append("Кол-во: ")
-                                append(qty)
-                                if (unit != null) {
-                                    append(" ")
-                                    append(unit)
-                                }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    product.article?.takeIf { it.isNotBlank() }?.let { article ->
-                        TextC(
-                            text = "Артикул: $article",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+    if (!wo.author.isNullOrBlank() || !wo.master.isNullOrBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            if (!wo.author.isNullOrBlank()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    CompactSectionTitle("Автор:")
+                    CompactBody(wo.author.orEmpty())
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    product.amount?.takeIf { it.isNotBlank() }?.let {
-                        Text(
-                            text = "$it ₽",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    product.price?.takeIf { it.isNotBlank() }?.let {
-                        Text(
-                            text = "Цена: $it",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            } else {
+                Spacer(Modifier.weight(1f))
             }
+            if (!wo.master.isNullOrBlank()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    CompactSectionTitle("Мастер:")
+                    CompactBody(wo.master.orEmpty())
+                }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+
+    CompactSectionTitle("Комментарий:")
+    CompactBody(wo.comment?.takeIf { it.isNotBlank() } ?: "—")
+
+    val products = complectationProductsForDisplay(wo)
+    ExpandableListSection(
+        title = "Товары (поз. ${products.size})",
+        items = products,
+        initiallyExpanded = false,
+        listContentPadding = ComplectationExpandableListPadding,
+        itemSpacing = 0.dp,
+        showItemDividers = true,
+        dividerHorizontalOutdent = ComplectationExpandableDividerOutdent
+    ) { product ->
+        ComplectationProductRowCompact(product)
+    }
+    Spacer(Modifier.height(6.dp))
+
+    val jobs = complectationJobsForDisplay(wo)
+    val executors = wo.executors
+    ExpandableListSection(
+        title = "Работы (поз. ${jobs.size})",
+        items = jobs,
+        initiallyExpanded = false,
+        listContentPadding = ComplectationExpandableListPadding,
+        itemSpacing = 0.dp,
+        showItemDividers = true,
+        dividerHorizontalOutdent = ComplectationExpandableDividerOutdent
+    ) { job ->
+        ComplectationJobRowCompact(job, executors = executors)
+    }
+    Spacer(Modifier.height(6.dp))
+
+    wo.defectSummary?.takeIf { it.isNotBlank() }?.let { summary ->
+        CompactSectionTitle("Дефектовка (текст):")
+        CompactBody(summary)
+        Spacer(Modifier.height(4.dp))
+    }
+
+    val defectsNew = wo.defectsNew.filter { !it.author.isNullOrBlank() }
+    ExpandableListSection(
+        title = "Дефектовка (поз. ${defectsNew.size})",
+        items = defectsNew,
+        initiallyExpanded = false,
+        listContentPadding = ComplectationExpandableListPadding,
+        itemSpacing = 0.dp,
+        showItemDividers = true,
+        dividerHorizontalOutdent = ComplectationExpandableDividerOutdent
+    ) { defect ->
+        ComplectationDefectRowCompact(defect)
+    }
+    Spacer(Modifier.height(6.dp))
+
+    val planning = wo.planning
+    ExpandableListSection(
+        title = "Планирование (поз. ${planning.size})",
+        items = planning,
+        initiallyExpanded = false,
+        listContentPadding = ComplectationExpandableListPadding,
+        itemSpacing = 0.dp,
+        showItemDividers = true,
+        dividerHorizontalOutdent = ComplectationExpandableDividerOutdent
+    ) { row ->
+        ComplectationPlanningRowCompact(row)
+    }
+    Spacer(Modifier.height(6.dp))
+
+    val checklist = wo.checklist
+    ExpandableListSection(
+        title = "Чек лист (поз. ${checklist.size})",
+        items = checklist,
+        initiallyExpanded = false,
+        listContentPadding = ComplectationExpandableListPadding,
+        itemSpacing = 0.dp,
+        showItemDividers = true,
+        dividerHorizontalOutdent = ComplectationExpandableDividerOutdent
+    ) { row ->
+        ComplectationChecklistRowCompact(row)
+    }
+}
+
+@Composable
+private fun ComplectationLineLabelValue(
+    label: String,
+    value: String,
+    valueStyleEmphasis: Boolean = false,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 0.5.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(min = 88.dp, max = 132.dp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 11.sp,
+                lineHeight = 12.sp,
+                fontWeight = if (valueStyleEmphasis) FontWeight.SemiBold else FontWeight.Normal
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 5,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun ComplectationProductRowCompact(product: WorkOrderProductDto) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp, horizontal = 2.dp)
+    ) {
+        TextC(
+            text = productDisplayTitle(product),
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 14.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(3.dp))
+//        TextC(
+//            text = productCharacteristicTitle(product),
+//            style = MaterialTheme.typography.bodySmall.copy(
+//                fontSize = 12.sp,
+//                lineHeight = 14.sp
+//            ),
+//            color = MaterialTheme.colorScheme.onSurfaceVariant,
+//            maxLines = 2,
+//            overflow = TextOverflow.Ellipsis
+//        )
+        Spacer(Modifier.height(5.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            ComplectationProductMetaCell(
+                label = "хар-ка",
+                value = productCharacteristicTitle(product),
+                modifier = Modifier.weight(1f),
+                emphasize = true
+            )
+            ComplectationProductMetaCell(
+                label = "кол-во",
+                value = dashOr(product.quantity),
+                modifier = Modifier.weight(1f),
+                emphasize = true
+            )
+            ComplectationProductMetaCell(
+                label = "ед.",
+                value = dashOr(product.unit),
+                modifier = Modifier.weight(1f)
+            )
+            ComplectationProductMetaCell(
+                label = "цена",
+                value = dashOr(product.price),
+                modifier = Modifier.weight(1f)
+            )
+            ComplectationProductMetaCell(
+                label = "сумма",
+                value = formatRubleAmount(product.amount),
+                modifier = Modifier.weight(1f),
+                emphasize = true
+            )
         }
     }
 }
 
 @Composable
-fun LimitedOutlinedTextField(
+private fun ComplectationProductMetaCell(
+    label: String,
     value: String,
-    onValueChange: (String) -> Unit,
-    maxChars: Int = 500,
     modifier: Modifier = Modifier,
-    placeholder: String = ""
+    emphasize: Boolean = false,
 ) {
     Column(modifier = modifier) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { raw ->
-                val clipped = if (raw.length > maxChars) raw.substring(0, maxChars) else raw
-                if (clipped != value) {
-                    onValueChange(clipped)
-                } else if (raw == value) {
-                    // no changes
-                } else {
-                    // length unchanged but content changed (e.g. replacement)
-                    onValueChange(clipped)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
-            singleLine = false,
-            maxLines = Int.MAX_VALUE
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 10.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(1.dp))
+        TextC(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 11.sp,
+                lineHeight = 12.sp,
+                fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun ComplectationJobRowCompact(
+    job: WorkOrderJobDto,
+    executors: List<WorkOrderExecutorDto>,
+) {
+    val executorTitle = jobExecutorTitle(job, executors)
+    val normWithCoefficient = buildString {
+        val qty = job.quantity?.trim().orEmpty()
+        val coef = job.coefficient?.trim().orEmpty()
+        when {
+            qty.isNotBlank() && coef.isNotBlank() -> append("$coef")
+            qty.isNotBlank() -> append(qty)
+            coef.isNotBlank() -> append(coef)
+            else -> append("—")
+        }
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp, horizontal = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top
         ) {
+            Column(
+                modifier = Modifier.weight(1.25f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "Работа",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = jobDisplayTitle(job),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = "Исполнитель",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = dashOr(executorTitle),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                ComplectationJobMetaLine(
+                    label = "Количество: ",
+                    value = dashOr(job.quantity),
+                    emphasize = true
+                )
+                ComplectationJobMetaLine(
+                    label = "Норма вр. (ч.): ",
+                    value = normWithCoefficient
+                )
+                ComplectationJobMetaLine(
+                    label = "Цена: ",
+                    value = dashOr(job.price)
+                )
+                ComplectationJobMetaLine(
+                    label = "Сумма: ",
+                    value = formatRubleAmount(job.amount),
+                    emphasize = true
+                )
+            }
+        }
+    }
+}
+}
+
+@Composable
+private fun ComplectationJobMetaLine(
+    label: String,
+    value: String,
+    emphasize: Boolean = false,
+) {
+    Row {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Right
+        )
+        Spacer(Modifier.width(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 12.sp,
+                lineHeight = 13.sp,
+                fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Right
+        )
+    }
+}
+
+@Composable
+private fun ComplectationPlanningRowCompact(row: ComplectationPlanningRowDto) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = planningWorkTitle(row),
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        TextC(
+            text = dashOr(row.workplace),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 13.sp),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        planningDateRange(row)?.let { dateRange ->
             Text(
-                text = "${value.length}/$maxChars",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = dateRange,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        TextC(
+            text = dashOr(row.executor),
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+}
+
+@Composable
+private fun ComplectationDefectRowCompact(defect: WorkOrderDefectDto) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+    ) {
+        defect.name?.takeIf { it.isNotBlank() }?.let {
+            TextC(
+                text = it,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 14.sp),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        defect.author?.takeIf { it.isNotBlank() }?.let { author ->
+            CompactMuted("Автор: $author")
+        }
+        defect.decision?.takeIf { it.isNotBlank() }?.let { CompactMuted(it) }
+        defect.action?.takeIf { it.isNotBlank() }?.let { CompactMuted(it) }
+    }
+}
+
+private fun checklistItemComplete(state: String?): Boolean {
+    val s = state?.trim()?.lowercase().orEmpty()
+    if (s.isEmpty()) return false
+    val yes = setOf("да", "yes", "истина", "1", "выполнено", "готово", "ок", "ok", "+", "true")
+    val no = setOf("нет", "no", "ложь", "0", "-", "false")
+    if (yes.contains(s)) return true
+    if (no.contains(s)) return false
+    return false
+}
+
+@Composable
+private fun ComplectationChecklistRowCompact(item: ComplectationChecklistItemDto) {
+    val done = checklistItemComplete(item.state)
+    val tint = if (done) ChecklistCompleteIconGreen else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = if (done) FeatherIcons.CheckCircle else FeatherIcons.Circle,
+            contentDescription = if (done) "Выполнено" else "Не выполнено",
+            modifier = Modifier
+                .padding(top = 1.dp, end = 6.dp)
+                .size(16.dp),
+            tint = tint
+        )
+        Column(Modifier.weight(1f)) {
+            item.name?.takeIf { it.isNotBlank() }?.let {
+                TextC(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 14.sp),
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            item.state?.takeIf { it.isNotBlank() }?.let { st ->
+                CompactMuted(st)
+            }
         }
     }
 }

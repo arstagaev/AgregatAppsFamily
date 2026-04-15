@@ -10,6 +10,7 @@ import com.arkivanov.decompose.value.Value
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.EventsApi
+import com.tagaev.trrcrm.ui.buyer_order.BuyerOrdersComponent
 import com.tagaev.trrcrm.ui.cargo.CargoComponent
 import com.tagaev.trrcrm.ui.complectation.ComplectationComponent
 import com.tagaev.trrcrm.ui.complaints.ComplaintsComponent
@@ -26,6 +27,7 @@ import com.tagaev.trrcrm.ui.qrscanner.DefaultQRScannerComponent
 import com.tagaev.trrcrm.ui.qrscanner.IQRScannerComponent
 import com.tagaev.trrcrm.ui.settings.ISettingsComponent
 import com.tagaev.trrcrm.ui.settings.SettingsComponent
+import com.tagaev.trrcrm.ui.supplier_order.SupplierOrdersComponent
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +43,8 @@ interface IRootComponent {
     fun openEvents(needBackToList: Boolean)
     fun openDetails()
     fun openCargo(needBackToList: Boolean)
+    fun openBuyerOrders(needBackToList: Boolean)
+    fun openSupplierOrders(needBackToList: Boolean)
     fun openComplaint(needBackToList: Boolean)
     fun openInnerOrder(needBackToList: Boolean)
     fun openComplectation(needBackToList: Boolean)
@@ -66,6 +70,8 @@ interface IRootComponent {
         data object WorkOrder : Config
         data object Complectation : Config
         data object Cargo : Config
+        data object BuyerOrder : Config
+        data object SupplierOrder : Config
         data object Complaint : Config
         data object InnerOrder : Config
         data object Favorites : Config
@@ -82,6 +88,8 @@ interface IRootComponent {
         data class Complectation(val component: ComplectationComponent) : Child
         data class Favorites(val component: FavoritesComponent) : Child
         data class Cargo(val component: CargoComponent) : Child
+        data class BuyerOrder(val component: BuyerOrdersComponent) : Child
+        data class SupplierOrder(val component: SupplierOrdersComponent) : Child
         data class Complaint(val component: ComplaintsComponent) : Child
         data class InnerOrder(val component: InnerOrdersComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
@@ -148,6 +156,12 @@ class DefaultRootComponent(
 
             is IRootComponent.Config.Cargo ->
                 IRootComponent.Child.Cargo(CargoComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.BuyerOrder ->
+                IRootComponent.Child.BuyerOrder(BuyerOrdersComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.SupplierOrder ->
+                IRootComponent.Child.SupplierOrder(SupplierOrdersComponent(ctx) { nav.pop() })
 
             is IRootComponent.Config.Complaint ->
                 IRootComponent.Child.Complaint(ComplaintsComponent(ctx) { nav.pop() })
@@ -300,6 +314,27 @@ class DefaultRootComponent(
             nav.bringToFront(IRootComponent.Config.Cargo)
         }
     }
+    override fun openBuyerOrders(needBackToList: Boolean)  {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.BuyerOrder }
+                ?.instance as? IRootComponent.Child.BuyerOrder
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.BuyerOrder)
+        }
+    }
+
+    override fun openSupplierOrders(needBackToList: Boolean) {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.SupplierOrder }
+                ?.instance as? IRootComponent.Child.SupplierOrder
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.SupplierOrder)
+        }
+    }
     override fun openComplaint(needBackToList: Boolean)  {
         if (needBackToList) {
             val listChild = childStack.value.items
@@ -399,6 +434,8 @@ class DefaultRootComponent(
                 is IRootComponent.Child.WorkOrder -> childInstance.component
                 is IRootComponent.Child.Complectation -> childInstance.component
                 is IRootComponent.Child.Cargo -> childInstance.component
+                is IRootComponent.Child.BuyerOrder -> childInstance.component
+                is IRootComponent.Child.SupplierOrder -> childInstance.component
                 is IRootComponent.Child.Complaint -> childInstance.component
                 is IRootComponent.Child.InnerOrder -> childInstance.component
                 else -> null
@@ -442,6 +479,8 @@ class DefaultRootComponent(
             "work_orders", "workorders", "work_order", "workorder" -> IRootComponent.Config.WorkOrder
             "complectation", "complectations", "complectation_orders" -> IRootComponent.Config.Complectation
             "cargo", "cargos" -> IRootComponent.Config.Cargo
+            "buyer_orders", "buyerorders", "buyer_order", "buyerorder", "заказпокупателя" -> IRootComponent.Config.BuyerOrder
+            "supplier_orders", "supplierorders", "supplier_order", "supplierorder", "заказпоставщику" -> IRootComponent.Config.SupplierOrder
             "complaints", "complaint" -> IRootComponent.Config.Complaint
             "inner_orders", "innerorders", "inner_order", "innerorder" -> IRootComponent.Config.InnerOrder
             else -> null

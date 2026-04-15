@@ -167,22 +167,17 @@ class InnerOrdersComponent(
         appSettings.setString(AppSettingsKeys.INNERORDER_REFINE_STATE, encoded)
     }
 
-    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
-        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return false
+    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
         val res = repository.sendMessageInnerOrder(
             itemNumber,
             itemDate.substringBefore(' '),
             message
         )
-
-        return if (res is Resource.Success) {
-            // after successful send, refresh list so messages include new comment
-            //fullRefresh()   // still runs on appScope internally
-
-            true
-        } else {
-            false
+        return when (res) {
+            is Resource.Success -> null
+            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            else -> "Ошибка отправки сообщения"
         }
     }
 
