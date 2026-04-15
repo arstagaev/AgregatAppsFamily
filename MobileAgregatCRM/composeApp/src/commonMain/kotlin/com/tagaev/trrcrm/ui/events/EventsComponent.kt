@@ -88,13 +88,13 @@ class EventsComponent(
 
 
             _refineState.value = loadRefineState()
+            _ncount.value = 0
 
-            val result = repository.loadEvents(_ncount.value, refineState.value)
+            val result = repository.loadEvents(0, refineState.value)
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()
 
-                _ncount.value = 0
                 loadedEvents.clear()
                 loadedKeys.clear()
 
@@ -143,44 +143,34 @@ class EventsComponent(
     override fun setRefineState(newState: RefineState) {
         _refineState.value = newState.copy(searchQuery = newState.searchQuery.trimStart().trimEnd())
         saveRefineState(_refineState.value)
+        _ncount.value = 0
         fullRefresh()
     }
 
-    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
-        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return false
+    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
         val res = repository.sendMessageEvent(
             itemNumber,
             itemDate.substringBefore(' '),
             message
         )
-//        val users = pickedEvent?.users?.map { it.user }
 
         val users = pickedEvent?.users?.mapNotNull { it.user }
         val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
-        println("try to PUSracecarH with FCM ${users?.joinToString()}")
-
         if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
-            println("try to PUSH with FCM 2. ${users?.joinToString()}")
             repository.sendMessageEventPUSH(
                 docId = "${pickedEvent?.number}",
                 docTitle = "Событие ${pickedEvent?.number} (${pickedEvent?.companyDepartment})",
-                authorName = appSettings.getString(AppSettingsKeys.PERSONAL_DATA,"NO Name") ,
+                authorName = appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "NO Name"),
                 recipientNames = users,
                 message = "${author}:\n${message}"
             )
-        } else {
-            println("PUSH FCM WONT WORK !!!")
         }
-        //
 
-        return if (res is Resource.Success) {
-            // after successful send, refresh list so messages include new comment
-            //fullRefresh()   // still runs on appScope internally
-
-            true
-        } else {
-            false
+        return when (res) {
+            is Resource.Success -> null
+            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            else -> "Ошибка отправки сообщения"
         }
     }
     // ---------- Work Orders refine state ----------

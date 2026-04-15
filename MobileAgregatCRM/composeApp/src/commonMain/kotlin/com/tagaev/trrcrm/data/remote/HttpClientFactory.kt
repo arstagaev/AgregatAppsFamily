@@ -9,8 +9,8 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.observer.ResponseObserver
 import io.ktor.client.request.header
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import com.tagaev.trrcrm.utils.HumanLogger
@@ -44,21 +44,20 @@ object HttpClientFactory {
             socketTimeoutMillis  = 60_000
         }
 
-        // Retries (idempotent GETs; backoff)
+        // Retries: only idempotent requests (not POST) on 5xx
         install(HttpRequestRetry) {
             maxRetries = 2
             retryIf { request, response ->
-                // retry on 5xx
-                response.status.value >= 500
+                request.method != HttpMethod.Post && response.status.value >= 500
             }
             exponentialDelay()
         }
 
         // Default headers
         install(DefaultRequest) {
-            header(HttpHeaders.Accept, ContentType.Application.Json)
-            header(HttpHeaders.ContentType, ContentType.Application.Json)
-            header(HttpHeaders.UserAgent, "KMP-CRM/1.0 (+ktor)")
+            // Keep browser requests "simple" (no forced Content-Type/User-Agent),
+            // otherwise wasm/js can fail with CORS/preflight errors.
+            header(HttpHeaders.Accept, "application/json")
         }
         if (loggingEnabled) {
             install(Logging) {

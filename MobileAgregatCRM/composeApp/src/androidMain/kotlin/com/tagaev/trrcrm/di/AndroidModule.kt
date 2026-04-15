@@ -6,6 +6,7 @@ import com.russhwolf.settings.SharedPreferencesSettings
 import com.tagaev.trrcrm.AndroidPlatform
 import com.tagaev.trrcrm.Platform
 import com.tagaev.trrcrm.data.db.DriverFactory
+import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.utils.DeviceIdProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +16,7 @@ import org.koin.dsl.module
 
 val androidModule = module {
     single { DriverFactory(androidContext()) }
+    single { ApiConfig(token = "NULL") }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) } // for provideEventsController
 
     single<Settings> {

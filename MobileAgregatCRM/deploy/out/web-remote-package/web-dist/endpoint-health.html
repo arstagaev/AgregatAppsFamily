@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TRR API Health Check</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --ok: #0f766e;
+      --bad: #b91c1c;
+      --warn: #a16207;
+      --line: #d1d5db;
+      --btn: #0b57d0;
+      --btnText: #fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1160px;
+      margin: 24px auto;
+      padding: 0 16px 32px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 24px;
+    }
+    .sub {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--btn);
+      color: var(--btnText);
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    .status-line {
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+    .table-wrap {
+      margin-top: 16px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 920px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    thead th {
+      text-align: left;
+      font-size: 12px;
+      color: var(--muted);
+      background: #f9fafb;
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+    }
+    tbody td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #e5e7eb;
+      color: #111827;
+    }
+    .ok { background: #ccfbf1; color: var(--ok); }
+    .bad { background: #fee2e2; color: var(--bad); }
+    .warn { background: #fef3c7; color: var(--warn); }
+    .url {
+      word-break: break-all;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #374151;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      max-height: 320px;
+      overflow: auto;
+      background: #0b1220;
+      color: #d1e7ff;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #1f2a44;
+    }
+    .response-panel {
+      margin-top: 16px;
+    }
+    .small-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>TRR API Health Check</h1>
+      <p class="sub">Проверка endpoint'ов API: HTTP код, время ответа и JSON тело.</p>
+
+      <div class="form-grid">
+        <div>
+          <label for="baseUrl">Base URL</label>
+          <input id="baseUrl" placeholder="/api or https://10.0.4.180:8444/api" />
+        </div>
+        <div>
+          <label for="user">User (email)</label>
+          <input id="user" placeholder="user@my.agregatka.ru" />
+        </div>
+        <div>
+          <label for="pass">Pass (hash/plain)</label>
+          <input id="pass" placeholder="password or sha256 hash" />
+        </div>
+        <div>
+          <label for="token">Token</label>
+          <input id="token" placeholder="API token" />
+        </div>
+        <div>
+          <label for="qrCode">QR Code</label>
+          <input id="qrCode" placeholder="TRS111405064" />
+        </div>
+        <div>
+          <label for="docCount">Count</label>
+          <input id="docCount" placeholder="1" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn" class="btn-secondary">Save Inputs</button>
+        <button id="checkAllBtn" class="btn-primary">Check All</button>
+        <button id="clearBtn" class="btn-secondary">Clear Results</button>
+      </div>
+      <div id="globalStatus" class="status-line"></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Method</th>
+            <th>URL</th>
+            <th>Status</th>
+            <th>Time</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="endpointsBody"></tbody>
+      </table>
+    </div>
+
+    <div class="response-panel card">
+      <h3 style="margin: 0 0 10px;">JSON Response</h3>
+      <pre id="responseBox">Run check for any endpoint to see response body...</pre>
+      <div class="small-note">Если endpoint не доступен из браузера по CORS/SSL, здесь будет текст ошибки fetch.</div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'trr-health-check-inputs-v1';
+
+    const els = {
+      baseUrl: document.getElementById('baseUrl'),
+      user: document.getElementById('user'),
+      pass: document.getElementById('pass'),
+      token: document.getElementById('token'),
+      qrCode: document.getElementById('qrCode'),
+      docCount: document.getElementById('docCount'),
+      saveBtn: document.getElementById('saveBtn'),
+      checkAllBtn: document.getElementById('checkAllBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      globalStatus: document.getElementById('globalStatus'),
+      endpointsBody: document.getElementById('endpointsBody'),
+      responseBox: document.getElementById('responseBox'),
+    };
+
+    const endpoints = [
+      {
+        id: 'gettoken',
+        name: 'Get Token',
+        required: ['user', 'pass'],
+        build: (c) => ({ task: 'gettoken', user: c.user, pass: c.pass }),
+      },
+      {
+        id: 'getroles',
+        name: 'Get Roles',
+        required: ['token'],
+        build: (c) => ({ task: 'getroles', token: c.token }),
+      },
+      {
+        id: 'events',
+        name: 'Events List',
+        required: ['token'],
+        build: (c) => ({
+          task: 'getitemslist',
+          token: c.token,
+          type: 'Документ',
+          name: 'Событие',
+          count: c.docCount,
+          ncount: '0',
+          viewtype: 'onlymy',
+        }),
+      },
+      {
+        id: 'workorders',
+        name: 'Work Orders',
+        required: ['token'],
+        build: (c) => ({
+          task: 'getitemslist',
+          token: c.token,
+          type: 'Документ',
+          name: 'ЗаказНаряд',
+          count: c.docCount,
+          ncount: '0',
+          viewtype: 'onlymy',
+        }),
+      },
+      {
+        id: 'complaints',
+        name: 'Complaints',
+        required: ['token'],
+        build: (c) => ({
+          task: 'getitemslist',
+          token: c.token,
+          type: 'Документ',
+          name: 'Рекламация',
+          count: c.docCount,
+          ncount: '0',
+          viewtype: 'onlymy',
+        }),
+      },
+      {
+        id: 'innerOrders',
+        name: 'Inner Orders',
+        required: ['token'],
+        build: (c) => ({
+          task: 'getitemslist',
+          token: c.token,
+          type: 'Документ',
+          name: 'ЗаказВнутренний',
+          count: c.docCount,
+          ncount: '0',
+          viewtype: 'onlymy',
+        }),
+      },
+      {
+        id: 'cargo',
+        name: 'Cargo',
+        required: ['token'],
+        build: (c) => ({
+          task: 'getitemslist',
+          token: c.token,
+          type: 'Документ',
+          name: 'Груз',
+          count: c.docCount,
+          ncount: '0',
+          viewtype: 'onlymy',
+        }),
+      },
+      {
+        id: 'qr',
+        name: 'QR Collect Info',
+        required: ['token', 'qrCode'],
+        build: (c) => ({
+          task: 'getqrcomlectinfo',
+          token: c.token,
+          code: c.qrCode,
+        }),
+      },
+    ];
+
+    const rowState = {};
+
+    function ctx() {
+      return {
+        baseUrl: (els.baseUrl.value || '').trim(),
+        user: (els.user.value || '').trim(),
+        pass: (els.pass.value || '').trim(),
+        token: (els.token.value || '').trim(),
+        qrCode: (els.qrCode.value || '').trim(),
+        docCount: (els.docCount.value || '1').trim() || '1',
+      };
+    }
+
+    function normalizeBaseUrl(raw) {
+      if (!raw) return '/api';
+      return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    }
+
+    function buildUrl(baseUrl, params) {
+      const base = normalizeBaseUrl(baseUrl);
+      const url = new URL(base, window.location.origin);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value).length > 0) {
+          url.searchParams.set(key, value);
+        }
+      });
+      return url.toString();
+    }
+
+    function setGlobalStatus(text, isError = false) {
+      els.globalStatus.textContent = text;
+      els.globalStatus.style.color = isError ? 'var(--bad)' : 'var(--muted)';
+    }
+
+    function saveInputs() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(ctx()));
+      setGlobalStatus('Inputs saved.');
+    }
+
+    function loadInputs() {
+      const defaults = {
+        baseUrl: '/api',
+        user: '',
+        pass: '',
+        token: '',
+        qrCode: 'TRS111405064',
+        docCount: '1',
+      };
+      const saved = (() => {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        } catch {
+          return {};
+        }
+      })();
+      const merged = { ...defaults, ...saved };
+      els.baseUrl.value = merged.baseUrl;
+      els.user.value = merged.user;
+      els.pass.value = merged.pass;
+      els.token.value = merged.token;
+      els.qrCode.value = merged.qrCode;
+      els.docCount.value = merged.docCount;
+    }
+
+    function renderRows() {
+      els.endpointsBody.innerHTML = '';
+      endpoints.forEach((ep) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${ep.name}</strong></td>
+          <td>GET</td>
+          <td class="url" id="url-${ep.id}">—</td>
+          <td><span class="pill" id="status-${ep.id}">NOT CHECKED</span></td>
+          <td id="time-${ep.id}">—</td>
+          <td>
+            <button class="btn-secondary" data-action="check" data-id="${ep.id}">Check</button>
+            <button class="btn-secondary" data-action="json" data-id="${ep.id}">Show JSON</button>
+          </td>
+        `;
+        els.endpointsBody.appendChild(tr);
+      });
+      refreshUrls();
+    }
+
+    function refreshUrls() {
+      const c = ctx();
+      endpoints.forEach((ep) => {
+        const params = ep.build(c);
+        const url = buildUrl(c.baseUrl, params);
+        const cell = document.getElementById(`url-${ep.id}`);
+        if (cell) cell.textContent = url;
+      });
+    }
+
+    function setRowStatus(id, text, klass) {
+      const badge = document.getElementById(`status-${id}`);
+      if (!badge) return;
+      badge.className = 'pill';
+      if (klass) badge.classList.add(klass);
+      badge.textContent = text;
+    }
+
+    function setRowTime(id, text) {
+      const td = document.getElementById(`time-${id}`);
+      if (td) td.textContent = text;
+    }
+
+    function missingFields(required, c) {
+      return required.filter((key) => !c[key]);
+    }
+
+    async function runCheck(id, showJson = false) {
+      const ep = endpoints.find((item) => item.id === id);
+      if (!ep) return;
+
+      const c = ctx();
+      const missing = missingFields(ep.required, c);
+      const url = buildUrl(c.baseUrl, ep.build(c));
+      document.getElementById(`url-${id}`).textContent = url;
+
+      if (missing.length > 0) {
+        setRowStatus(id, `MISSING: ${missing.join(', ')}`, 'warn');
+        setRowTime(id, '—');
+        if (showJson) {
+          els.responseBox.textContent = `[${ep.name}] Missing required fields: ${missing.join(', ')}`;
+        }
+        return;
+      }
+
+      setRowStatus(id, 'CHECKING...', 'warn');
+      setRowTime(id, '...');
+      const started = performance.now();
+
+      try {
+        const res = await fetch(url, { method: 'GET' });
+        const bodyText = await res.text();
+        const elapsed = Math.round(performance.now() - started);
+
+        let pretty = bodyText;
+        try {
+          const parsed = JSON.parse(bodyText);
+          pretty = JSON.stringify(parsed, null, 2);
+        } catch {}
+
+        rowState[id] = {
+          endpoint: ep.name,
+          status: res.status,
+          ok: res.ok,
+          elapsed,
+          url,
+          response: pretty,
+        };
+
+        setRowStatus(id, `${res.status} ${res.ok ? 'OK' : 'ERROR'}`, res.ok ? 'ok' : 'bad');
+        setRowTime(id, `${elapsed} ms`);
+
+        if (showJson) {
+          els.responseBox.textContent =
+            `[${ep.name}] ${res.status} (${elapsed} ms)\nURL: ${url}\n\n${pretty}`;
+        }
+      } catch (error) {
+        const elapsed = Math.round(performance.now() - started);
+        const msg = String(error && error.message ? error.message : error);
+        rowState[id] = {
+          endpoint: ep.name,
+          status: 'FETCH_ERROR',
+          ok: false,
+          elapsed,
+          url,
+          response: msg,
+        };
+
+        setRowStatus(id, 'FETCH ERROR', 'bad');
+        setRowTime(id, `${elapsed} ms`);
+
+        if (showJson) {
+          els.responseBox.textContent = `[${ep.name}] Fetch error\nURL: ${url}\n\n${msg}`;
+        }
+      }
+    }
+
+    async function checkAll() {
+      setGlobalStatus('Checking all endpoints...');
+      for (const ep of endpoints) {
+        await runCheck(ep.id, false);
+      }
+      setGlobalStatus('All checks finished.');
+    }
+
+    function clearResults() {
+      endpoints.forEach((ep) => {
+        setRowStatus(ep.id, 'NOT CHECKED', '');
+        setRowTime(ep.id, '—');
+      });
+      els.responseBox.textContent = 'Run check for any endpoint to see response body...';
+      setGlobalStatus('Results cleared.');
+      refreshUrls();
+    }
+
+    els.saveBtn.addEventListener('click', saveInputs);
+    els.checkAllBtn.addEventListener('click', checkAll);
+    els.clearBtn.addEventListener('click', clearResults);
+
+    [els.baseUrl, els.user, els.pass, els.token, els.qrCode, els.docCount].forEach((input) => {
+      input.addEventListener('input', refreshUrls);
+    });
+
+    els.endpointsBody.addEventListener('click', async (event) => {
+      const btn = event.target.closest('button[data-action]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      if (action === 'check') await runCheck(id, false);
+      if (action === 'json') await runCheck(id, true);
+    });
+
+    loadInputs();
+    renderRows();
+    clearResults();
+  </script>
+</body>
+</html>

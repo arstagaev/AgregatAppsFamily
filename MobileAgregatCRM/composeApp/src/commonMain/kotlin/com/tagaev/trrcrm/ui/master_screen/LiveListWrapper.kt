@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,11 +25,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ChevronsUp
+import kotlinx.coroutines.launch
 import kotlin.collections.iterator
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,8 +84,10 @@ fun <T, Id> LiveListWrapper(
     }
 
     val lazyState = listState ?: rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
     var isPaginating by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    val showScrollToTop = lazyState.firstVisibleItemIndex > 1 || lazyState.firstVisibleItemScrollOffset > 200
 
     // Stop pull-to-refresh even when item count is unchanged (request finished or failed).
     LaunchedEffect(items.size, isLoading, errorMessage) {
@@ -124,26 +133,47 @@ fun <T, Id> LiveListWrapper(
         indicator = {},
         modifier = modifier.fillMaxSize()
     ) {
-        LazyColumn(
-            state = lazyState,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            itemsIndexed(
-                items,
-                key = { _, item -> idSelector(item) as Any }
-            ) { _, item ->
-                val id = idSelector(item)
-                val isChanged = changedIds.contains(id)
-                val isMoved = movedIds.contains(id)
-                card(item, isChanged, isMoved)
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = lazyState,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(
+                    items,
+                    key = { _, item -> idSelector(item) as Any }
+                ) { _, item ->
+                    val id = idSelector(item)
+                    val isChanged = changedIds.contains(id)
+                    val isMoved = movedIds.contains(id)
+                    card(item, isChanged, isMoved)
+                }
+
+                if (isLoading || errorMessage != null) {
+                    item(key = "footer") {
+                        LiveListFooter(
+                            isLoading = isLoading,
+                            errorMessage = errorMessage,
+                            onRetry = onRetry
+                        )
+                    }
+                }
             }
 
-            if (isLoading || errorMessage != null) {
-                item(key = "footer") {
-                    LiveListFooter(
-                        isLoading = isLoading,
-                        errorMessage = errorMessage,
-                        onRetry = onRetry
+            AnimatedVisibility(
+                visible = showScrollToTop,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 12.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        scrollScope.launch { lazyState.animateScrollToItem(0) }
+                    },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Icon(
+                        imageVector = FeatherIcons.ChevronsUp,
+                        contentDescription = "Наверх"
                     )
                 }
             }

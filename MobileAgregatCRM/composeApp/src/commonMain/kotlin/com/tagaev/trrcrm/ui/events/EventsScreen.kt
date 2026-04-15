@@ -10,12 +10,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,25 +30,36 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
+import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
 import com.tagaev.trrcrm.ui.custom.SessionTrrImage
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.mainscreen.StatusBadge
 import com.tagaev.trrcrm.ui.mainscreen.format
+import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
+import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.Filter
+import compose.icons.feathericons.RefreshCw
+import compose.icons.feathericons.Search
+import compose.icons.feathericons.X
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.format
@@ -51,6 +68,30 @@ import org.jetbrains.compose.resources.painterResource
 
 private const val EVENTS_LOADING_MIN_DELAY_MS = 900L
 private var eventsLoadingShownThisSession = false
+private val EVENTS_TOPBAR_SEARCH_OPTIONS = listOf(
+    Refiner.SearchQueryType.TOPIC,
+    Refiner.SearchQueryType.CODE,
+    Refiner.SearchQueryType.AUTHOR,
+    Refiner.SearchQueryType.COUNTERPARTY,
+    Refiner.SearchQueryType.AUTO,
+)
+
+private fun Refiner.SearchQueryType.eventsSearchLabel(): String = when (this) {
+    Refiner.SearchQueryType.TOPIC -> "Тема"
+    Refiner.SearchQueryType.CODE -> "Номер"
+    Refiner.SearchQueryType.AUTHOR -> "Автор"
+    Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
+    Refiner.SearchQueryType.AUTO -> "Автомобиль"
+    Refiner.SearchQueryType.MANAGER -> "Менеджер"
+    Refiner.SearchQueryType.MASTER -> "Мастер"
+    Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
+    Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
+    Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
+    Refiner.SearchQueryType.FIX_TYPE -> "Вид ремонта"
+    Refiner.SearchQueryType.CLIENT -> "Заказчик"
+    Refiner.SearchQueryType.ROUTE -> "Маршрут"
+    Refiner.SearchQueryType.CARRIER -> "Перевозчик"
+}
 
 @Composable
 fun EventsScreen(
@@ -61,11 +102,11 @@ fun EventsScreen(
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
     val selectedId by component.selectedItemGuid.collectAsState()
+    var isSearchMode by rememberSaveable { mutableStateOf(false) }
+    var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
+    var searchTypeDraft by rememberSaveable { mutableStateOf(refineState.searchQueryType) }
 
     val scope = rememberCoroutineScope()
-    var isSendingMessage by remember { mutableStateOf(false) }
-    var lastSendError by remember { mutableStateOf<String?>(null) }
-
     val showSnackbar = LocalAppSnackbar.current
     val requestNotificationPermission =
         rememberNotificationPermissionRequester { granted ->
@@ -83,6 +124,33 @@ fun EventsScreen(
         is Resource.Loading -> true
         is Resource.Success -> state.additionalLoading
         is Resource.Error -> false
+    }
+    val isTopBarLoading = resource is Resource.Loading ||
+            (resource as? Resource.Success<*>)?.additionalLoading == true
+
+    LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
+        if (!isSearchMode) {
+            searchQueryDraft = refineState.searchQuery
+            searchTypeDraft = if (refineState.searchQueryType in EVENTS_TOPBAR_SEARCH_OPTIONS) {
+                refineState.searchQueryType
+            } else {
+                Refiner.SearchQueryType.TOPIC
+            }
+        }
+    }
+
+    val applySearch: () -> Unit = {
+        component.setRefineState(
+            refineState.copy(
+                searchQuery = searchQueryDraft.trim(),
+                searchQueryType = searchTypeDraft
+            )
+        )
+    }
+    val clearSearchAndExit: () -> Unit = {
+        searchQueryDraft = ""
+        isSearchMode = false
+        component.setRefineState(refineState.copy(searchQuery = ""))
     }
     val sessionLoadingImage = remember { SessionTrrImage.get() }
     var isLoadingOverlayVisible by remember { mutableStateOf(false) }
@@ -148,16 +216,13 @@ fun EventsScreen(
                         val date = ev.date?.format(formatDDMMYYYY).orEmpty()
                         scope.launch {
                             component.pickedEvent = ev
-                            val ok = component.sendMessage(itemNumber = number, itemDate = date, message = message)
-                            if (ok) {
+                            val err = component.sendMessage(itemNumber = number, itemDate = date, message = message)
+                            if (err == null) {
                                 component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
                             }
-                            onResult(ok) // this notifies the sheet
+                            onResult(err)
                         }
-                    },
-                    isSendingMessage = isSendingMessage,
-                    lastSendError = lastSendError,
-                    onErrorDismiss = { lastSendError = null }
+                    }
                 )
             },
 
@@ -166,12 +231,17 @@ fun EventsScreen(
                 RefineScreen(
                     current = current,
                     onBack = onDismiss,
+                    sections = setOf(
+                        RefineSection.STATUS,
+                        RefineSection.DIRECTION
+                    ),
                     onApply = { newState ->
-                        println(">>>>>> ${newState.toString()}")
-                        println(">>>>>> ${newState.searchQueryType.wire}")
-                        component.setRefineState(newState)
-                        onApply(newState)     // MasterDetailFilterScreen получит обновлённый стейт
-
+                        val applied = newState.copy(
+                            searchQuery = refineState.searchQuery,
+                            searchQueryType = refineState.searchQueryType
+                        )
+                        component.setRefineState(applied)
+                        onApply(applied)
                     }
                 )
             },
@@ -184,6 +254,87 @@ fun EventsScreen(
 
             selectedItemId = selectedId,
             onSelectedItemChange = { id -> component.selectItemFromList(id) },
+            topBarNavigationIcon = if (panel == MasterPanel.List && isSearchMode) {
+                {
+                    IconButton(
+                        onClick = clearSearchAndExit,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.X, contentDescription = "Закрыть поиск")
+                    }
+                }
+            } else null,
+            topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
+                {
+                    OutlinedTextField(
+                        value = searchQueryDraft,
+                        onValueChange = { searchQueryDraft = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                        placeholder = { Text("Поиск события") },
+                        singleLine = true,
+                        enabled = !isTopBarLoading,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
+                    )
+                }
+            } else null,
+            topBarActionsContent = { isLoadingTopBar ->
+                if (panel == MasterPanel.List) {
+                    if (isSearchMode) {
+                        if (isLoadingTopBar) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            IconButton(onClick = applySearch) {
+                                Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
+                            Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        }
+                        IconButton(
+                            onClick = {
+                                searchQueryDraft = refineState.searchQuery
+                                searchTypeDraft = if (refineState.searchQueryType in EVENTS_TOPBAR_SEARCH_OPTIONS) {
+                                    refineState.searchQueryType
+                                } else {
+                                    Refiner.SearchQueryType.TOPIC
+                                }
+                                isSearchMode = true
+                            }
+                        ) {
+                            Icon(FeatherIcons.Search, contentDescription = "Поиск")
+                        }
+                        if (isLoadingTopBar) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            IconButton(onClick = { component.fullRefresh() }) {
+                                Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            }
+                        }
+                    }
+                }
+            },
+            topBarBottomContent = if (panel == MasterPanel.List && isSearchMode) {
+                {
+                    EventsSearchTypeRow(
+                        selected = searchTypeDraft,
+                        onSelected = { searchTypeDraft = it }
+                    )
+                }
+            } else null,
 
             modifier = Modifier.fillMaxSize()
         )
@@ -212,6 +363,36 @@ private fun EventsLoadingImageOverlay(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+    }
+}
+
+@Composable
+private fun EventsSearchTypeRow(
+    selected: Refiner.SearchQueryType,
+    onSelected: (Refiner.SearchQueryType) -> Unit
+) {
+    Surface(
+        tonalElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "Поиск по:",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OptionChipsScrollingRow(
+                options = EVENTS_TOPBAR_SEARCH_OPTIONS,
+                selected = selected,
+                onSelect = onSelected,
+                labelFor = { it.eventsSearchLabel() }
+            )
+        }
     }
 }
 

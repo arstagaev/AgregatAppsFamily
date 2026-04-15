@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,7 +18,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.ui.custom.TextC
@@ -246,11 +250,37 @@ fun CargoDetailsSheet(
     }
 }
 
+/** Widen a child to extend past the parent's horizontal bounds (Compose forbids negative padding). */
+private fun Modifier.expandDividerHorizontally(outdent: Dp): Modifier =
+    if (outdent == 0.dp) {
+        this
+    } else {
+        this.layout { measurable, constraints ->
+            val ox = outdent.roundToPx()
+            val w = constraints.maxWidth + 2 * ox
+            val placeable = measurable.measure(
+                Constraints(
+                    minWidth = w,
+                    maxWidth = w,
+                    minHeight = constraints.minHeight,
+                    maxHeight = constraints.maxHeight
+                )
+            )
+            layout(constraints.maxWidth, placeable.height) {
+                placeable.placeRelative(-ox, 0)
+            }
+        }
+    }
+
 @Composable
 fun <T> ExpandableListSection(
     title: String,
     items: List<T>,
     initiallyExpanded: Boolean = false,
+    listContentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+    itemSpacing: Dp = 4.dp,
+    showItemDividers: Boolean = false,
+    dividerHorizontalOutdent: Dp = 0.dp,
     itemContent: @Composable (T) -> Unit
 ) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
@@ -289,11 +319,20 @@ fun <T> ExpandableListSection(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(listContentPadding),
+                    verticalArrangement = Arrangement.spacedBy(itemSpacing)
                 ) {
                     if (items.isNotEmpty()) {
-                        items.forEach { item ->
+                        items.forEachIndexed { index, item ->
+                            if (showItemDividers && index > 0) {
+                                HorizontalDivider(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .expandDividerHorizontally(dividerHorizontalOutdent),
+                                    thickness = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            }
                             itemContent(item)
                         }
                     } else {

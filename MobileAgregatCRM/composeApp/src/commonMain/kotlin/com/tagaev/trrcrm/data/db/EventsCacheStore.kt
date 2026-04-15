@@ -7,13 +7,19 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 class EventsCacheStore(
-    private val queries: Events_cacheQueries,
-    private val json: Json
+    private val queries: Events_cacheQueries? = null,
+    private val json: Json? = null
 ) {
     private companion object { const val KEY = "last_list" }
+    private var memoryCache: List<EventItemDto> = emptyList()
 
     @OptIn(ExperimentalTime::class)
     fun save(list: List<EventItemDto>) {
+        if (queries == null || json == null) {
+            // Web fallback: keep cache in memory for current session only.
+            memoryCache = list.toList()
+            return
+        }
         val payload = json.encodeToString(list)
         // Safety guard against absurdly large payloads (adjust threshold to your needs)
         if (payload.length > 500_000) return
@@ -25,14 +31,23 @@ class EventsCacheStore(
     }
 
     fun load(): List<EventItemDto> {
+        val q = queries
+        val parser = json
+        if (q == null || parser == null) {
+            return memoryCache
+        }
         // selectByKey returns String? (the json column), not a row object
-        val payload: String? = queries.selectByKey(KEY).executeAsOneOrNull()
+        val payload: String? = q.selectByKey(KEY).executeAsOneOrNull()
         if (payload.isNullOrBlank()) return emptyList()
-        return runCatching { json.decodeFromString<List<EventItemDto>>(payload) }
+        return runCatching { parser.decodeFromString<List<EventItemDto>>(payload) }
             .getOrElse { emptyList() } // avoids T inference issues
     }
 
     fun clearAll() {
+        if (queries == null) {
+            memoryCache = emptyList()
+            return
+        }
         queries.clearEventsCache()
     }
 

@@ -10,7 +10,7 @@ import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.db.EventsCacheStore
 import com.tagaev.trrcrm.data.db.FavoritesStore
 import com.tagaev.trrcrm.data.db.createDatabase
-import com.tagaev.trrcrm.data.remote.ApiConfig
+import com.tagaev.trrcrm.data.db.isSqlDriverAvailable
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.HttpClientFactory
 import com.tagaev.trrcrm.getPlatform
@@ -39,7 +39,6 @@ val commonModule = module {
         HttpClientFactory.create()  // your existing factory
     }
     // --- HTTP / API layer ---
-    single { ApiConfig(token = "NULL") }
     single<EventsApi> {
         EventsApi(
             client = get()   // get<HttpClient>()
@@ -62,17 +61,18 @@ val commonModule = module {
     // --- Repositories ---
     single { MainRepository(api = get(), cfg = get()) }
 
-    // --- Database (SQLDelight) ---
-    // Provide Database
-    single<Database> { createDatabase(get()) }
-
-    // Provide queries
-    factory { get<Database>().events_cacheQueries }
-    factory { get<Database>().favoritesQueries }
-
-    // Stores
-    single { EventsCacheStore(get(), get()) }
-    single { FavoritesStore(get()) }
+    // --- Database/cache layer ---
+    if (isSqlDriverAvailable) {
+        single<Database> { createDatabase(get()) }
+        factory { get<Database>().events_cacheQueries }
+        factory { get<Database>().favoritesQueries }
+        single { EventsCacheStore(get(), get()) }
+        single { FavoritesStore(get()) }
+    } else {
+        // Web fallback (no SQLDelight driver): session-only in-memory stores.
+        single { EventsCacheStore(json = get()) }
+        single { FavoritesStore() }
+    }
 
     // --- Settings / JSON ---
     single<Json> { Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false } }

@@ -8,11 +8,13 @@ import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
 import com.tagaev.trrcrm.models.CargoDto
+import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.SentMessageResponse
+import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.models.ThreadMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.utils.DefaultValuesConst
@@ -85,6 +87,12 @@ class MainRepository(
     suspend fun loadInnerOrders(ncount: Int, currentRefine: RefineState): Resource<List<InnerOrderDto>> =
         api.getInnerOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
+    suspend fun loadBuyerOrders(ncount: Int, currentRefine: RefineState): Resource<List<BuyerOrderDto>> =
+        api.getBuyerOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+
+    suspend fun loadSupplierOrders(ncount: Int, currentRefine: RefineState): Resource<List<SupplierOrderDto>> =
+        api.getSupplierOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+
     suspend fun loadWorkOrders(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
         runCatching { api.loadWorkOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
             .fold(
@@ -93,6 +101,18 @@ class MainRepository(
                     Resource.Error(
                         exception = it as Exception?,
                         causes = it.message ?: "Ошибка загрузки заказ-нарядов"
+                    )
+                }
+            )
+
+    suspend fun loadComplectations(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
+        runCatching { api.loadComplectations(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
+            .fold(
+                onSuccess = { Resource.Success(it) },
+                onFailure = {
+                    Resource.Error(
+                        exception = it as Exception?,
+                        causes = it.message ?: "Ошибка загрузки комплектаций"
                     )
                 }
             )
@@ -121,6 +141,18 @@ class MainRepository(
         date: String,
         message: String
     ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.WORK_ORDER, number = number, date = date, message = message)
+
+    suspend fun sendMessageToComplectation(
+        number: String,
+        date: String,
+        message: String
+    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.COMPLECTATION, number = number, date = date, message = message)
+
+    suspend fun sendMessageBuyerOrder(
+        number: String,
+        date: String,
+        message: String
+    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.BUYER_ORDER, number = number, date = date, message = message)
 
     suspend fun sendMessageEventPUSH(
         docId: String,

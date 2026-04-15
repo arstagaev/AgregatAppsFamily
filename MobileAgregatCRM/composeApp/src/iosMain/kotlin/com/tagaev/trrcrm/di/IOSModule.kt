@@ -3,6 +3,7 @@ package com.tagaev.trrcrm.di
 import com.russhwolf.settings.NSUserDefaultsSettings
 import com.russhwolf.settings.Settings
 import com.tagaev.trrcrm.data.db.DriverFactory
+import com.tagaev.trrcrm.data.remote.ApiConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -13,6 +14,7 @@ import platform.Foundation.NSUserDefaults
 
 val iosModule = module {
     single { DriverFactory() }
+    single { ApiConfig(token = "NULL") }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
 
     single<Settings> {

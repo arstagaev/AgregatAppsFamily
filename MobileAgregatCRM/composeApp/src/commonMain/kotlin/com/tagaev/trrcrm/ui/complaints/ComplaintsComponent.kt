@@ -82,13 +82,13 @@ class ComplaintsComponent(
 
 
             _refineState.value = loadRefineState()
+            _ncount.value = 0
 
-            val result = repository.loadComplaints(_ncount.value, refineState.value)
+            val result = repository.loadComplaints(0, refineState.value)
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()
 
-                _ncount.value = 0
                 loadedCargos.clear()
                 loadedKeys.clear()
 
@@ -137,25 +137,21 @@ class ComplaintsComponent(
     override fun setRefineState(newState: RefineState) {
         _refineState.value = newState.copy(searchQuery = newState.searchQuery.trimStart().trimEnd())
         saveRefineState(_refineState.value)
+        _ncount.value = 0
         fullRefresh()
     }
 
-    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): Boolean {
-        println("orderDate $itemDate  == ${itemDate.substringBefore(' ')}")
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return false
+    override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
         val res = repository.sendMessageComplaint(
             itemNumber,
             itemDate.substringBefore(' '),
             message
         )
-
-        return if (res is Resource.Success) {
-            // after successful send, refresh list so messages include new comment
-            //fullRefresh()   // still runs on appScope internally
-
-            true
-        } else {
-            false
+        return when (res) {
+            is Resource.Success -> null
+            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            else -> "Ошибка отправки сообщения"
         }
     }
     // ---------- Work Orders refine state ----------

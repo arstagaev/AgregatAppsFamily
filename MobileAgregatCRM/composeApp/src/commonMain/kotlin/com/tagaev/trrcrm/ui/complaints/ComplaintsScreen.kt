@@ -10,41 +10,82 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
+import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
+import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.custom.UniversalCardItem
+import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
+import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.style.DefaultColors
 import com.tagaev.trrcrm.ui.work_order.WorkOrderDetailsSheet
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.Filter
+import compose.icons.feathericons.RefreshCw
+import compose.icons.feathericons.Search
+import compose.icons.feathericons.X
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
+
+private val COMPLAINTS_TOPBAR_SEARCH_OPTIONS = listOf(
+    Refiner.SearchQueryType.CODE,
+    Refiner.SearchQueryType.TOPIC,
+    Refiner.SearchQueryType.AUTHOR,
+    Refiner.SearchQueryType.COUNTERPARTY,
+    Refiner.SearchQueryType.AUTO
+)
+
+private fun Refiner.SearchQueryType.complaintsSearchLabel(): String = when (this) {
+    Refiner.SearchQueryType.CODE -> "Номер"
+    Refiner.SearchQueryType.TOPIC -> "Тема"
+    Refiner.SearchQueryType.AUTHOR -> "Автор"
+    Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
+    Refiner.SearchQueryType.AUTO -> "Автомобиль"
+    Refiner.SearchQueryType.MANAGER -> "Менеджер"
+    Refiner.SearchQueryType.MASTER -> "Мастер"
+    Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
+    Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
+    Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
+    Refiner.SearchQueryType.FIX_TYPE -> "Вид ремонта"
+    Refiner.SearchQueryType.CLIENT -> "Заказчик"
+    Refiner.SearchQueryType.ROUTE -> "Маршрут"
+    Refiner.SearchQueryType.CARRIER -> "Перевозчик"
+}
 
 @Composable
 fun ComplaintsScreen(component: IComplaintsComponent) {
@@ -52,10 +93,38 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
     val selectedId by component.selectedItemGuid.collectAsState()
+    var isSearchMode by rememberSaveable { mutableStateOf(false) }
+    var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
+    var searchTypeDraft by rememberSaveable { mutableStateOf(refineState.searchQueryType) }
+    val isTopBarLoading = resource is Resource.Loading ||
+            (resource as? Resource.Success<*>)?.additionalLoading == true
 
     val scope = rememberCoroutineScope()
-    var isSendingMessage by remember { mutableStateOf(false) }
-    var lastSendError by remember { mutableStateOf<String?>(null) }
+
+    androidx.compose.runtime.LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
+        if (!isSearchMode) {
+            searchQueryDraft = refineState.searchQuery
+            searchTypeDraft = if (refineState.searchQueryType in COMPLAINTS_TOPBAR_SEARCH_OPTIONS) {
+                refineState.searchQueryType
+            } else {
+                Refiner.SearchQueryType.CODE
+            }
+        }
+    }
+
+    val applySearch: () -> Unit = {
+        component.setRefineState(
+            refineState.copy(
+                searchQuery = searchQueryDraft.trim(),
+                searchQueryType = searchTypeDraft
+            )
+        )
+    }
+    val clearSearchAndExit: () -> Unit = {
+        searchQueryDraft = ""
+        isSearchMode = false
+        component.setRefineState(refineState.copy(searchQuery = ""))
+    }
 
     MasterScreen(
         title = "Рекламации",
@@ -159,16 +228,13 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                     val number = complaint.number.orEmpty()
                     val date = complaint.date.orEmpty()
                     scope.launch {
-                        val ok = component.sendMessage(number, date, message)
-                        if (ok) {
+                        val err = component.sendMessage(number, date, message)
+                        if (err == null) {
                             component.addLocalMessage(complaint.guid.toString(), message = MessageModel(author = "я", text = message))
                         }
-                        onResult(ok) // this notifies the sheet
+                        onResult(err)
                     }
-                },
-                isSendingMessage = isSendingMessage,
-                lastSendError = lastSendError,
-                onErrorDismiss = { lastSendError = null }
+                }
             )
         },
 
@@ -178,12 +244,19 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 current = current,
                 onBack = onDismiss,
                 messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                sections = setOf(
+                    RefineSection.STATUS,
+                    RefineSection.FILTER_VAL,
+                    RefineSection.ORDER,
+                    RefineSection.DIRECTION
+                ),
                 onApply = { newState ->
-                    println(">>>>>> ${newState.toString()}")
-                    println(">>>>>> ${newState.searchQueryType.wire}")
-                    component.setRefineState(newState)
-                    onApply(newState)     // MasterDetailFilterScreen получит обновлённый стейт
-
+                    val applied = newState.copy(
+                        searchQuery = refineState.searchQuery,
+                        searchQueryType = refineState.searchQueryType
+                    )
+                    component.setRefineState(applied)
+                    onApply(applied)
                 }
             )
         },
@@ -196,9 +269,120 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
 
         selectedItemId = selectedId,
         onSelectedItemChange = { id -> component.selectItemFromList(id) },
+        topBarNavigationIcon = if (panel == MasterPanel.List && isSearchMode) {
+            {
+                IconButton(
+                    onClick = clearSearchAndExit,
+                    enabled = !isTopBarLoading
+                ) {
+                    Icon(FeatherIcons.X, contentDescription = "Закрыть поиск")
+                }
+            }
+        } else null,
+        topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
+            {
+                OutlinedTextField(
+                    value = searchQueryDraft,
+                    onValueChange = { searchQueryDraft = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 6.dp),
+                    placeholder = { Text("Поиск рекламации") },
+                    singleLine = true,
+                    enabled = !isTopBarLoading,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
+                )
+            }
+        } else null,
+        topBarActionsContent = { isLoadingTopBar ->
+            if (panel == MasterPanel.List) {
+                if (isSearchMode) {
+                    if (isLoadingTopBar) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(onClick = applySearch) {
+                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                        }
+                    }
+                } else {
+                    IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
+                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                    }
+                    IconButton(
+                        onClick = {
+                            searchQueryDraft = refineState.searchQuery
+                            searchTypeDraft = if (refineState.searchQueryType in COMPLAINTS_TOPBAR_SEARCH_OPTIONS) {
+                                refineState.searchQueryType
+                            } else {
+                                Refiner.SearchQueryType.CODE
+                            }
+                            isSearchMode = true
+                        }
+                    ) {
+                        Icon(FeatherIcons.Search, contentDescription = "Поиск")
+                    }
+                    if (isLoadingTopBar) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(onClick = { component.fullRefresh() }) {
+                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                        }
+                    }
+                }
+            }
+        },
+        topBarBottomContent = if (panel == MasterPanel.List && isSearchMode) {
+            {
+                ComplaintsSearchTypeRow(
+                    selected = searchTypeDraft,
+                    onSelected = { searchTypeDraft = it }
+                )
+            }
+        } else null,
     )
 }
 
+
+@Composable
+private fun ComplaintsSearchTypeRow(
+    selected: Refiner.SearchQueryType,
+    onSelected: (Refiner.SearchQueryType) -> Unit
+) {
+    Surface(
+        tonalElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "Поиск по:",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OptionChipsScrollingRow(
+                options = COMPLAINTS_TOPBAR_SEARCH_OPTIONS,
+                selected = selected,
+                onSelect = onSelected,
+                labelFor = { it.complaintsSearchLabel() }
+            )
+        }
+    }
+}
 
 @Composable
 fun ComplaintListItem(

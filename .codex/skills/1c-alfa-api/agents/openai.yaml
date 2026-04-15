@@ -1,0 +1,4 @@
+interface:
+  display_name: "1C Alfa API"
+  short_description: "Diagnose and stabilize 1C API list/search behavior"
+  default_prompt: "Use $1c-alfa-api to investigate a 1C Alfa API issue, verify ncount/filter behavior, and propose the smallest reliable fix."

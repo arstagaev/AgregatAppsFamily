@@ -805,10 +805,7 @@ fun ComplaintTaskItemRow(
 fun InnerOrderDetailsSheetWithMessages(
     complaint: InnerOrderDto,
     onBack: () -> Unit,
-    onSendMessage: (String, (Boolean) -> Unit) -> Unit,
-    isSendingMessage: Boolean = false,
-    lastSendError: String? = null,
-    onErrorDismiss: () -> Unit = {},
+    onSendMessage: (String, (String?) -> Unit) -> Unit,
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -818,9 +815,6 @@ fun InnerOrderDetailsSheetWithMessages(
         messages = complaint.messages.map { MessageModel(author = it.author ?: "no author", text = it.comment ?: "", date = it.workDate ?: "no date") },
         onBack = onBack,
         onSendMessage = onSendMessage,
-        //isSendingMessage = isSendingMessage,
-        lastSendError = lastSendError,
-        onErrorDismiss = onErrorDismiss,
         initialDraft = initialDraft,
         onDraftChanged = onDraftChanged,
         isSendEnabled = { draft, wo ->

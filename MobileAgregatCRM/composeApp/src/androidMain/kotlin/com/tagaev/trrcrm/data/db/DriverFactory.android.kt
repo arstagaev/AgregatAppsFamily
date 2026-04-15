@@ -10,3 +10,5 @@ actual class DriverFactory(private val context: Context) {
         return AndroidSqliteDriver(Database.Schema, context, "crm.db")
     }
 }
+
+actual val isSqlDriverAvailable: Boolean = true

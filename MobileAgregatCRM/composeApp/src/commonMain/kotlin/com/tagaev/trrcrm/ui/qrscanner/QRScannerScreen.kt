@@ -20,6 +20,7 @@ import compose.icons.FeatherIcons
 import compose.icons.feathericons.AlertCircle
 import compose.icons.feathericons.CheckCircle
 import compose.icons.feathericons.Copy
+import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.CameraView
 import com.tagaev.trrcrm.utils.getTimestamp
@@ -31,12 +32,19 @@ import kotlinx.coroutines.launch
 @Composable
 fun QRScannerScreen(component: IQRScannerComponent) {
     val state by component.state.collectAsState()
+    val isDesktopTarget = remember { getPlatform().name.startsWith("Desktop") }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show error from state (like "Некорректный QR-код")
     LaunchedEffect(state.lastError) {
         state.lastError?.let { snackbarHostState.showSnackbar(it) }
+    }
+    LaunchedEffect(state.openComplectationError) {
+        state.openComplectationError?.let {
+            snackbarHostState.showSnackbar(it)
+            component.onOpenComplectationErrorShown()
+        }
     }
 
     Scaffold(
@@ -66,9 +74,27 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                         .weight(0.58f)
                         .background(Color.Black)
                 ) {
-                    CameraPermissionGate(rationaleText = "Для сканирования нужен доступ к камере.") {
-                        CameraView { decodedString ->
-                            component.onScanned(decodedString)
+                    if (isDesktopTarget) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "QR-сканер пока недоступен на desktop",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.White
+                            )
+                        }
+                    } else {
+                        CameraPermissionGate(rationaleText = "Для сканирования нужен доступ к камере.") {
+                            CameraView(
+                                decodedString = { decodedString ->
+                                    component.onScanned(decodedString)
+                                },
+                                autoStart = false
+                            )
                         }
                     }
                 }
@@ -123,6 +149,8 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                     attempt = attempt,
                     clipboard = clipboard,
                     snackbarHostState = snackbarHostState,
+                    isOpeningComplectation = state.isOpeningComplectation,
+                    onOpenComplectation = { component.onOpenComplectationClicked() },
                     onDismiss = { component.onDialogDismissed() }
                 )
             }
@@ -176,14 +204,37 @@ private fun AttemptDetailsDialog(
     attempt: QRAttempt,
     clipboard: ClipboardManager,
     snackbarHostState: SnackbarHostState,
+    isOpeningComplectation: Boolean,
+    onOpenComplectation: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val canOpenComplectation = attempt.status == AttemptStatus.Success &&
+            !attempt.response?.completionNumber.isNullOrBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("OK") }
+        },
+        dismissButton = {
+            if (canOpenComplectation) {
+                TextButton(
+                    onClick = onOpenComplectation,
+                    enabled = !isOpeningComplectation
+                ) {
+                    if (isOpeningComplectation) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Открытие...")
+                    } else {
+                        Text("Открыть Комплектацию")
+                    }
+                }
+            }
         },
         title = {
             Text(
