@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.SectionTitle
@@ -260,121 +261,61 @@ fun WorkOrderDetailsSheet(
             }
         }
 
-        // 8. Выполненные работы по заказ-наряду (используем только "Работы")
-        val jobs = wo.jobs
-        SectionTitle("Выполненные работы по заказ-наряду:")
-        if (jobs.isNullOrEmpty()) {
-            Text(
-                text = "Работы не добавлены",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            jobs.forEach { job ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        TextC(
-                            text = job.work.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        val qty = job.quantity?.takeIf { it.isNotBlank() }
-                        if (qty != null) {
-                            Text(
-                                text = "Кол-во: $qty",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        job.amount?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                text = "$it ₽",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        job.price?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                text = "Цена: $it",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
+        // 8–9. Товары и работы (как в «Комплектации»): раскрывающиеся карточки
+        val products = wo.products.orEmpty()
+        ExpandableListSection(
+            title = "Товары (поз. ${products.size})",
+            items = products,
+            initiallyExpanded = false,
+            listContentPadding = WorkOrderLineItemsExpandableListPadding,
+            itemSpacing = 0.dp,
+            showItemDividers = true,
+            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+        ) { product ->
+            WorkOrderProductLineRowCompact(product)
         }
+        Spacer(Modifier.height(6.dp))
 
-        // 9. Товары по заказ-наряду (используем только "Товары")
-        val products = wo.products
-        SectionTitle("Товары по заказ-наряду:")
-        if (products.isNullOrEmpty()) {
-            Text(
-                text = "Товары не добавлены",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            products.forEach { product ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        TextC(
-                            text = product.name.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        val qty = product.quantity?.takeIf { it.isNotBlank() }
-                        val unit = product.unit?.takeIf { it.isNotBlank() }
-                        if (qty != null) {
-                            TextC(
-                                text = buildString {
-                                    append("Кол-во: ")
-                                    append(qty)
-                                    if (unit != null) {
-                                        append(" ")
-                                        append(unit)
-                                    }
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        product.article?.takeIf { it.isNotBlank() }?.let { article ->
-                            TextC(
-                                text = "Артикул: $article",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        product.amount?.takeIf { it.isNotBlank() }?.let {
-                            TextC(
-                                text = "$it ₽",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        product.price?.takeIf { it.isNotBlank() }?.let {
-                            TextC(
-                                text = "Цена: $it",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
+        val jobs = wo.jobs.orEmpty()
+        val executors = wo.executors
+        ExpandableListSection(
+            title = "Работы (поз. ${jobs.size})",
+            items = jobs,
+            initiallyExpanded = false,
+            listContentPadding = WorkOrderLineItemsExpandableListPadding,
+            itemSpacing = 0.dp,
+            showItemDividers = true,
+            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+        ) { job ->
+            WorkOrderJobLineRowCompact(job, executors = executors)
+        }
+        Spacer(Modifier.height(6.dp))
+
+        val productsBuyer = wo.products2.orEmpty()
+        ExpandableListSection(
+            title = "Товары для Покупателя (поз. ${productsBuyer.size})",
+            items = productsBuyer,
+            initiallyExpanded = false,
+            listContentPadding = WorkOrderLineItemsExpandableListPadding,
+            itemSpacing = 0.dp,
+            showItemDividers = true,
+            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+        ) { product ->
+            WorkOrderProductLineRowCompact(product)
+        }
+        Spacer(Modifier.height(6.dp))
+
+        val jobsBuyer = wo.jobs2.orEmpty()
+        ExpandableListSection(
+            title = "Работы для Покупателя (поз. ${jobsBuyer.size})",
+            items = jobsBuyer,
+            initiallyExpanded = false,
+            listContentPadding = WorkOrderLineItemsExpandableListPadding,
+            itemSpacing = 0.dp,
+            showItemDividers = true,
+            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+        ) { job ->
+            WorkOrderJobLineRowCompact(job, executors = executors)
         }
     }
 }
