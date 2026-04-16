@@ -182,6 +182,9 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "MobileAgregatCRM"
             packageVersion = "1.0.0"
+            windows {
+                iconFile.set(layout.projectDirectory.file("desktop-icons/app.ico"))
+            }
         }
     }
 }
