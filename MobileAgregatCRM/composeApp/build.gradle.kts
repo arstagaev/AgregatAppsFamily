@@ -175,22 +175,6 @@ kotlin {
     }
 }
 
-compose.desktop {
-    application {
-        mainClass = "com.tagaev.trrcrm.Main_desktopKt"
-        nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "MobileAgregatCRM"
-            packageVersion = "1.0.0"
-            // JDBC (SQLDelight JdbcSqliteDriver) loads via reflection; jlink runtime must include java.sql
-            modules("java.sql")
-            windows {
-                iconFile.set(layout.projectDirectory.file("desktop-icons/app.ico"))
-            }
-        }
-    }
-}
-
 ////////////////////
 // build properties
 ////////////////////
@@ -234,6 +218,22 @@ val appEnv: String = when {
     requestedTasks.any { it.contains("assembleDebug", ignoreCase = true) ||
             it.contains("installDebug", ignoreCase = true) } -> "debug"
     else -> (project.findProperty("APP_ENV") as String?) ?: "prod"
+}
+
+compose.desktop {
+    application {
+        mainClass = "com.tagaev.trrcrm.Main_desktopKt"
+        nativeDistributions {
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            packageName = "TRR CRM"
+            packageVersion = version.ifBlank { "1.0.0" }
+            // JDBC (SQLDelight JdbcSqliteDriver) loads via reflection; jlink runtime must include java.sql
+            modules("java.sql")
+            windows {
+                iconFile.set(layout.projectDirectory.file("desktop-icons/app.ico"))
+            }
+        }
+    }
 }
 
 android {
