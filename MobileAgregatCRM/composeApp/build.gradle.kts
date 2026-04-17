@@ -180,8 +180,8 @@ compose.desktop {
         mainClass = "com.tagaev.trrcrm.Main_desktopKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "MobileAgregatCRM"
-            packageVersion = "1.0.0"
+            packageName = "TRR CRM"
+            packageVersion = version
             windows {
                 iconFile.set(layout.projectDirectory.file("desktop-icons/app.ico"))
             }
