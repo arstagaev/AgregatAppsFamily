@@ -182,6 +182,8 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "MobileAgregatCRM"
             packageVersion = "1.0.0"
+            // JDBC (SQLDelight JdbcSqliteDriver) loads via reflection; jlink runtime must include java.sql
+            modules("java.sql")
             windows {
                 iconFile.set(layout.projectDirectory.file("desktop-icons/app.ico"))
             }
