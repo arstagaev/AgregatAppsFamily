@@ -31,6 +31,7 @@ import kotlin.collections.map
 fun InnerOrderDetailsSheetTopPart(
     innerOrder: InnerOrderDto,
     onBack: () -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -114,12 +115,43 @@ fun InnerOrderDetailsSheetTopPart(
         // 5. Документы-основания
         if (!innerOrder.workOrderNumber.isNullOrBlank() || !innerOrder.baseDocument.isNullOrBlank()) {
             SectionTitle("Документы-основания:")
-            DetailTwoColumnRow(
-                firstTitle = "Комплектация / ЗН:",
-                firstValue = innerOrder.workOrderNumber,
-                secondTitle = "Документ-основание:",
-                secondValue = innerOrder.baseDocument
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                if (!innerOrder.workOrderNumber.isNullOrBlank()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Комплектация / ЗН:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextC(
+                            text = innerOrder.workOrderNumber.orEmpty(),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                innerOrder.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Документ-основание:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextC(
+                            text = baseDocument,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) }
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.height(4.dp))
         }
 
@@ -806,6 +838,7 @@ fun InnerOrderDetailsSheetWithMessages(
     complaint: InnerOrderDto,
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -825,7 +858,8 @@ fun InnerOrderDetailsSheetWithMessages(
     ) { io ->
         InnerOrderDetailsSheetTopPart(
             io,
-            onBack = onBack
+            onBack = onBack,
+            onOpenBaseDocument = onOpenBaseDocument
         )
     }
 }

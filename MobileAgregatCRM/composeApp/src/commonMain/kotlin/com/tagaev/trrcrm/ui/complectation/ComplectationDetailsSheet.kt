@@ -45,10 +45,37 @@ import compose.icons.feathericons.Circle
 private val ChecklistCompleteIconGreen = Color(0xFF388E3C)
 
 private fun complectationProductsForDisplay(wo: WorkOrderDto): List<WorkOrderProductDto> =
-    wo.products.orEmpty().ifEmpty { wo.products2.orEmpty() }
+    (wo.products2.orEmpty() + wo.products.orEmpty()).distinctBy {
+        listOf(
+            it.lineNumber,
+            it.name,
+            it.article,
+            it.quantity,
+            it.unit,
+            it.price,
+            it.amount
+        ).joinToString("|").lowercase()
+    }
 
 private fun complectationJobsForDisplay(wo: WorkOrderDto): List<WorkOrderJobDto> =
-    wo.jobs.orEmpty().ifEmpty { wo.jobs2.orEmpty() }
+    (wo.jobs2.orEmpty() + wo.jobs.orEmpty()).distinctBy {
+        listOf(
+            it.lineNumber,
+            it.workId,
+            it.work,
+            it.workLine1,
+            it.quantity,
+            it.price,
+            it.amount
+        ).joinToString("|").lowercase()
+    }
+
+private fun complectationQuantityWithUnit(wo: WorkOrderDto): String {
+    val quantity = wo.complectationQuantity?.trim().orEmpty()
+    if (quantity.isBlank()) return "—"
+    val unit = wo.complectationUnit?.trim().orEmpty()
+    return if (unit.isNotBlank()) "$quantity $unit" else "$quantity шт"
+}
 
 private fun planningWorkTitle(row: ComplectationPlanningRowDto): String {
     val work = row.autoWork?.trim().orEmpty()
@@ -205,10 +232,10 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
     CompactBody(wo.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—")
 
     CompactSectionTitle("Количество комплектов:")
-    CompactBody(dashOr(wo.complectationQuantity))
+    CompactBody(complectationQuantityWithUnit(wo))
 
-    CompactSectionTitle("Ед. изм. комплекта:")
-    CompactBody(dashOr(wo.complectationUnit))
+//    CompactSectionTitle("Ед. изм. комплекта:")
+//    CompactBody(dashOr(wo.complectationUnit))
 
     CompactSectionTitle("Цена комплекта:")
     CompactBody(formatRubleAmount(wo.complectationPrice))

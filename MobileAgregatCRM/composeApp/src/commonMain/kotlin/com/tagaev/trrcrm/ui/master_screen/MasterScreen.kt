@@ -86,6 +86,7 @@ fun <T, F> MasterScreen(
     topBarTitleContent: (@Composable () -> Unit)? = null,
     topBarActionsContent: (@Composable RowScope.(isLoadingTopBar: Boolean) -> Unit)? = null,
     topBarBottomContent: (@Composable () -> Unit)? = null,
+    onDetailsBack: (() -> Unit)? = null,
 ) {
     val listState: LazyListState = rememberLazyListState()
     val isLoadingTopBar = resource is Resource.Loading ||
@@ -135,8 +136,12 @@ fun <T, F> MasterScreen(
                         {
                             IconButton(
                                 onClick = {
-                                    onSelectedItemChange(null)
-                                    onPanelChange(MasterPanel.List)
+                                    if (onDetailsBack != null) {
+                                        onDetailsBack()
+                                    } else {
+                                        onSelectedItemChange(null)
+                                        onPanelChange(MasterPanel.List)
+                                    }
                                 }
                             ) {
                                 Icon(

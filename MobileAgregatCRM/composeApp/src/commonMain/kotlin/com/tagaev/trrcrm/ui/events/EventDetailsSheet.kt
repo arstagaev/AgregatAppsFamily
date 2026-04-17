@@ -55,7 +55,8 @@ import org.koin.compose.koinInject
 
 @Composable
 fun EventsHeader(
-    event: EventItemDto
+    event: EventItemDto,
+    onOpenBaseDocument: (String) -> Unit = {}
 ) {
     val appSettings = koinInject<AppSettings>()
     val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
@@ -124,6 +125,19 @@ fun EventsHeader(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp)
+                )
+            }
+            e.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
+                Text(
+                    text = "Документ-основание",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TextC(
+                    text = baseDocument,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) }
                 )
             }
 
@@ -366,6 +380,7 @@ fun EventDetailsSheet(
     event: EventItemDto,
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -383,6 +398,9 @@ fun EventDetailsSheet(
                     !wo.date.toString().isNullOrBlank()
         }
     ) { ev ->
-        EventsHeader(ev)
+        EventsHeader(
+            event = ev,
+            onOpenBaseDocument = onOpenBaseDocument
+        )
     }
 }

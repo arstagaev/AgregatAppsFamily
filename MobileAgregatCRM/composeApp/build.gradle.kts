@@ -165,9 +165,9 @@ kotlin {
             }
         }
 
-//        commonTest.dependencies {
-//            implementation(libs.kotlin.test)
-//        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
 //        jvmMain.dependencies {
 //            implementation(compose.desktop.currentOs)
 ////            implementation(libs.kotlinx.coroutinesSwing)

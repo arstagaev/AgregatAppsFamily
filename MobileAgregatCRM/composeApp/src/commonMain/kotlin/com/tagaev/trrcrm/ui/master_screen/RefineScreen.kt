@@ -32,7 +32,8 @@ enum class RefineSection {
     ORDER,
     DIRECTION,
     SEARCH,
-    FILTER_VAL
+    FILTER_VAL,
+    REPAIR_TYPE
 }
 
 /**
@@ -60,6 +61,7 @@ fun RefineScreen(
     var setStatus by remember { mutableStateOf(current.status) }
     var setFilter by remember { mutableStateOf(current.filter) }
     var setFilterValue by remember { mutableStateOf(current.filterValue) }
+    var setRepairType by remember { mutableStateOf(current.repairType) }
     var searchQuery by remember { mutableStateOf(current.searchQuery) }
     var searchQueryType by remember { mutableStateOf(current.searchQueryType) }
 
@@ -83,6 +85,7 @@ fun RefineScreen(
                             selOrderDir = Refiner.Dir.DESC
                             setStatus = Refiner.Status.OFF
                             setFilter = Refiner.Filter.OFF
+                            setRepairType = Refiner.WorkOrderRepairType.OFF
                         }
                     ) {
                         Text("Сброс")
@@ -154,6 +157,16 @@ fun RefineScreen(
                     )
                 }
 
+                if (RefineSection.REPAIR_TYPE in sections) {
+                    Text("Вид ремонта", style = MaterialTheme.typography.titleSmall)
+                    OptionChipsRow(
+                        options = Refiner.WorkOrderRepairType.values().toList(),
+                        selected = setRepairType,
+                        onSelect = { setRepairType = it },
+                        labelFor = { it.label }
+                    )
+                }
+
                 if (RefineSection.ORDER in sections) {
                     // Поле сортировки
                     Text("Сортировать по", style = MaterialTheme.typography.titleSmall)
@@ -210,6 +223,7 @@ fun RefineScreen(
                                 status = setStatus,
                                 filter = setFilter,
                                 filterValue = setFilterValue,
+                                repairType = setRepairType,
                                 searchQueryType = searchQueryType,
                                 searchQuery = searchQuery
                             )

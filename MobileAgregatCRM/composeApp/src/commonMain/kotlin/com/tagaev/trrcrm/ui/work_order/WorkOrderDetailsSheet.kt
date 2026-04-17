@@ -260,37 +260,10 @@ fun WorkOrderDetailsSheet(
                 }
             }
         }
-
-        // 8–9. Товары и работы (как в «Комплектации»): раскрывающиеся карточки
-        val products = wo.products.orEmpty()
-        ExpandableListSection(
-            title = "Товары (поз. ${products.size})",
-            items = products,
-            initiallyExpanded = false,
-            listContentPadding = WorkOrderLineItemsExpandableListPadding,
-            itemSpacing = 0.dp,
-            showItemDividers = true,
-            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
-        ) { product ->
-            WorkOrderProductLineRowCompact(product)
-        }
         Spacer(Modifier.height(6.dp))
 
         val jobs = wo.jobs.orEmpty()
         val executors = wo.executors
-        ExpandableListSection(
-            title = "Работы (поз. ${jobs.size})",
-            items = jobs,
-            initiallyExpanded = false,
-            listContentPadding = WorkOrderLineItemsExpandableListPadding,
-            itemSpacing = 0.dp,
-            showItemDividers = true,
-            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
-        ) { job ->
-            WorkOrderJobLineRowCompact(job, executors = executors)
-        }
-        Spacer(Modifier.height(6.dp))
-
         val productsBuyer = wo.products2.orEmpty()
         ExpandableListSection(
             title = "Товары для Покупателя (поз. ${productsBuyer.size})",
@@ -309,6 +282,34 @@ fun WorkOrderDetailsSheet(
         ExpandableListSection(
             title = "Работы для Покупателя (поз. ${jobsBuyer.size})",
             items = jobsBuyer,
+            initiallyExpanded = false,
+            listContentPadding = WorkOrderLineItemsExpandableListPadding,
+            itemSpacing = 0.dp,
+            showItemDividers = true,
+            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+        ) { job ->
+            WorkOrderJobLineRowCompact(job, executors = executors)
+        }
+        Spacer(Modifier.height(6.dp))
+        // 8–9. Товары и работы (как в «Комплектации»): раскрывающиеся карточки
+        val products = wo.products.orEmpty()
+        ExpandableListSection(
+            title = "Товары (поз. ${products.size})",
+            items = products,
+            initiallyExpanded = false,
+            listContentPadding = WorkOrderLineItemsExpandableListPadding,
+            itemSpacing = 0.dp,
+            showItemDividers = true,
+            dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+        ) { product ->
+            WorkOrderProductLineRowCompact(product)
+        }
+        Spacer(Modifier.height(6.dp))
+
+
+        ExpandableListSection(
+            title = "Работы (поз. ${jobs.size})",
+            items = jobs,
             initiallyExpanded = false,
             listContentPadding = WorkOrderLineItemsExpandableListPadding,
             itemSpacing = 0.dp,

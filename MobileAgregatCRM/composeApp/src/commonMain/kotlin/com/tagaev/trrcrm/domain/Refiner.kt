@@ -10,6 +10,36 @@ interface ApiOption {
 
 // OrderBy Dir Status SearchQueryType Filter
 sealed interface Refiner : ApiOption {
+    enum class WorkOrderRepairType(
+        override val label: String,
+        override val wire: String,
+    ) : Refiner {
+        OFF("Без фильтра", ""),
+        FREE_DIAGNOSTIC("Бесплатная диагностика", "Бесплатная"),
+        FREE_REPAIR("Бесплатный ремонт", "Бесплатный"),
+        WARRANTY_REPAIR("Гарантийный ремонт", "Гарантийный"),
+        WARRANTY_REPAIR_NETWORK("Гарантийный ремонт (Сеть)", "Сеть"),
+        WARRANTY_TRS("Гарантия (TRS)", "TRS"),
+        WARRANTY_TRS_NETWORK("Гарантия (TRS) (СЕТЬ)", "TRSСЕТЬ"),
+        DIAGNOSTIC("Диагностика", "Диагностика"),
+        UNIT_REPLACEMENT("Замена агрегата", "агрегата"),
+        FLUID_REPLACEMENT_FULL("Замена жидкости (ПОЛНАЯ)", "ПОЛНАЯ"),
+        FLUID_REPLACEMENT_PARTIAL("Замена жидкости (ЧАСТИЧНАЯ)", "ЧАСТИЧНАЯ"),
+        PARTS_REPLACEMENT("Замена запасных частей", "запасных"),
+        VEHICLE_COMPLECTATION("Комплектация автомобиля", "Комплектация"),
+        MINOR_REPAIR("Мелкосрочный ремонт", "Мелкосрочный"),
+        TO_STOCK("На склад", "склад"),
+        PROGRAMMING("Программирование", "Программирование"),
+        TORQUE_CONVERTER_REPAIR("Ремонт гидротрансформатора", "гидротрансформатора"),
+        UNITS_REPAIR("Ремонт узлов и агрегатов", "узлов"),
+        T01("T01", "T01"),
+        T02("T02", "T02");
+
+        companion object {
+            const val API_FIELD: String = "ВидРемонта"
+        }
+    }
+
     enum class OrderBy(
         override val label: String,
         override val wire: String
@@ -84,6 +114,8 @@ data class RefineState(
 
     val filter: Refiner.Filter = Refiner.Filter.OFF,
     val filterValue: String = "",
+
+    val repairType: Refiner.WorkOrderRepairType = Refiner.WorkOrderRepairType.OFF,
 
     val searchQuery: String = "",
     val searchQueryType: Refiner.SearchQueryType = Refiner.SearchQueryType.TOPIC

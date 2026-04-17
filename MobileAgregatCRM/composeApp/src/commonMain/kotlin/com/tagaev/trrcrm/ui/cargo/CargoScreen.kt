@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -18,11 +19,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,7 +36,10 @@ import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.models.CargoDto
+import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
 import com.tagaev.trrcrm.ui.custom.TextC
@@ -40,12 +48,15 @@ import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
+import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.ui.style.DefaultColors
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Search
 import compose.icons.feathericons.X
+import kotlinx.coroutines.launch
 
 private val CARGO_TOPBAR_SEARCH_OPTIONS = listOf(
     Refiner.SearchQueryType.CODE,
@@ -82,6 +93,10 @@ fun CargoScreen(component: ICargoComponent) {
     var searchTypeDraft by rememberSaveable { mutableStateOf(refineState.searchQueryType) }
     val isTopBarLoading = resource is Resource.Loading ||
             (resource as? Resource.Success<*>)?.additionalLoading == true
+    val scope = rememberCoroutineScope()
+    val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
 
 //    var isSendingMessage by remember { mutableStateOf(false) }
 //    var lastSendError by remember { mutableStateOf<String?>(null) }
@@ -95,6 +110,10 @@ fun CargoScreen(component: ICargoComponent) {
                 Refiner.SearchQueryType.CODE
             }
         }
+    }
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        isResolvingBaseDocument = false
     }
 
     val applySearch: () -> Unit = {
@@ -110,6 +129,15 @@ fun CargoScreen(component: ICargoComponent) {
         isSearchMode = false
         component.setRefineState(refineState.copy(searchQuery = ""))
     }
+    val handleDetailsBack: () -> Unit = {
+        if (linkedDocuments.isNotEmpty()) {
+            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+        } else {
+            component.selectItemFromList(null)
+            component.changePanel(MasterPanel.List)
+        }
+    }
+    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
 
     MasterScreen(
         title = "Доставки",
@@ -133,7 +161,39 @@ fun CargoScreen(component: ICargoComponent) {
 
         // Full-screen details content (not bottom-sheet)
         detailsContent = { cargo, onClose ->
-            CargoDetailsSheet(cargo, onClose)
+            val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                scope.launch {
+                    isResolvingBaseDocument = true
+                    try {
+                        when (val resolved = component.resolveBaseDocument(rawBaseDocument)) {
+                            is Resource.Success -> linkedDocuments.add(resolved.data)
+                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Loading -> Unit
+                        }
+                    } finally {
+                        isResolvingBaseDocument = false
+                    }
+                }
+            }
+            val onNestedBack: () -> Unit = {
+                if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                else onClose()
+            }
+
+            val currentLinked = linkedDocuments.lastOrNull()
+            if (currentLinked != null) {
+                TreeRootDocumentDetailsSheet(
+                    document = currentLinked,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument
+                )
+            } else {
+                CargoDetailsSheet(
+                    cargo = cargo,
+                    onClose = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument
+                )
+            }
         },
 
         // Full-screen filter screen (not dialog)
@@ -177,22 +237,28 @@ fun CargoScreen(component: ICargoComponent) {
                 }
             }
         } else null,
-        topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
-            {
-                OutlinedTextField(
-                    value = searchQueryDraft,
-                    onValueChange = { searchQueryDraft = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp),
-                    placeholder = { Text("Поиск доставки") },
-                    singleLine = true,
-                    enabled = !isTopBarLoading,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
-                )
+        topBarTitleContent = when {
+            panel == MasterPanel.List && isSearchMode -> {
+                {
+                    OutlinedTextField(
+                        value = searchQueryDraft,
+                        onValueChange = { searchQueryDraft = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                        placeholder = { Text("Поиск доставки") },
+                        singleLine = true,
+                        enabled = !isTopBarLoading,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
+                    )
+                }
             }
-        } else null,
+            panel == MasterPanel.Details && linkedDocTitle != null -> {
+                { Text("Документ Основание: $linkedDocTitle") }
+            }
+            else -> null
+        },
         topBarActionsContent = { isLoadingTopBar ->
             if (panel == MasterPanel.List) {
                 if (isSearchMode) {
@@ -212,7 +278,9 @@ fun CargoScreen(component: ICargoComponent) {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
                         Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                     }
-                    IconButton(
+                    SearchIconButtonWithIndicator(
+                        showIndicator = refineState.searchQuery.isNotBlank(),
+                        enabled = !isLoadingTopBar,
                         onClick = {
                             searchQueryDraft = refineState.searchQuery
                             searchTypeDraft = if (refineState.searchQueryType in CARGO_TOPBAR_SEARCH_OPTIONS) {
@@ -222,9 +290,7 @@ fun CargoScreen(component: ICargoComponent) {
                             }
                             isSearchMode = true
                         }
-                    ) {
-                        Icon(FeatherIcons.Search, contentDescription = "Поиск")
-                    }
+                    )
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
                             modifier = Modifier
@@ -248,7 +314,17 @@ fun CargoScreen(component: ICargoComponent) {
                 )
             }
         } else null,
+        onDetailsBack = handleDetailsBack,
     )
+
+    if (isResolvingBaseDocument) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Пожалуйста, подождите") },
+            text = { Text("ищем документ основание....") },
+            confirmButton = {}
+        )
+    }
 }
 
 
@@ -292,14 +368,13 @@ private fun CargoListItem(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
-            ,
+            .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .clickable(onClick = onClick),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Верхняя строка: номер + (опционально) маркер изменений + статус
@@ -314,7 +389,9 @@ private fun CargoListItem(
                 ) {
                     TextC(
                         text = cargo.number,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        allowLinkTap = false,
+                        allowLongPressCopy = true,
                     )
 //                    if (isChanged) {
 //                        Text(
@@ -345,7 +422,9 @@ private fun CargoListItem(
                 if (cargo.route.isNotBlank()) {
                     TextC(
                         text = "${cargo.route}",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        allowLinkTap = false,
+                        allowLongPressCopy = false,
                     )
                 }
 
@@ -374,7 +453,9 @@ private fun CargoListItem(
                         text = "${cargo.comment.withEscapedNewlines()}",
                         maxLines = 3,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        allowLinkTap = false,
+                        allowLongPressCopy = false,
                     )
                 }
             }

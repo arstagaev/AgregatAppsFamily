@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,7 +46,10 @@ import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
+import com.tagaev.trrcrm.domain.displayNameRu
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.ui.custom.SessionTrrImage
+import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.mainscreen.StatusBadge
 import com.tagaev.trrcrm.ui.mainscreen.format
@@ -52,6 +57,7 @@ import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
+import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
@@ -108,6 +114,8 @@ fun EventsScreen(
 
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    var isResolvingBaseDocument by remember { mutableStateOf(false) }
     val requestNotificationPermission =
         rememberNotificationPermissionRequester { granted ->
 
@@ -115,6 +123,11 @@ fun EventsScreen(
                 showSnackbar("Необходимо разрешение на уведомления")
             }
         }
+
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        isResolvingBaseDocument = false
+    }
 
     LaunchedEffect(Unit) {
         requestNotificationPermission()
@@ -152,6 +165,15 @@ fun EventsScreen(
         isSearchMode = false
         component.setRefineState(refineState.copy(searchQuery = ""))
     }
+    val handleDetailsBack: () -> Unit = {
+        if (linkedDocuments.isNotEmpty()) {
+            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+        } else {
+            component.selectItemFromList(null)
+            component.changePanel(MasterPanel.List)
+        }
+    }
+    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
     val sessionLoadingImage = remember { SessionTrrImage.get() }
     var isLoadingOverlayVisible by remember { mutableStateOf(false) }
     var wasLoading by remember { mutableStateOf(false) }
@@ -208,22 +230,51 @@ fun EventsScreen(
 
             // Full-screen details content (not bottom-sheet)
             detailsContent = { ev, onClose ->
-                EventDetailsSheet(
-                    event = ev,
-                    onBack = onClose,
-                    onSendMessage = { message, onResult ->
-                        val number = ev.number.orEmpty()
-                        val date = ev.date?.format(formatDDMMYYYY).orEmpty()
-                        scope.launch {
-                            component.pickedEvent = ev
-                            val err = component.sendMessage(itemNumber = number, itemDate = date, message = message)
-                            if (err == null) {
-                                component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
+                val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                    scope.launch {
+                        isResolvingBaseDocument = true
+                        try {
+                            when (val resolved = component.resolveBaseDocument(rawBaseDocument)) {
+                                is Resource.Success -> linkedDocuments.add(resolved.data)
+                                is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                                is Resource.Loading -> Unit
                             }
-                            onResult(err)
+                        } finally {
+                            isResolvingBaseDocument = false
                         }
                     }
-                )
+                }
+                val onNestedBack: () -> Unit = {
+                    if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                    else onClose()
+                }
+
+                val currentLinked = linkedDocuments.lastOrNull()
+                if (currentLinked != null) {
+                    TreeRootDocumentDetailsSheet(
+                        document = currentLinked,
+                        onBack = onNestedBack,
+                        onOpenBaseDocument = onOpenBaseDocument
+                    )
+                } else {
+                    EventDetailsSheet(
+                        event = ev,
+                        onBack = onNestedBack,
+                        onOpenBaseDocument = onOpenBaseDocument,
+                        onSendMessage = { message, onResult ->
+                            val number = ev.number.orEmpty()
+                            val date = ev.date?.format(formatDDMMYYYY).orEmpty()
+                            scope.launch {
+                                component.pickedEvent = ev
+                                val err = component.sendMessage(itemNumber = number, itemDate = date, message = message)
+                                if (err == null) {
+                                    component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
+                                }
+                                onResult(err)
+                            }
+                        }
+                    )
+                }
             },
 
             // Full-screen filter screen (not dialog)
@@ -264,22 +315,28 @@ fun EventsScreen(
                     }
                 }
             } else null,
-            topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
-                {
-                    OutlinedTextField(
-                        value = searchQueryDraft,
-                        onValueChange = { searchQueryDraft = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp),
-                        placeholder = { Text("Поиск события") },
-                        singleLine = true,
-                        enabled = !isTopBarLoading,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
-                    )
+            topBarTitleContent = when {
+                panel == MasterPanel.List && isSearchMode -> {
+                    {
+                        OutlinedTextField(
+                            value = searchQueryDraft,
+                            onValueChange = { searchQueryDraft = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp),
+                            placeholder = { Text("Поиск события") },
+                            singleLine = true,
+                            enabled = !isTopBarLoading,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
+                        )
+                    }
                 }
-            } else null,
+                panel == MasterPanel.Details && linkedDocTitle != null -> {
+                    { Text("Документ Основание: $linkedDocTitle", modifier = Modifier.padding(horizontal = 10.dp)) }
+                }
+                else -> null
+            },
             topBarActionsContent = { isLoadingTopBar ->
                 if (panel == MasterPanel.List) {
                     if (isSearchMode) {
@@ -299,7 +356,9 @@ fun EventsScreen(
                         IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
                             Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                         }
-                        IconButton(
+                        SearchIconButtonWithIndicator(
+                            showIndicator = refineState.searchQuery.isNotBlank(),
+                            enabled = !isLoadingTopBar,
                             onClick = {
                                 searchQueryDraft = refineState.searchQuery
                                 searchTypeDraft = if (refineState.searchQueryType in EVENTS_TOPBAR_SEARCH_OPTIONS) {
@@ -309,9 +368,7 @@ fun EventsScreen(
                                 }
                                 isSearchMode = true
                             }
-                        ) {
-                            Icon(FeatherIcons.Search, contentDescription = "Поиск")
-                        }
+                        )
                         if (isLoadingTopBar) {
                             CircularProgressIndicator(
                                 modifier = Modifier
@@ -335,9 +392,19 @@ fun EventsScreen(
                     )
                 }
             } else null,
+            onDetailsBack = handleDetailsBack,
 
             modifier = Modifier.fillMaxSize()
         )
+
+        if (isResolvingBaseDocument) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Пожалуйста, подождите") },
+                text = { Text("ищем документ основание....") },
+                confirmButton = {}
+            )
+        }
 
         if (isLoadingOverlayVisible) {
             EventsLoadingImageOverlay(
@@ -423,7 +490,9 @@ fun EventCard(
                 TextC(
                     text = ev.number?.let { "№ $it" } ?: "Без номера",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    allowLinkTap = false,
+                    allowLongPressCopy = true,
                 )
                 StatusBadge(ev.state.orEmpty())
             }

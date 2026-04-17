@@ -22,6 +22,7 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
@@ -46,6 +47,14 @@ private val WORK_ORDER_TOPBAR_SEARCH_OPTIONS = listOf(
     Refiner.SearchQueryType.MASTER,
     Refiner.SearchQueryType.KIT_CHARACTERISTIC
 )
+
+private const val WORK_ORDER_REPAIR_FILTER_WARNING = """
+Внимание! Сервер фильтрует ВидРемонта по токену без пробелов, поэтому возможны неточные совпадения:
+• Бесплатная диагностика ↔ Диагностика
+• Гарантийный ремонт ↔ Гарантийный ремонт (Сеть)
+• Гарантия (TRS) ↔ Гарантия (TRS) (СЕТЬ)
+• Замена жидкости (ПОЛНАЯ) ↔ Замена жидкости (ЧАСТИЧНАЯ)
+"""
 
 private fun Refiner.SearchQueryType.workOrderSearchLabel(): String {
     return when (this) {
@@ -158,9 +167,11 @@ fun WorkOrdersScreen(
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
+                messageForUser = WORK_ORDER_REPAIR_FILTER_WARNING.trimIndent(),
                 sections = setOf(
                     RefineSection.STATUS,
                     RefineSection.FILTER_VAL,
+                    RefineSection.REPAIR_TYPE,
                     RefineSection.ORDER,
                     RefineSection.DIRECTION
                 ),
@@ -233,7 +244,9 @@ fun WorkOrdersScreen(
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
                         Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                     }
-                    IconButton(
+                    SearchIconButtonWithIndicator(
+                        showIndicator = refineState.searchQuery.isNotBlank(),
+                        enabled = !isLoadingTopBar,
                         onClick = {
                             searchQueryDraft = refineState.searchQuery
                             searchTypeDraft = if (refineState.searchQueryType in WORK_ORDER_TOPBAR_SEARCH_OPTIONS) {
@@ -243,9 +256,7 @@ fun WorkOrdersScreen(
                             }
                             isSearchMode = true
                         }
-                    ) {
-                        Icon(FeatherIcons.Search, contentDescription = "Поиск")
-                    }
+                    )
 
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
@@ -344,7 +355,9 @@ private fun WorkOrderCard(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 6,
-                        overflow = TextOverflow.Clip
+                        overflow = TextOverflow.Clip,
+                        allowLinkTap = false,
+                        allowLongPressCopy = true,
                     )
                     order.branch?.takeIf { it.isNotBlank() }?.let { branch ->
                         Spacer(Modifier.height(2.dp))

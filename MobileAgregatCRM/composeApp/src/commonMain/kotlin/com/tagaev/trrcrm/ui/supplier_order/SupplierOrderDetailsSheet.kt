@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.supplier_order
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,6 +33,7 @@ private val SupplierExpandableDividerOutdent = 8.dp
 fun SupplierOrderDetailsSheet(
     order: SupplierOrderDto,
     onBack: () -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {},
 ) {
@@ -54,13 +56,19 @@ fun SupplierOrderDetailsSheet(
         sendingDialogTitle = "Отправка записи",
         showComposer = false,
         headerContent = { wo ->
-            SupplierOrderHeaderContent(wo)
+            SupplierOrderHeaderContent(
+                order = wo,
+                onOpenBaseDocument = onOpenBaseDocument
+            )
         }
     )
 }
 
 @Composable
-private fun SupplierOrderHeaderContent(order: SupplierOrderDto) {
+private fun SupplierOrderHeaderContent(
+    order: SupplierOrderDto,
+    onOpenBaseDocument: (String) -> Unit
+) {
     SupplierCompactTitle("Ссылка")
     SupplierCompactValue(order.link)
     Spacer(Modifier.height(4.dp))
@@ -93,7 +101,23 @@ private fun SupplierOrderHeaderContent(order: SupplierOrderDto) {
     Spacer(Modifier.height(4.dp))
 
     SupplierCompactTitle("ДокументОснование")
-    SupplierCompactValue(order.baseDocument)
+    val baseDocument = order.baseDocument?.takeIf { it.isNotBlank() }
+    if (baseDocument != null) {
+        Text(
+            text = baseDocument,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) }
+        )
+    } else {
+        SupplierCompactValue(order.baseDocument)
+    }
     Spacer(Modifier.height(8.dp))
 
     ExpandableListSection(

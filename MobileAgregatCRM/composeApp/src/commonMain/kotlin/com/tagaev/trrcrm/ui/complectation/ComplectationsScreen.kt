@@ -27,6 +27,7 @@ import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
@@ -258,15 +259,15 @@ fun ComplectationsScreen(
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
                         Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                     }
-                    IconButton(
+                    SearchIconButtonWithIndicator(
+                        showIndicator = refineState.searchQuery.isNotBlank(),
+                        enabled = !isLoadingTopBar,
                         onClick = {
                             searchQueryDraft = refineState.searchQuery
                             searchTypeDraft = refineToComplectationSearchModeType(refineState.searchQueryType)
                             isSearchMode = true
                         }
-                    ) {
-                        Icon(FeatherIcons.Search, contentDescription = "Поиск")
-                    }
+                    )
 
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(

@@ -9,6 +9,7 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
@@ -130,6 +131,10 @@ class SupplierOrdersComponent(
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
         return "Отправка сообщений для Заказа поставщику недоступна"
+    }
+
+    override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
+        return repository.resolveTreeRootDocument(rawBaseDocument)
     }
 
     override fun addLocalMessage(orderGuid: String?, message: MessageModel) {

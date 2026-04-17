@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -23,12 +24,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,7 +45,10 @@ import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.models.ComplaintDto
+import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
 import com.tagaev.trrcrm.ui.custom.TextC
@@ -50,7 +57,9 @@ import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
+import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.ui.style.DefaultColors
 import com.tagaev.trrcrm.ui.work_order.WorkOrderDetailsSheet
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
@@ -100,6 +109,9 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
             (resource as? Resource.Success<*>)?.additionalLoading == true
 
     val scope = rememberCoroutineScope()
+    val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
         if (!isSearchMode) {
@@ -110,6 +122,10 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 Refiner.SearchQueryType.CODE
             }
         }
+    }
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        isResolvingBaseDocument = false
     }
 
     val applySearch: () -> Unit = {
@@ -125,6 +141,15 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
         isSearchMode = false
         component.setRefineState(refineState.copy(searchQuery = ""))
     }
+    val handleDetailsBack: () -> Unit = {
+        if (linkedDocuments.isNotEmpty()) {
+            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+        } else {
+            component.selectItemFromList(null)
+            component.changePanel(MasterPanel.List)
+        }
+    }
+    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
 
     MasterScreen(
         title = "Рекламации",
@@ -149,6 +174,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 onClick = onClick,
                 title = complaint.number ?: "",
+                allowTitleLongPressCopy = true,
                 subtitle = "${complaint.branch} - ${complaint.organization}",
 
                 topRightPrimary = {
@@ -221,21 +247,50 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
 
         // Full-screen details content (not bottom-sheet)
         detailsContent = { complaint, onClose ->
-            ComplaintDetailsSheetWithMessages(
-                complaint = complaint,
-                onBack = onClose,
-                onSendMessage = { message, onResult ->
-                    val number = complaint.number.orEmpty()
-                    val date = complaint.date.orEmpty()
-                    scope.launch {
-                        val err = component.sendMessage(number, date, message)
-                        if (err == null) {
-                            component.addLocalMessage(complaint.guid.toString(), message = MessageModel(author = "я", text = message))
+            val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                scope.launch {
+                    isResolvingBaseDocument = true
+                    try {
+                        when (val resolved = component.resolveBaseDocument(rawBaseDocument)) {
+                            is Resource.Success -> linkedDocuments.add(resolved.data)
+                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Loading -> Unit
                         }
-                        onResult(err)
+                    } finally {
+                        isResolvingBaseDocument = false
                     }
                 }
-            )
+            }
+            val onNestedBack: () -> Unit = {
+                if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                else onClose()
+            }
+
+            val currentLinked = linkedDocuments.lastOrNull()
+            if (currentLinked != null) {
+                TreeRootDocumentDetailsSheet(
+                    document = currentLinked,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument
+                )
+            } else {
+                ComplaintDetailsSheetWithMessages(
+                    complaint = complaint,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    onSendMessage = { message, onResult ->
+                        val number = complaint.number.orEmpty()
+                        val date = complaint.date.orEmpty()
+                        scope.launch {
+                            val err = component.sendMessage(number, date, message)
+                            if (err == null) {
+                                component.addLocalMessage(complaint.guid.toString(), message = MessageModel(author = "я", text = message))
+                            }
+                            onResult(err)
+                        }
+                    }
+                )
+            }
         },
 
         // Full-screen filter screen (not dialog)
@@ -279,22 +334,28 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 }
             }
         } else null,
-        topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
-            {
-                OutlinedTextField(
-                    value = searchQueryDraft,
-                    onValueChange = { searchQueryDraft = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp),
-                    placeholder = { Text("Поиск рекламации") },
-                    singleLine = true,
-                    enabled = !isTopBarLoading,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
-                )
+        topBarTitleContent = when {
+            panel == MasterPanel.List && isSearchMode -> {
+                {
+                    OutlinedTextField(
+                        value = searchQueryDraft,
+                        onValueChange = { searchQueryDraft = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                        placeholder = { Text("Поиск рекламации") },
+                        singleLine = true,
+                        enabled = !isTopBarLoading,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { applySearch() })
+                    )
+                }
             }
-        } else null,
+            panel == MasterPanel.Details && linkedDocTitle != null -> {
+                { Text("Документ Основание: $linkedDocTitle") }
+            }
+            else -> null
+        },
         topBarActionsContent = { isLoadingTopBar ->
             if (panel == MasterPanel.List) {
                 if (isSearchMode) {
@@ -314,7 +375,9 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
                         Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                     }
-                    IconButton(
+                    SearchIconButtonWithIndicator(
+                        showIndicator = refineState.searchQuery.isNotBlank(),
+                        enabled = !isLoadingTopBar,
                         onClick = {
                             searchQueryDraft = refineState.searchQuery
                             searchTypeDraft = if (refineState.searchQueryType in COMPLAINTS_TOPBAR_SEARCH_OPTIONS) {
@@ -324,9 +387,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                             }
                             isSearchMode = true
                         }
-                    ) {
-                        Icon(FeatherIcons.Search, contentDescription = "Поиск")
-                    }
+                    )
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
                             modifier = Modifier
@@ -350,7 +411,17 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 )
             }
         } else null,
+        onDetailsBack = handleDetailsBack,
     )
+
+    if (isResolvingBaseDocument) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Пожалуйста, подождите") },
+            text = { Text("ищем документ основание....") },
+            confirmButton = {}
+        )
+    }
 }
 
 

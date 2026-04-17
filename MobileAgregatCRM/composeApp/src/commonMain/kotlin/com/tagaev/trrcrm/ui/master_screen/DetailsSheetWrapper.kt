@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.domain.messages.findDraftForGuid
 import com.tagaev.trrcrm.domain.messages.removeDraftIfMatches
 import com.tagaev.trrcrm.domain.messages.upsertDraftForGuid
+import com.tagaev.trrcrm.ui.custom.StatusBadge
+import com.tagaev.trrcrm.ui.custom.StatusStyle
 import com.tagaev.trrcrm.ui.custom.TextCLinkPreview
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.work_order.LimitedOutlinedTextField
@@ -221,10 +223,12 @@ fun <T> DetailsWithMessagesSheet(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         msg.author.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            StatusBadge(
+                                state = it,
+                                defaultStyle = StatusStyle(
+                                    background = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                    foreground = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
+                                )
                             )
                         }
                         Spacer(Modifier.width(8.dp))

@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.buyer_order
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ fun BuyerOrderDetailsSheet(
     order: BuyerOrderDto,
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {},
 ) {
@@ -60,13 +62,19 @@ fun BuyerOrderDetailsSheet(
         composerPlaceholder = "Текст записи…",
         sendingDialogTitle = "Отправка записи",
         headerContent = { wo ->
-            BuyerOrderHeaderContent(wo)
+            BuyerOrderHeaderContent(
+                order = wo,
+                onOpenBaseDocument = onOpenBaseDocument
+            )
         }
     )
 }
 
 @Composable
-private fun BuyerOrderHeaderContent(order: BuyerOrderDto) {
+private fun BuyerOrderHeaderContent(
+    order: BuyerOrderDto,
+    onOpenBaseDocument: (String) -> Unit
+) {
     BuyerOrderCompactTitle("Ссылка")
     BuyerOrderCompactValue(order.link)
     Spacer(Modifier.height(4.dp))
@@ -103,7 +111,19 @@ private fun BuyerOrderHeaderContent(order: BuyerOrderDto) {
     Spacer(Modifier.height(4.dp))
 
     BuyerOrderCompactTitle("ДокументОснование")
-    BuyerOrderCompactValue(order.baseDocument)
+    val baseDocument = order.baseDocument?.takeIf { it.isNotBlank() }
+    if (baseDocument != null) {
+        Text(
+            text = baseDocument,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) }
+        )
+    } else {
+        BuyerOrderCompactValue(order.baseDocument)
+    }
     Spacer(Modifier.height(8.dp))
 
     ExpandableListSection(

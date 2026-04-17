@@ -7,6 +7,9 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
+import com.tagaev.trrcrm.domain.TreeRootDocument
+import com.tagaev.trrcrm.domain.TreeRootDocumentKind
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.ComplaintDto
@@ -116,6 +119,103 @@ class MainRepository(
                     )
                 }
             )
+
+    suspend fun resolveTreeRootDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
+        val parsed = TreeRootDocument.parse(rawBaseDocument)
+            ?: return Resource.Error(causes = "Не удалось определить документ-основание")
+        val apiCfg = cfg.copy(token = settings.getString(AppSettingsKeys.TOKEN_KEY, defaultValue = "NULL"))
+
+        return when (parsed.kind) {
+            TreeRootDocumentKind.EVENT -> {
+                when (val result = api.findDocumentsByNumber<EventItemDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.Event(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.WORK_ORDER -> {
+                when (val result = api.findDocumentsByNumber<WorkOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.WorkOrder(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.COMPLECTATION -> {
+                when (val result = api.findDocumentsByNumber<WorkOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.Complectation(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.COMPLAINT -> {
+                when (val result = api.findDocumentsByNumber<ComplaintDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.Complaint(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.INNER_ORDER -> {
+                when (val result = api.findDocumentsByNumber<InnerOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.InnerOrder(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.BUYER_ORDER -> {
+                when (val result = api.findDocumentsByNumber<BuyerOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.BuyerOrder(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.SUPPLIER_ORDER -> {
+                when (val result = api.findDocumentsByNumber<SupplierOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.SupplierOrder(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.CARGO -> {
+                when (val result = api.findDocumentsByNumber<CargoDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.Cargo(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+        }
+    }
 
     /// MESSAGES /////
     suspend fun sendMessageEvent(

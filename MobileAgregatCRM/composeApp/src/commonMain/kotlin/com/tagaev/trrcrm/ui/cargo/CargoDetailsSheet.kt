@@ -33,7 +33,8 @@ import compose.icons.feathericons.ChevronDown
 @Composable
 fun CargoDetailsSheet(
     cargo: CargoDto,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
 
@@ -72,6 +73,21 @@ fun CargoDetailsSheet(
 //                )
 
             }
+        }
+
+        cargo.baseDocument.takeIf { it.isNotBlank() }?.let { baseDocument ->
+            Text(
+                text = "Документ-основание",
+                style = MaterialTheme.typography.titleSmall
+            )
+            TextC(
+                text = baseDocument,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) },
+                allowLinkTap = false,
+                allowLongPressCopy = false,
+            )
         }
 
         // Основная информация (самое важное сверху).

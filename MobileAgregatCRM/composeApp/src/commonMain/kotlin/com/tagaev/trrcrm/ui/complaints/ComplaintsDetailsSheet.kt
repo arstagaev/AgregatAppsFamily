@@ -32,6 +32,7 @@ import kotlin.collections.map
 fun ComplaintDetailsSheetTopPart(
     complaint: ComplaintDto,
     onBack: () -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
 ) {
     // If you have a generic "details sheet" wrapper like DetailsWithMessagesSheet
     // but you don't want messages here – you can wrap this content into that later.
@@ -57,6 +58,19 @@ fun ComplaintDetailsSheetTopPart(
         if (header.isNotBlank()) {
             DetailLargeTitleRow(
                 text = header
+            )
+            Spacer(Modifier.height(2.dp))
+        }
+
+        complaint.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
+            SectionTitle("Документ-основание:")
+            TextC(
+                text = baseDocument,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) },
+                allowLinkTap = false,
+                allowLongPressCopy = false,
             )
             Spacer(Modifier.height(2.dp))
         }
@@ -713,6 +727,7 @@ fun ComplaintDetailsSheetWithMessages(
     complaint: ComplaintDto,
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
+    onOpenBaseDocument: (String) -> Unit = {},
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -732,7 +747,8 @@ fun ComplaintDetailsSheetWithMessages(
     ) { ev ->
         ComplaintDetailsSheetTopPart(
             ev,
-            onBack = onBack
+            onBack = onBack,
+            onOpenBaseDocument = onOpenBaseDocument,
         )
     }
 }

@@ -10,6 +10,7 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.InnerOrderMessageDto
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
@@ -179,6 +180,10 @@ class InnerOrdersComponent(
             is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
             else -> "Ошибка отправки сообщения"
         }
+    }
+
+    override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
+        return repository.resolveTreeRootDocument(rawBaseDocument)
     }
 
     /**

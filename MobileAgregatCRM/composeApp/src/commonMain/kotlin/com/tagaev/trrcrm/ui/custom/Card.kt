@@ -37,6 +37,7 @@ fun UniversalCardItem(
     bottomRightText: String? = null,
 
     onClick: (() -> Unit)? = null,
+    allowTitleLongPressCopy: Boolean = false,
 ) {
     Card(
         modifier = modifier
@@ -67,7 +68,9 @@ fun UniversalCardItem(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        allowLinkTap = false,
+                        allowLongPressCopy = allowTitleLongPressCopy,
                     )
                     Box(
                         modifier = Modifier.align(Alignment.CenterVertically)
@@ -79,7 +82,9 @@ fun UniversalCardItem(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        allowLinkTap = false,
+                        allowLongPressCopy = allowTitleLongPressCopy,
                     )
                 }
             }
@@ -94,7 +99,9 @@ fun UniversalCardItem(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                         Box(
                             modifier = Modifier.align(Alignment.CenterVertically)
@@ -106,7 +113,9 @@ fun UniversalCardItem(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     } else if (topRightSecondary != null) {
                         Box(
@@ -131,21 +140,27 @@ fun UniversalCardItem(
                     bigText1?.takeIf { it.isNotBlank() }?.let {
                         TextC(
                             text = it.withEscapedNewlines(),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
                     bigText2?.takeIf { it.isNotBlank() }?.let {
                         Spacer(Modifier.height(2.dp))
                         TextC(
                             text = it.withEscapedNewlines(),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
                     bigText3?.takeIf { it.isNotBlank() }?.let {
                         Spacer(Modifier.height(2.dp))
                         TextC(
                             text = it.withEscapedNewlines(),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
                 }
@@ -164,7 +179,9 @@ fun UniversalCardItem(
                         TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     } ?: Spacer(Modifier.weight(1f))
 
@@ -172,7 +189,9 @@ fun UniversalCardItem(
                         TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     } ?: Spacer(Modifier.weight(1f))
                 }
@@ -191,7 +210,9 @@ fun UniversalCardItem(
                         TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     } ?: Spacer(Modifier.weight(1f))
 
@@ -199,7 +220,9 @@ fun UniversalCardItem(
                         TextC(
                             text = it.withEscapedNewlines(),
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     } ?: Spacer(Modifier.weight(1f))
                 }
@@ -219,7 +242,9 @@ fun UniversalCardItem(
                         TextC(
                             text = it,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
 
@@ -229,7 +254,9 @@ fun UniversalCardItem(
                         TextC(
                             text = it,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
                 }

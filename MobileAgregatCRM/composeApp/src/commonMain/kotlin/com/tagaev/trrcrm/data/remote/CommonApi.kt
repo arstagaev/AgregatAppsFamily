@@ -58,6 +58,37 @@ sealed class Resource<out R> {
 class EventsApi(
     private val client: HttpClient
 ) {
+    internal suspend inline fun <reified T> findDocumentsByNumber(
+        apiConfig: ApiConfig,
+        documentName: String,
+        documentNumber: String,
+        count: Int = 30,
+        ncount: Int = 0
+    ): Resource<List<T>> = resourceify {
+        val url = apiConfig.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+                parameters.append("type", "Документ")
+                parameters.append("name", documentName)
+                parameters.append("count", count.toString())
+                parameters.append("ncount", ncount.toString())
+                parameters.append("filterby", "Номер")
+                parameters.append("filterval", documentNumber)
+                parameters.append("viewtype", "onlymy")
+            }
+        }
+
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<T>>(json, raw)
+    }
+
     suspend fun probeStartup(apiConfig: ApiConfig): Resource<Unit> = resourceify {
         // Lightweight cold-start probe:
         // - hit API root without fake credentials (avoids backend-side 500 on invalid gettoken probes)
@@ -314,7 +345,10 @@ class EventsApi(
                     parameters.append("filterby", currentRefine.searchQueryType.wire)
                     parameters.append("filterval", currentRefine.searchQuery)
 //                    parameters.append("filtertype", "list")
-                } else if (!currentRefine.filter.wire.isNullOrEmpty()) {
+                } else if (currentRefine.repairType != Refiner.WorkOrderRepairType.OFF) {
+                    parameters.append("filterby", Refiner.WorkOrderRepairType.API_FIELD)
+                    parameters.append("filterval", currentRefine.repairType.wire)
+                } else if (currentRefine.filter.wire.isNotEmpty()) {
                     parameters.append("filterby", currentRefine.filter.wire)
                     parameters.append("filterval", city)
                 }

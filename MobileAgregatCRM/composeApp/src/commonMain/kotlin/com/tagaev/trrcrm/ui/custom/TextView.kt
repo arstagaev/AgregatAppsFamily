@@ -1,7 +1,5 @@
 package com.tagaev.trrcrm.ui.custom
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -124,7 +122,6 @@ private fun parseInlineAnnotated(input: String): AnnotatedString? {
     return if (result.text.isBlank()) null else result
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TextCAnnotated(
     text: AnnotatedString,
@@ -138,6 +135,8 @@ fun TextCAnnotated(
     maxLines: Int = Int.MAX_VALUE,
     snackbarHostState: SnackbarHostState? = null, // optional, pass if you want toast/snackbar
     linkColor: Color = MaterialTheme.colorScheme.primary,
+    allowLinkTap: Boolean = true,
+    allowLongPressCopy: Boolean = true,
 ) {
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -184,21 +183,17 @@ fun TextCAnnotated(
 
     var textLayoutResult: TextLayoutResult? = remember { null }
 
-    Text(
-        text = linkAnnotatedText,
-        style = style.copy(
-            color = resolvedColor,
-            textAlign = textAlign ?: style.textAlign
-        ),
-        maxLines = maxLines,
-        softWrap = softWrap,
-        overflow = overflow,
-        modifier = modifier
-            .pointerInput(linkAnnotatedText, textLayoutResult) {
-                detectTapGestures(
-                    onTap = { offsetPos ->
-                        println(">>>>> onTap")
-                        val layout = textLayoutResult ?: return@detectTapGestures
+    val hasLinks = remember(linkAnnotatedText) {
+        linkAnnotatedText.getStringAnnotations(tag = "URL", start = 0, end = linkAnnotatedText.length).isNotEmpty()
+    }
+    val shouldHandleTap = allowLinkTap && hasLinks
+    val shouldHandleLongPress = allowLongPressCopy
+    val interactiveModifier = if (shouldHandleTap || shouldHandleLongPress) {
+        Modifier.pointerInput(linkAnnotatedText, textLayoutResult, shouldHandleTap, shouldHandleLongPress) {
+            detectTapGestures(
+                onTap = if (shouldHandleTap) { offsetPos ->
+                    val layout = textLayoutResult
+                    if (layout != null) {
                         val offset = layout.getOffsetForPosition(offsetPos)
                         val annotations = linkAnnotatedText.getStringAnnotations(
                             tag = "URL",
@@ -209,9 +204,10 @@ fun TextCAnnotated(
                         if (url != null) {
                             uriHandler.openUri(url)
                         }
-                    },
-                    onLongPress = {
-                        println(">>>>> onLongPress")
+                    }
+                } else null,
+                onLongPress = if (shouldHandleLongPress) {
+                    {
                         clipboard.setText(text)
                         if (snackbarHostState != null) {
                             scope.launch {
@@ -221,11 +217,26 @@ fun TextCAnnotated(
                                 )
                             }
                         }
-
                         showSnackbar("Скопировано!")
                     }
-                )
-            }
+                } else null
+            )
+        }
+    } else {
+        Modifier
+    }
+
+    Text(
+        text = linkAnnotatedText,
+        style = style.copy(
+            color = resolvedColor,
+            textAlign = textAlign ?: style.textAlign
+        ),
+        maxLines = maxLines,
+        softWrap = softWrap,
+        overflow = overflow,
+        modifier = modifier
+            .then(interactiveModifier)
             .padding(4.dp),
         onTextLayout = { layoutResult ->
             textLayoutResult = layoutResult
@@ -245,6 +256,8 @@ fun TextC(
     color: Color = Color.Unspecified,
     maxLines: Int = Int.MAX_VALUE,
     snackbarHostState: SnackbarHostState? = null,
+    allowLinkTap: Boolean = true,
+    allowLongPressCopy: Boolean = true,
 ) {
     val formattedBlocks = remember(text) {
         parseFormattedBlocks(text.withEscapedNewlines())
@@ -263,6 +276,8 @@ fun TextC(
             color = color,
             maxLines = maxLines,
             snackbarHostState = snackbarHostState,
+            allowLinkTap = allowLinkTap,
+            allowLongPressCopy = allowLongPressCopy,
         )
         return
     }
@@ -280,6 +295,8 @@ fun TextC(
                     color = color,
                     maxLines = maxLines,
                     snackbarHostState = snackbarHostState,
+                    allowLinkTap = allowLinkTap,
+                    allowLongPressCopy = allowLongPressCopy,
                 )
                 FormattedBlock.HorizontalRule -> HorizontalDivider(
                     modifier = Modifier

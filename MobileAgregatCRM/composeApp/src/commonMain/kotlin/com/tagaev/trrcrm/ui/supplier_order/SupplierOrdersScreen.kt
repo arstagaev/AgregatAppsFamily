@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,8 +30,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,16 +43,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.models.SupplierOrderDto
+import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
+import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Search
 import compose.icons.feathericons.X
+import kotlinx.coroutines.launch
 
 private enum class SupplierOrderSearchMode {
     NUMBER,
@@ -84,17 +93,25 @@ fun SupplierOrdersScreen(
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
     val selectedId by component.selectedItemGuid.collectAsState()
+    val scope = rememberCoroutineScope()
 
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
     var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
     var searchModeDraft by rememberSaveable { mutableStateOf(refineToSupplierMode(refineState.searchQueryType)) }
     val isTopBarLoading = resource is Resource.Loading || (resource as? Resource.Success<*>)?.additionalLoading == true
+    val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = androidx.compose.runtime.remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
         if (!isSearchMode) {
             searchQueryDraft = refineState.searchQuery
             searchModeDraft = refineToSupplierMode(refineState.searchQueryType)
         }
+    }
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        isResolvingBaseDocument = false
     }
 
     val applySearch: () -> Unit = {
@@ -111,6 +128,15 @@ fun SupplierOrdersScreen(
         isSearchMode = false
         component.setRefineState(refineState.copy(searchQuery = ""))
     }
+    val handleDetailsBack: () -> Unit = {
+        if (linkedDocuments.isNotEmpty()) {
+            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+        } else {
+            component.selectItemFromList(null)
+            component.changePanel(MasterPanel.List)
+        }
+    }
+    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
 
     MasterScreen(
         title = "Заказ поставщику",
@@ -127,10 +153,39 @@ fun SupplierOrdersScreen(
             SupplierOrderCard(order = order, onClick = onClick)
         },
         detailsContent = { order, onClose ->
-            SupplierOrderDetailsSheet(
-                order = order,
-                onBack = onClose
-            )
+            val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                scope.launch {
+                    isResolvingBaseDocument = true
+                    try {
+                        when (val resolved = component.resolveBaseDocument(rawBaseDocument)) {
+                            is Resource.Success -> linkedDocuments.add(resolved.data)
+                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Loading -> Unit
+                        }
+                    } finally {
+                        isResolvingBaseDocument = false
+                    }
+                }
+            }
+            val onNestedBack: () -> Unit = {
+                if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                else onClose()
+            }
+
+            val currentLinked = linkedDocuments.lastOrNull()
+            if (currentLinked != null) {
+                TreeRootDocumentDetailsSheet(
+                    document = currentLinked,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument
+                )
+            } else {
+                SupplierOrderDetailsSheet(
+                    order = order,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument
+                )
+            }
         },
         filterScreen = { current, onDismiss, onApply ->
             RefineScreen(
@@ -165,23 +220,27 @@ fun SupplierOrdersScreen(
         } else {
             null
         },
-        topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
-            {
-                OutlinedTextField(
-                    value = searchQueryDraft,
-                    onValueChange = { searchQueryDraft = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp),
-                    placeholder = { Text("Поиск заказа поставщику") },
-                    singleLine = true,
-                    enabled = !isTopBarLoading,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { applySearch() })
-                )
+        topBarTitleContent = when {
+            panel == MasterPanel.List && isSearchMode -> {
+                {
+                    OutlinedTextField(
+                        value = searchQueryDraft,
+                        onValueChange = { searchQueryDraft = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                        placeholder = { Text("Поиск заказа поставщику") },
+                        singleLine = true,
+                        enabled = !isTopBarLoading,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { applySearch() })
+                    )
+                }
             }
-        } else {
-            null
+            panel == MasterPanel.Details && linkedDocTitle != null -> {
+                { Text("Документ Основание: $linkedDocTitle") }
+            }
+            else -> null
         },
         topBarActionsContent = { isLoadingTopBar ->
             if (panel == MasterPanel.List) {
@@ -202,13 +261,15 @@ fun SupplierOrdersScreen(
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
                         Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
                     }
-                    IconButton(onClick = {
-                        searchQueryDraft = refineState.searchQuery
-                        searchModeDraft = refineToSupplierMode(refineState.searchQueryType)
-                        isSearchMode = true
-                    }) {
-                        Icon(FeatherIcons.Search, contentDescription = "Поиск")
-                    }
+                    SearchIconButtonWithIndicator(
+                        showIndicator = refineState.searchQuery.isNotBlank(),
+                        enabled = !isLoadingTopBar,
+                        onClick = {
+                            searchQueryDraft = refineState.searchQuery
+                            searchModeDraft = refineToSupplierMode(refineState.searchQueryType)
+                            isSearchMode = true
+                        }
+                    )
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
                             modifier = Modifier
@@ -237,8 +298,18 @@ fun SupplierOrdersScreen(
         } else {
             null
         },
+        onDetailsBack = handleDetailsBack,
         modifier = modifier
     )
+
+    if (isResolvingBaseDocument) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Пожалуйста, подождите") },
+            text = { Text("ищем документ основание....") },
+            confirmButton = {}
+        )
+    }
 }
 
 @Composable
