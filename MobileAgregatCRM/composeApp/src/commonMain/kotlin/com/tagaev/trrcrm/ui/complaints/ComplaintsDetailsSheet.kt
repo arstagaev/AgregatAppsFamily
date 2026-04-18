@@ -8,25 +8,41 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.domain.UserRow
 import com.tagaev.trrcrm.domain.sortedByRolePriority
 import com.tagaev.trrcrm.ext.toIntSafe
+import com.tagaev.trrcrm.models.ComplaintChecklistItemDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.models.ComplaintWorkDto
 import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
+import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableDividerOutdent
+import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableListPadding
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.SectionTitle
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.CheckCircle
+import compose.icons.feathericons.Circle
 import kotlin.collections.map
+
+/** Material green 700 — «выполнено» в чек-листе рекламации (только [complaintChecklistItemDone]). */
+private val ComplaintChecklistDoneGreen = Color(0xFF388E3C)
+
+private fun complaintChecklistItemDone(state: String?): Boolean =
+    state?.trim()?.equals("да", ignoreCase = true) == true
 
 @Composable
 fun ComplaintDetailsSheetTopPart(
@@ -260,6 +276,22 @@ fun ComplaintDetailsSheetTopPart(
                 items = defects
             ) { d ->
                 ComplaintDefectItemRow(defect = d)
+            }
+            Spacer(Modifier.height(3.dp))
+        }
+
+        val checklist = complaint.checklist
+        if (checklist.isNotEmpty()) {
+            ExpandableListSection(
+                title = "Чек лист (поз. ${checklist.size})",
+                items = checklist,
+                initiallyExpanded = false,
+                listContentPadding = WorkOrderLineItemsExpandableListPadding,
+                itemSpacing = 0.dp,
+                showItemDividers = true,
+                dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
+            ) { row ->
+                ComplaintChecklistItemRow(item = row)
             }
             Spacer(Modifier.height(3.dp))
         }
@@ -687,6 +719,49 @@ fun ComplaintDefectItemRow(
                 text = expl,
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+    }
+}
+
+@Composable
+private fun ComplaintChecklistItemRow(
+    item: ComplaintChecklistItemDto,
+) {
+    val done = complaintChecklistItemDone(item.state)
+    val tint = if (done) ComplaintChecklistDoneGreen else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = if (done) FeatherIcons.CheckCircle else FeatherIcons.Circle,
+            contentDescription = if (done) "Выполнено" else "Не выполнено",
+            modifier = Modifier
+                .padding(top = 1.dp, end = 6.dp)
+                .size(16.dp),
+            tint = tint
+        )
+        Column(Modifier.weight(1f)) {
+            item.name?.takeIf { it.isNotBlank() }?.let {
+                TextC(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            item.state?.takeIf { it.isNotBlank() }?.let { st ->
+                Text(
+                    text = st,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -77,9 +78,19 @@ fun <T> DetailsWithMessagesSheet(
     /** When non-null, hide composer after this many rows exist in history (e.g. 1 for complectation). */
     maxMessagesInHistory: Int? = null,
     showComposer: Boolean = true,
+    /**
+     * When null, a local [androidx.compose.foundation.rememberScrollState] is used.
+     * When non-null, the scroll position is fully controlled (e.g. to restore when returning from a linked document).
+     */
+    scrollState: ScrollState? = null,
+    /**
+     * When both non-null, "Показать все" for the history list (>10) is owned by the caller. Otherwise internal state.
+     */
+    showAllHistory: Boolean? = null,
+    onShowAllHistoryChange: ((Boolean) -> Unit)? = null,
     headerContent: @Composable (ColumnScope.(T) -> Unit),
 ) {
-    val scrollState = rememberScrollState()
+    val detailsScrollState = scrollState ?: rememberScrollState()
     var messageDraft by remember(guid, initialDraft) {
         val base = when {
             !initialDraft.isNullOrEmpty() -> initialDraft
@@ -91,7 +102,12 @@ fun <T> DetailsWithMessagesSheet(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var lastFailedDraft by remember { mutableStateOf<String?>(null) }
     val internalMessages = remember(messages) { messages.toMutableStateList() }
-    var showAllMessages by remember(messages) { mutableStateOf(false) }
+    var showAllInternal by remember(messages) { mutableStateOf(false) }
+    val isExternalHistory = showAllHistory != null && onShowAllHistoryChange != null
+    val showAllMessages: Boolean = if (isExternalHistory) showAllHistory == true else showAllInternal
+    fun setShowAllMessages(new: Boolean) {
+        if (isExternalHistory) onShowAllHistoryChange!!(new) else showAllInternal = new
+    }
 
     val composerVisible = showComposer && (maxMessagesInHistory == null || internalMessages.size < maxMessagesInHistory)
 
@@ -163,7 +179,7 @@ fun <T> DetailsWithMessagesSheet(
         modifier = Modifier
             .fillMaxSize()
             .navigationBarsPadding()
-            .verticalScroll(scrollState)
+            .verticalScroll(detailsScrollState)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         headerContent(item)
@@ -199,7 +215,7 @@ fun <T> DetailsWithMessagesSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     TextButton(
-                        onClick = { showAllMessages = !showAllMessages },
+                        onClick = { setShowAllMessages(!showAllMessages) },
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.primary
                         )

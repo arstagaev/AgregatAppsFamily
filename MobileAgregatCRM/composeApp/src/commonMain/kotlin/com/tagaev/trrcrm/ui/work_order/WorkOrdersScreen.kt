@@ -31,6 +31,7 @@ import com.tagaev.trrcrm.ui.master_screen.RefineScreen
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Search
@@ -114,12 +115,18 @@ fun WorkOrdersScreen(
         )
     }
 
-    val clearSearchAndExit: () -> Unit = {
-        searchQueryDraft = ""
+    val hideSearchForm: () -> Unit = {
         isSearchMode = false
-        component.setRefineState(
-            refineState.copy(searchQuery = "")
-        )
+        searchQueryDraft = refineState.searchQuery
+        searchTypeDraft = if (refineState.searchQueryType in WORK_ORDER_TOPBAR_SEARCH_OPTIONS) {
+            refineState.searchQueryType
+        } else {
+            Refiner.SearchQueryType.CODE
+        }
+    }
+    val clearSearchAndClose: () -> Unit = {
+        isSearchMode = false
+        component.setRefineState(refineState.copy(searchQuery = ""))
     }
 
     MasterScreen(
@@ -197,11 +204,19 @@ fun WorkOrdersScreen(
 
         topBarNavigationIcon = if (panel == MasterPanel.List && isSearchMode) {
             {
-                IconButton(
-                    onClick = clearSearchAndExit,
-                    enabled = !isTopBarLoading
-                ) {
-                    Icon(FeatherIcons.X, contentDescription = "Закрыть поиск")
+                Row {
+                    IconButton(
+                        onClick = hideSearchForm,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                    }
+                    IconButton(
+                        onClick = clearSearchAndClose,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                    }
                 }
             }
         } else {

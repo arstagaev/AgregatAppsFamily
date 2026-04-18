@@ -258,6 +258,19 @@ class ComplectationComponent(
         fullRefresh()
     }
 
+    /**
+     * Однократный поиск списка комплектаций по [Refiner.SearchQueryType.KIT_CHARACTERISTIC] (без изменения сохранённого refine и списка на экране).
+     */
+    suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
+        val trimmed = token.trim()
+        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        val searchState = _refineState.value.copy(
+            searchQuery = trimmed,
+            searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
+        )
+        return repository.loadComplectations(0, searchState)
+    }
+
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
         if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
         val res = repository.sendMessageToComplectation(

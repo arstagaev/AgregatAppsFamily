@@ -23,8 +23,11 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.tagaev.trrcrm.domain.TreeRootDocument
+import com.tagaev.trrcrm.domain.normalizeRawDocumentLabel
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.ui.custom.TextC
+import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowRight
 import compose.icons.feathericons.ChevronDown
@@ -76,15 +79,16 @@ fun CargoDetailsSheet(
         }
 
         cargo.baseDocument.takeIf { it.isNotBlank() }?.let { baseDocument ->
+            val cleanedBase = remember(baseDocument) { normalizeRawDocumentLabel(baseDocument) }
             Text(
                 text = "Документ-основание",
                 style = MaterialTheme.typography.titleSmall
             )
             TextC(
-                text = baseDocument,
+                text = cleanedBase,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) },
+                modifier = Modifier.clickable { onOpenBaseDocument(cleanedBase) },
                 allowLinkTap = false,
                 allowLongPressCopy = false,
             )
@@ -198,15 +202,10 @@ fun CargoDetailsSheet(
                 title = "Заказы",
                 items = cargo.orders
             ) { order ->
-//                val mainText = when (order) {
-//                    is String -> order
-//                    else -> order.toString()
-//                }
-                TextC(
-                    text = order.order,
-                    style = MaterialTheme.typography.bodyMedium,
+                CargoDocumentReferenceText(
+                    raw = order.order,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    onOpen = onOpenBaseDocument,
                 )
             }
         }
@@ -225,13 +224,13 @@ fun CargoDetailsSheet(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Column(Modifier.padding(3.dp).fillMaxWidth()) {
-                        TextC(
-                            text = "${product.order}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            overflow = TextOverflow.Ellipsis
+                        CargoDocumentReferenceText(
+                            raw = product.order,
+                            maxLines = 3,
+                            onOpen = onOpenBaseDocument,
                         )
                         TextC(
-                            text = "${product.productName} (${product.quantity} ${product.unit})",
+                            text = "${product.productName} (${formatProductQuantityWithUnit(product.quantity, product.unit) ?: "—"})",
                             style = MaterialTheme.typography.bodyMedium,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -266,6 +265,38 @@ fun CargoDetailsSheet(
     }
 }
 
+@Composable
+private fun CargoDocumentReferenceText(
+    raw: String,
+    maxLines: Int,
+    onOpen: (String) -> Unit,
+) {
+    val cleaned = remember(raw) { normalizeRawDocumentLabel(raw) }
+    if (cleaned.isBlank()) return
+    val isDocLink = remember(cleaned) { TreeRootDocument.parse(cleaned) != null }
+    if (isDocLink) {
+        TextC(
+            text = cleaned,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable { onOpen(cleaned) },
+            allowLinkTap = false,
+            allowLongPressCopy = false,
+        )
+    } else {
+        TextC(
+            text = cleaned,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            allowLinkTap = false,
+            allowLongPressCopy = false,
+        )
+    }
+}
+
 /** Widen a child to extend past the parent's horizontal bounds (Compose forbids negative padding). */
 private fun Modifier.expandDividerHorizontally(outdent: Dp): Modifier =
     if (outdent == 0.dp) {
@@ -297,11 +328,18 @@ fun <T> ExpandableListSection(
     itemSpacing: Dp = 4.dp,
     showItemDividers: Boolean = false,
     dividerHorizontalOutdent: Dp = 0.dp,
+    /**
+     * When `null` (default), section manages expand/collapse with [initiallyExpanded] as the initial value.
+     * When non-null, the caller owns `expanded` and should pass [onExpandedChange] to toggle.
+     */
+    expanded: Boolean? = null,
+    onExpandedChange: ((Boolean) -> Unit)? = null,
     itemContent: @Composable (T) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    var uncontrolledExpanded by remember { mutableStateOf(initiallyExpanded) }
+    val effectiveExpanded = expanded ?: uncontrolledExpanded
     val rotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
+        targetValue = if (effectiveExpanded) 180f else 0f,
         label = "arrowRotation"
     )
 
@@ -315,7 +353,13 @@ fun <T> ExpandableListSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded }
+                    .clickable {
+                        if (onExpandedChange != null && expanded != null) {
+                            onExpandedChange(!expanded)
+                        } else {
+                            uncontrolledExpanded = !uncontrolledExpanded
+                        }
+                    }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -331,7 +375,7 @@ fun <T> ExpandableListSection(
                 )
             }
 
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(visible = effectiveExpanded) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

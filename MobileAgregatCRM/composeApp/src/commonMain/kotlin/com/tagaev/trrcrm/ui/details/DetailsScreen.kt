@@ -57,6 +57,7 @@ import com.tagaev.trrcrm.utils.TARGET_EVENT
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
 import com.tagaev.trrcrm.utils.roleRank
 import com.tagaev.trrcrm.models.isResponsible
+import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
 
 @Composable
 fun DetailsScreen(
@@ -411,7 +412,7 @@ private fun ProductItem(t: ProductsItem) {
         Text(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
-            t.quantity?.takeIf { it.isNotBlank() }?.let { add("$it ${t.unit ?: ""}") }
+            formatProductQuantityWithUnit(t.quantity, t.unit)?.let { add(it) }
 //            t.unit?.takeIf { it.isNotBlank() }?.let { add("Ед. Измерения: $it") }
             t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
             t.sum?.takeIf { it.isNotBlank() }?.let { add("Сумма: $it") }

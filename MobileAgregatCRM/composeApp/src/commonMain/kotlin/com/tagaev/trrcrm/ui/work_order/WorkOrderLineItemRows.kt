@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.work_order
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,6 +26,7 @@ import com.tagaev.trrcrm.models.WorkOrderExecutorDto
 import com.tagaev.trrcrm.models.WorkOrderJobDto
 import com.tagaev.trrcrm.models.WorkOrderProductDto
 import com.tagaev.trrcrm.ui.custom.TextC
+import androidx.compose.runtime.remember
 
 /** Horizontal padding aligned with [WorkOrderLineItemsExpandableDividerOutdent] for list dividers */
 val WorkOrderLineItemsExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
@@ -32,6 +35,18 @@ val WorkOrderLineItemsExpandableDividerOutdent = 8.dp
 
 internal fun dashOr(text: String?): String =
     text?.trim()?.takeIf { it.isNotBlank() } ?: "—"
+
+/** `null` если нет ни количества, ни ед. изм. */
+internal fun formatProductQuantityWithUnit(quantity: String?, unit: String?): String? {
+    val q = quantity?.trim().orEmpty()
+    val u = unit?.trim().orEmpty()
+    if (q.isEmpty() && u.isEmpty()) return null
+    return when {
+        q.isNotEmpty() && u.isNotEmpty() -> "$q $u"
+        q.isNotEmpty() -> q
+        else -> u
+    }
+}
 
 internal fun formatRubleAmount(raw: String?): String {
     val s = raw?.trim().orEmpty()
@@ -72,7 +87,21 @@ internal fun jobExecutorTitle(job: WorkOrderJobDto, executors: List<WorkOrderExe
 }
 
 @Composable
-fun WorkOrderProductLineRowCompact(product: WorkOrderProductDto) {
+fun WorkOrderProductLineRowCompact(
+    product: WorkOrderProductDto,
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
+) {
+    val charRaw = product.characteristic?.trim().orEmpty()
+    val charDisplay = if (onNomenclatureCharacteristicSearch != null) {
+        charRaw.ifEmpty { "—" }
+    } else {
+        productCharacteristicTitle(product)
+    }
+    val charMaxLines = if (onNomenclatureCharacteristicSearch != null) 10 else 2
+    val onCharClick: (() -> Unit)? =
+        onNomenclatureCharacteristicSearch?.takeIf { charRaw.isNotEmpty() }
+            ?.let { { it(charRaw) } }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -98,20 +127,18 @@ fun WorkOrderProductLineRowCompact(product: WorkOrderProductDto) {
         ) {
             WorkOrderProductMetaCell(
                 label = "хар-ка",
-                value = productCharacteristicTitle(product),
+                value = charDisplay,
                 modifier = Modifier.weight(1f),
-                emphasize = true
+                emphasize = true,
+                onValueClick = onCharClick,
+                valueMaxLines = charMaxLines,
+                usePrimaryForValue = onCharClick != null
             )
             WorkOrderProductMetaCell(
                 label = "кол-во",
-                value = dashOr(product.quantity),
+                value = formatProductQuantityWithUnit(product.quantity, product.unit) ?: "—",
                 modifier = Modifier.weight(1f),
                 emphasize = true
-            )
-            WorkOrderProductMetaCell(
-                label = "ед.",
-                value = dashOr(product.unit),
-                modifier = Modifier.weight(1f)
             )
             WorkOrderProductMetaCell(
                 label = "цена",
@@ -144,7 +171,20 @@ private fun WorkOrderProductMetaCell(
     value: String,
     modifier: Modifier = Modifier,
     emphasize: Boolean = false,
+    onValueClick: (() -> Unit)? = null,
+    valueMaxLines: Int = 2,
+    usePrimaryForValue: Boolean = false,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val valueModifier = if (onValueClick != null) {
+        Modifier.clickable(
+            interactionSource = interaction,
+            indication = null,
+            onClick = onValueClick
+        )
+    } else {
+        Modifier
+    }
     Column(modifier = modifier) {
         Text(
             text = label,
@@ -156,14 +196,18 @@ private fun WorkOrderProductMetaCell(
         Spacer(Modifier.height(1.dp))
         TextC(
             text = value,
+            modifier = valueModifier,
             style = MaterialTheme.typography.bodySmall.copy(
                 fontSize = 11.sp,
-                lineHeight = 12.sp,
+                lineHeight = 13.sp,
                 fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Medium
             ),
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
+            color = if (usePrimaryForValue) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface,
+            maxLines = valueMaxLines,
+            overflow = if (valueMaxLines > 2) TextOverflow.Clip else TextOverflow.Ellipsis,
+            allowLinkTap = false,
+            allowLongPressCopy = false
         )
     }
 }

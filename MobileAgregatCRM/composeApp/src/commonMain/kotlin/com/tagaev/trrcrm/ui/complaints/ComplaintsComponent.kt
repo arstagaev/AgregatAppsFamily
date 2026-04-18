@@ -164,12 +164,7 @@ class ComplaintsComponent(
     fun loadRefineState(): RefineState {
         val raw = appSettings.getStringOrNull(AppSettingsKeys.COMPLAINTS_REFINE_STATE)
         if (raw.isNullOrBlank()) {
-            // default state when nothing stored
-            return RefineState(
-                orderBy = Refiner.OrderBy.DATE,
-                filter = Refiner.Filter.DEPARTMENT,
-                filterValue = appSettings.getString(AppSettingsKeys.DEPARTMENT,"")
-            )
+            return RefineState.Default
         }
 
         return runCatching {

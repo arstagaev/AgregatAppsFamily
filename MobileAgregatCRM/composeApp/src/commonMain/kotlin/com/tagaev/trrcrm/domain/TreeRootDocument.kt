@@ -82,6 +82,36 @@ sealed class TreeRootResolvedDocument {
     }
 }
 
+/**
+ * Stable key for scoping per-document details UI (scroll, expansions) in the link stack.
+ */
+fun TreeRootResolvedDocument.stableStateKey(): String {
+    val g = guid?.trim().orEmpty()
+    if (g.isNotBlank() && g != "null") return "${kind.name}:$g"
+    return when (this) {
+        is TreeRootResolvedDocument.Event -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.WorkOrder -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.Complectation -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.Complaint -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.InnerOrder -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.BuyerOrder -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.SupplierOrder -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.Cargo -> "${kind.name}:n:${value.number}"
+    }
+}
+
+/**
+ * Normalizes 1C-style document reference strings for display and for [TreeRootDocument.parse]:
+ * NBSP, CR/LF to spaces, collapses whitespace.
+ */
+fun normalizeRawDocumentLabel(raw: String): String =
+    raw.trim()
+        .replace('\u00a0', ' ')
+        .replace('\r', ' ')
+        .replace('\n', ' ')
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+
 object TreeRootDocument {
     private val typeAndNumberRegex = Regex(
         pattern = """^\s*([^\d]+?)\s+([0-9A-Za-zА-Яа-я\-_/]+)\s+от\s+.+$""",
@@ -89,7 +119,7 @@ object TreeRootDocument {
     )
 
     fun parse(rawBaseDocument: String): TreeRootDocumentRef? {
-        val raw = rawBaseDocument.trim()
+        val raw = normalizeRawDocumentLabel(rawBaseDocument)
         if (raw.isBlank()) return null
 
         val match = typeAndNumberRegex.find(raw) ?: return null
@@ -117,6 +147,10 @@ object TreeRootDocument {
             .lowercase()
             .replace(Regex("""["'`«»]"""), "")
             .replace("-", " ")
+            // Unicode dashes (1C / copy-paste) so «Заказ–наряд» matches «заказ наряд»
+            .replace('\u2013', ' ')
+            .replace('\u2014', ' ')
+            .replace('\u2010', ' ')
             .replace(Regex("""\s+"""), " ")
             .trim()
 

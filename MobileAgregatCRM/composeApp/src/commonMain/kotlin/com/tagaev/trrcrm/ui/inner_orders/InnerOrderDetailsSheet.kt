@@ -25,6 +25,7 @@ import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.SectionTitle
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
 import kotlin.collections.map
 
 @Composable
@@ -120,16 +121,21 @@ fun InnerOrderDetailsSheetTopPart(
                 verticalAlignment = Alignment.Top
             ) {
                 if (!innerOrder.workOrderNumber.isNullOrBlank()) {
+                    val zn = innerOrder.workOrderNumber.orEmpty()
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Комплектация / ЗН:",
+                            text = "Номер ЗН:",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         TextC(
-                            text = innerOrder.workOrderNumber.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium
+                            text = zn,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { onOpenBaseDocument(zn) },
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
                 } else {
@@ -147,7 +153,9 @@ fun InnerOrderDetailsSheetTopPart(
                             text = baseDocument,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) }
+                            modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) },
+                            allowLinkTap = false,
+                            allowLongPressCopy = false,
                         )
                     }
                 }
@@ -276,16 +284,8 @@ fun InnerOrderDetailsSheetTopPart(
                     )
 
                     // Кол-во / Цена
-                    if (!g.quantity.isNullOrBlank() || !g.price.isNullOrBlank()) {
-                        val qtyWithUnit = buildString {
-                            if (!g.quantity.isNullOrBlank()) {
-                                append(g.quantity)
-                                if (!g.unit.isNullOrBlank()) {
-                                    append(" ")
-                                    append(g.unit)
-                                }
-                            }
-                        }.ifBlank { null }
+                    if (formatProductQuantityWithUnit(g.quantity, g.unit) != null || !g.price.isNullOrBlank()) {
+                        val qtyWithUnit = formatProductQuantityWithUnit(g.quantity, g.unit)
 
                         DetailTwoColumnRow(
                             firstTitle = "Кол-во:",

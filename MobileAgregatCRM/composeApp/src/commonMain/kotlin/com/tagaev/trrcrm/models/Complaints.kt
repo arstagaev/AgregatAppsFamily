@@ -238,13 +238,27 @@ data class ComplaintDto(
     val defects: List<ComplaintDefectDto> = emptyList(),
 
     @SerialName("ЧекЛист")
-    val checklist: List<JsonObject> = emptyList(),
+    val checklist: List<ComplaintChecklistItemDto> = emptyList(),
 
     @SerialName("tasks")
     val tasks: List<ComplaintTaskDto> = emptyList(),
 
     @SerialName("messages")
     val messages: List<ComplaintMessageDto> = emptyList(),
+)
+
+/** Строка чек-листа рекламации (те же ключи 1С, что у комплектации). */
+@Serializable
+data class ComplaintChecklistItemDto(
+    @SerialName("НомерСтроки") val lineNumber: String? = null,
+    @SerialName("Автор") val author: String? = null,
+    @SerialName("Дата") val date: String? = null,
+    @SerialName("Наименование") val name: String? = null,
+    @SerialName("Состояние") val state: String? = null,
+    @SerialName("Решение") val decision: String? = null,
+    @SerialName("Пояснение") val description: String? = null,
+    @SerialName("Фото") val photo: String? = null,
+    @SerialName("Инстр") val action: String? = null,
 )
 
 @Serializable

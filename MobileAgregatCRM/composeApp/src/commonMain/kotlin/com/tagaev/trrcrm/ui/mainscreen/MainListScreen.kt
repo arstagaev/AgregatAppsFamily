@@ -444,7 +444,7 @@ fun EventCard(
             )
 
             if (!compact) {
-                KeyValueRow("Эпик", ev.baseDocument)
+                KeyValueRow("Документ основание", ev.baseDocument)
                 HorizontalDivider(modifier = Modifier.fillMaxWidth(), thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(8.dp))
                 KeyValueRow("Вид события", ev.eventType)

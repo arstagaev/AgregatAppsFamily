@@ -51,6 +51,7 @@ import kotlinx.datetime.format
 import com.tagaev.trrcrm.models.isResponsible
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.custom.TextCLinkPreview
+import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
 import org.koin.compose.koinInject
 
 @Composable
@@ -137,7 +138,9 @@ fun EventsHeader(
                     text = baseDocument,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) }
+                    modifier = Modifier.clickable { onOpenBaseDocument(baseDocument) },
+                    allowLinkTap = false,
+                    allowLongPressCopy = false,
                 )
             }
 
@@ -313,7 +316,7 @@ private fun ProductItem(t: ProductsItem) {
         TextCLinkPreview(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
-            t.quantity?.takeIf { it.isNotBlank() }?.let { add("$it ${t.unit ?: ""}") }
+            formatProductQuantityWithUnit(t.quantity, t.unit)?.let { add(it) }
 //            t.unit?.takeIf { it.isNotBlank() }?.let { add("Ед. Измерения: $it") }
             t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
             t.sum?.takeIf { it.isNotBlank() }?.let { add("Сумма: $it") }

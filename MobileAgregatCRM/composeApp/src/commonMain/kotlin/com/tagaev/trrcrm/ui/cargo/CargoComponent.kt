@@ -152,27 +152,21 @@ class CargoComponent(
     // ---------- Work Orders refine state ----------
 
     fun loadRefineState(): RefineState {
-        val raw = appSettings.getStringOrNull(AppSettingsKeys.EVENTS_REFINE_STATE)
+        val raw = appSettings.getStringOrNull(AppSettingsKeys.CARGO_MASTER_REFINE_STATE)
         if (raw.isNullOrBlank()) {
-            // default state when nothing stored
-            return RefineState(
-                orderBy = Refiner.OrderBy.DATE,
-                filter = Refiner.Filter.DEPARTMENT,
-                filterValue = appSettings.getString(AppSettingsKeys.DEPARTMENT,"")
-            )
+            return RefineState.Default
         }
 
         return runCatching {
             json.decodeFromString<RefineState>(raw)
         }.getOrElse {
-            // if schema changed or data corrupted – fail gracefully
             RefineState()
         }
     }
 
     fun saveRefineState(state: RefineState) {
         val encoded = json.encodeToString(state)
-        appSettings.setString(AppSettingsKeys.EVENTS_REFINE_STATE, encoded)
+        appSettings.setString(AppSettingsKeys.CARGO_MASTER_REFINE_STATE, encoded)
     }
     /**
      * Convenience helper: applies a local "add message" operation to a WorkOrder

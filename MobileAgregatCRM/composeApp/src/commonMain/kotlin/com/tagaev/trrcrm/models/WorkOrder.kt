@@ -10,6 +10,7 @@ data class WorkOrderDto(
     @SerialName("Проведен") val posted: String? = null,
     @SerialName("ПометкаУдаления") val deletionMark: String? = null,
     @SerialName("Ссылка") val link: String? = null,
+    @SerialName("ДокументОснование") val baseDocument: String? = null,
     @SerialName("Дата") val date: String? = null,
     @SerialName("Номер") val number: String? = null,
 

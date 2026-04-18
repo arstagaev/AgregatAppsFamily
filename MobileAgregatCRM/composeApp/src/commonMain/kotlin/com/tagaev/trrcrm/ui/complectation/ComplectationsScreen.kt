@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.complectation
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -10,6 +11,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,14 +29,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
+import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.stableStateKey
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
+import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.CameraView
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
@@ -40,11 +50,13 @@ import compose.icons.FeatherIcons
 import compose.icons.LineAwesomeIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.Camera
+import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Search
 import compose.icons.feathericons.X
 import compose.icons.lineawesomeicons.QrcodeSolid
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 private enum class ComplectationSearchModeType {
@@ -95,6 +107,11 @@ fun ComplectationsScreen(
     val qrLookupError by component.qrLookupError.collectAsState()
 
     val scope = rememberCoroutineScope()
+    val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    val stackedDetails = remember { mutableStateMapOf<String, StackedDocumentDetailsSnapshot>() }
+    var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
+    var isResolvingLinkedByCharacteristic by rememberSaveable { mutableStateOf(false) }
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
     var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
     var searchTypeDraft by rememberSaveable {
@@ -109,6 +126,12 @@ fun ComplectationsScreen(
             searchTypeDraft = refineToComplectationSearchModeType(refineState.searchQueryType)
         }
     }
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        isResolvingBaseDocument = false
+        isResolvingLinkedByCharacteristic = false
+        stackedDetails.clear()
+    }
 
     val applySearch: () -> Unit = {
         val normalizedQuery = searchQueryDraft.trim()
@@ -119,13 +142,24 @@ fun ComplectationsScreen(
             )
         )
     }
-    val clearSearchAndExit: () -> Unit = {
-        searchQueryDraft = ""
+    val hideSearchForm: () -> Unit = {
         isSearchMode = false
-        component.setRefineState(
-            refineState.copy(searchQuery = "")
-        )
+        searchQueryDraft = refineState.searchQuery
+        searchTypeDraft = refineToComplectationSearchModeType(refineState.searchQueryType)
     }
+    val clearSearchAndClose: () -> Unit = {
+        isSearchMode = false
+        component.setRefineState(refineState.copy(searchQuery = ""))
+    }
+    val handleDetailsBack: () -> Unit = {
+        if (linkedDocuments.isNotEmpty()) {
+            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+        } else {
+            component.selectItemFromList(null)
+            component.changePanel(MasterPanel.List)
+        }
+    }
+    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
 
     if (isQrScannerOpen) {
         ComplectationQrScannerView(
@@ -161,21 +195,115 @@ fun ComplectationsScreen(
 
         // Full-screen details content (not bottom-sheet)
         detailsContent = { order, onClose ->
-            ComplectationDetailsSheet(
-                order = order,
-                onBack = onClose,
-                onSendMessage = { message, onResult ->
-                    val number = order.number.orEmpty()
-                    val date = order.date.orEmpty()
-                    scope.launch {
-                        val err = component.sendMessage(number, date, message)
-                        if (err == null) {
-                            component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+            val currentLinked = linkedDocuments.lastOrNull()
+            val detailsKey: String = if (currentLinked != null) {
+                currentLinked.stableStateKey()
+            } else {
+                complectationRootListStateKey(order)
+            }
+            val snapshot: StackedDocumentDetailsSnapshot = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot()
+            val detailsScroll: ScrollState = remember(detailsKey) {
+                ScrollState(snapshot.scroll)
+            }
+            LaunchedEffect(detailsKey) {
+                snapshotFlow { detailsScroll.value }
+                    .distinctUntilChanged()
+                    .collect { v ->
+                        val prev = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot()
+                        if (v != prev.scroll) {
+                            stackedDetails[detailsKey] = prev.withScroll(v)
                         }
-                        onResult(err)
+                    }
+            }
+            val onStackedSnapshot: (StackedDocumentDetailsSnapshot) -> Unit = { s ->
+                stackedDetails[detailsKey] = s.withScroll(detailsScroll.value)
+            }
+            val complectationStackedUi: ComplectationTreeStackedUi = ComplectationTreeStackedUi(
+                detailsScroll = detailsScroll,
+                detailsSnapshot = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot(),
+                onDetailsSnapshot = onStackedSnapshot
+            )
+            val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                scope.launch {
+                    isResolvingBaseDocument = true
+                    try {
+                        when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
+                            .getOrElse { e -> Resource.Error(causes = e.message ?: "Ошибка поиска документа") }) {
+                            is Resource.Success -> linkedDocuments.add(resolved.data)
+                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Loading -> Unit
+                        }
+                    } finally {
+                        isResolvingBaseDocument = false
                     }
                 }
-            )
+            }
+            val onNestedBack: () -> Unit = {
+                if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                else onClose()
+            }
+            if (currentLinked != null) {
+                TreeRootDocumentDetailsSheet(
+                    document = currentLinked,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    complectationStacked = complectationStackedUi
+                )
+            } else {
+                ComplectationDetailsSheet(
+                    order = order,
+                    onBack = onNestedBack,
+                    stackedDetailsSnapshot = complectationStackedUi.detailsSnapshot,
+                    onStackedDetailsSnapshotChange = complectationStackedUi.onDetailsSnapshot,
+                    detailsScrollState = complectationStackedUi.detailsScroll,
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    onSendMessage = { message, onResult ->
+                        val number = order.number.orEmpty()
+                        val date = order.date.orEmpty()
+                        scope.launch {
+                            val err = component.sendMessage(number, date, message)
+                            if (err == null) {
+                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+                            }
+                            onResult(err)
+                        }
+                    },
+                    onNomenclatureCharacteristicSearch = { rawCharacteristic ->
+                        val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
+                        if (token.isBlank()) {
+                            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+                        } else {
+                            scope.launch {
+                                isResolvingLinkedByCharacteristic = true
+                                try {
+                                    when (val res = component.searchComplectationsByKitCharacteristicToken(token)) {
+                                        is Resource.Success -> {
+                                            val list = res.data.orEmpty()
+                                            if (list.isEmpty()) {
+                                                showSnackbar("Комплектации не найдены")
+                                            } else {
+                                                linkedDocuments.add(
+                                                    TreeRootResolvedDocument.Complectation(list.first())
+                                                )
+                                                if (list.size > 1) {
+                                                    showSnackbar("Найдено ${list.size}, открыт первый")
+                                                }
+                                            }
+                                        }
+                                        is Resource.Error -> showSnackbar(
+                                            res.causes ?: res.exception?.message
+                                                ?: "Ошибка поиска комплектации"
+                                        )
+                                        is Resource.Loading -> Unit
+                                    }
+                                } finally {
+                                    isResolvingLinkedByCharacteristic = false
+                                }
+                            }
+                        }
+                    }
+                )
+            }
         },
 
         // Full-screen filter screen (not dialog)
@@ -209,33 +337,45 @@ fun ComplectationsScreen(
 
         topBarNavigationIcon = if (panel == MasterPanel.List && isSearchMode) {
             {
-                IconButton(
-                    onClick = clearSearchAndExit,
-                    enabled = !isTopBarLoading
-                ) {
-                    Icon(FeatherIcons.X, contentDescription = "Закрыть поиск")
+                Row {
+                    IconButton(
+                        onClick = hideSearchForm,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                    }
+                    IconButton(
+                        onClick = clearSearchAndClose,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                    }
                 }
             }
         } else {
             null
         },
-        topBarTitleContent = if (panel == MasterPanel.List && isSearchMode) {
-            {
-                OutlinedTextField(
-                    value = searchQueryDraft,
-                    onValueChange = { searchQueryDraft = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp),
-                    placeholder = { Text(searchTypeDraft.searchFieldPlaceholder()) },
-                    singleLine = true,
-                    enabled = !isTopBarLoading,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { applySearch() })
-                )
+        topBarTitleContent = when {
+            panel == MasterPanel.List && isSearchMode -> {
+                {
+                    OutlinedTextField(
+                        value = searchQueryDraft,
+                        onValueChange = { searchQueryDraft = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                        placeholder = { Text(searchTypeDraft.searchFieldPlaceholder()) },
+                        singleLine = true,
+                        enabled = !isTopBarLoading,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { applySearch() })
+                    )
+                }
             }
-        } else {
-            null
+            panel == MasterPanel.Details && linkedDocTitle != null -> {
+                { Text("Связанный документ: $linkedDocTitle") }
+            }
+            else -> null
         },
         topBarActionsContent = { isLoadingTopBar ->
             if (panel == MasterPanel.List) {
@@ -294,9 +434,18 @@ fun ComplectationsScreen(
         } else {
             null
         },
-
+        onDetailsBack = handleDetailsBack,
         modifier = modifier
     )
+
+    if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Пожалуйста, подождите") },
+            text = { Text("Поиск документа…") },
+            confirmButton = {}
+        )
+    }
 }
 
 @Composable

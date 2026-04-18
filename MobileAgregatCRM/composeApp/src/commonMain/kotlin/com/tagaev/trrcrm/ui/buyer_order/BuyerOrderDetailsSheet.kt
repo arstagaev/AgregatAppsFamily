@@ -26,6 +26,7 @@ import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
 
 private val BuyerOrderExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 private val BuyerOrderExpandableDividerOutdent = 8.dp
@@ -123,6 +124,18 @@ private fun BuyerOrderHeaderContent(
         )
     } else {
         BuyerOrderCompactValue(order.baseDocument)
+    }
+    order.workOrderRef?.takeIf { it.isNotBlank() }?.let { workOrderRef ->
+        Spacer(Modifier.height(4.dp))
+        BuyerOrderCompactTitle("НомерЗН")
+        Text(
+            text = workOrderRef,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clickable { onOpenBaseDocument(workOrderRef) }
+        )
     }
     Spacer(Modifier.height(8.dp))
 
@@ -250,8 +263,7 @@ private fun BuyerOrderProductRow(product: WorkOrderProductDto) {
             overflow = TextOverflow.Ellipsis
         )
         val sub = listOfNotNull(
-            product.quantity?.takeIf { it.isNotBlank() }?.let { "кол-во: $it" },
-            product.unit?.takeIf { it.isNotBlank() }?.let { "ед.: $it" },
+            formatProductQuantityWithUnit(product.quantity, product.unit)?.let { "кол-во: $it" },
             product.price?.takeIf { it.isNotBlank() }?.let { "цена: $it" },
             product.amount?.takeIf { it.isNotBlank() }?.let { "сумма: $it" }
         ).joinToString(" · ")

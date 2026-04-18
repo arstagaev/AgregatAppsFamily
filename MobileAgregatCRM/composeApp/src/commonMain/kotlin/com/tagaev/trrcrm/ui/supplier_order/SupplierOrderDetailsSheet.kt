@@ -25,6 +25,7 @@ import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
 
 private val SupplierExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 private val SupplierExpandableDividerOutdent = 8.dp
@@ -197,8 +198,7 @@ private fun SupplierProductRow(product: WorkOrderProductDto) {
             overflow = TextOverflow.Ellipsis
         )
         val sub = listOfNotNull(
-            product.quantity?.takeIf { it.isNotBlank() }?.let { "кол-во: $it" },
-            product.unit?.takeIf { it.isNotBlank() }?.let { "ед.: $it" },
+            formatProductQuantityWithUnit(product.quantity, product.unit)?.let { "кол-во: $it" },
             product.price?.takeIf { it.isNotBlank() }?.let { "цена: $it" },
             product.amount?.takeIf { it.isNotBlank() }?.let { "сумма: $it" }
         ).joinToString(" · ")

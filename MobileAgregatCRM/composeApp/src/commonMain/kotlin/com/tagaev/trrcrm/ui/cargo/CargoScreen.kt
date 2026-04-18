@@ -52,6 +52,7 @@ import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.ui.style.DefaultColors
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Search
@@ -124,8 +125,16 @@ fun CargoScreen(component: ICargoComponent) {
             )
         )
     }
-    val clearSearchAndExit: () -> Unit = {
-        searchQueryDraft = ""
+    val hideSearchForm: () -> Unit = {
+        isSearchMode = false
+        searchQueryDraft = refineState.searchQuery
+        searchTypeDraft = if (refineState.searchQueryType in CARGO_TOPBAR_SEARCH_OPTIONS) {
+            refineState.searchQueryType
+        } else {
+            Refiner.SearchQueryType.CODE
+        }
+    }
+    val clearSearchAndClose: () -> Unit = {
         isSearchMode = false
         component.setRefineState(refineState.copy(searchQuery = ""))
     }
@@ -165,7 +174,8 @@ fun CargoScreen(component: ICargoComponent) {
                 scope.launch {
                     isResolvingBaseDocument = true
                     try {
-                        when (val resolved = component.resolveBaseDocument(rawBaseDocument)) {
+                        when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
+                            .getOrElse { e -> Resource.Error(causes = e.message ?: "Ошибка поиска документа") }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
                             is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
                             is Resource.Loading -> Unit
@@ -229,11 +239,19 @@ fun CargoScreen(component: ICargoComponent) {
         onSelectedItemChange = { id -> component.selectItemFromList(id) },
         topBarNavigationIcon = if (panel == MasterPanel.List && isSearchMode) {
             {
-                IconButton(
-                    onClick = clearSearchAndExit,
-                    enabled = !isTopBarLoading
-                ) {
-                    Icon(FeatherIcons.X, contentDescription = "Закрыть поиск")
+                Row {
+                    IconButton(
+                        onClick = hideSearchForm,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                    }
+                    IconButton(
+                        onClick = clearSearchAndClose,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                    }
                 }
             }
         } else null,

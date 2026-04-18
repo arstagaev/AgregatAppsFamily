@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.complectation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,12 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.ScrollState
 import com.tagaev.trrcrm.models.ComplectationChecklistItemDto
 import com.tagaev.trrcrm.models.ComplectationPlanningRowDto
 import com.tagaev.trrcrm.models.WorkOrderDefectDto
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.models.WorkOrderJobDto
 import com.tagaev.trrcrm.models.WorkOrderProductDto
+import com.tagaev.trrcrm.domain.normalizeRawDocumentLabel
 import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.work_order.WorkOrderJobLineRowCompact
@@ -111,8 +114,21 @@ fun ComplectationDetailsSheet(
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
     initialDraft: String? = null,
-    onDraftChanged: (String) -> Unit = {}
+    onDraftChanged: (String) -> Unit = {},
+    /** Сырой текст [WorkOrderProductDto.characteristic] для поиска комплектаций по характеристике; `null` — клик отключён. */
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
+    /** Переход по «ДокументОснование» в стек связанных; `null` — только текст. */
+    onOpenBaseDocument: ((String) -> Unit)? = null,
+    /**
+     * Когда все три ненулевы — детализация + история + скролл восстанавливаются с учётом стека связанных документов.
+     * Иначе (по умолчанию) — внутреннее `remember` как раньше.
+     */
+    stackedDetailsSnapshot: StackedDocumentDetailsSnapshot? = null,
+    onStackedDetailsSnapshotChange: ((StackedDocumentDetailsSnapshot) -> Unit)? = null,
+    detailsScrollState: ScrollState? = null,
 ) {
+    val useStackedDetails =
+        stackedDetailsSnapshot != null && onStackedDetailsSnapshotChange != null && detailsScrollState != null
     DetailsWithMessagesSheet(
         item = order,
         guid = order.guid.toString(),
@@ -141,8 +157,27 @@ fun ComplectationDetailsSheet(
         addCommentTitle = "Добавить запись",
         composerPlaceholder = "Текст записи…",
         sendingDialogTitle = "Отправка записи",
+        scrollState = if (useStackedDetails) detailsScrollState else null,
+        showAllHistory = if (useStackedDetails) {
+            (stackedDetailsSnapshot ?: StackedDocumentDetailsSnapshot()).showAllHistory
+        } else {
+            null
+        },
+        onShowAllHistoryChange = if (useStackedDetails) {
+            val snap = stackedDetailsSnapshot!!
+            val onCh = onStackedDetailsSnapshotChange!!
+            { b: Boolean -> onCh(snap.withShowAllHistory(b)) }
+        } else {
+            null
+        },
         headerContent = { wo ->
-            wireframeComplectationHeader(wo)
+            wireframeComplectationHeader(
+                wo = wo,
+                onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                onOpenBaseDocument = onOpenBaseDocument,
+                stackedDetailsSnapshot = stackedDetailsSnapshot,
+                onStackedDetailsSnapshotChange = onStackedDetailsSnapshotChange,
+            )
         }
     )
 }
@@ -184,7 +219,15 @@ private fun CompactMuted(text: String) {
 }
 
 @Composable
-private fun wireframeComplectationHeader(wo: WorkOrderDto) {
+private fun wireframeComplectationHeader(
+    wo: WorkOrderDto,
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)?,
+    onOpenBaseDocument: ((String) -> Unit)? = null,
+    stackedDetailsSnapshot: StackedDocumentDetailsSnapshot? = null,
+    onStackedDetailsSnapshotChange: ((StackedDocumentDetailsSnapshot) -> Unit)? = null,
+) {
+    val useStacked =
+        stackedDetailsSnapshot != null && onStackedDetailsSnapshotChange != null
     if (!wo.organization.isNullOrBlank() || !wo.branch.isNullOrBlank()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -212,6 +255,28 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
     if (!wo.link.isNullOrBlank()) {
         CompactSectionTitle("Ссылка:")
         CompactBody(wo.link.orEmpty())
+    }
+
+    wo.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
+        CompactSectionTitle("Документ-основание:")
+        if (onOpenBaseDocument != null) {
+            val cleaned = normalizeRawDocumentLabel(baseDocument)
+            TextC(
+                text = baseDocument,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 14.sp),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 6,
+                overflow = TextOverflow.Clip,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenBaseDocument(cleaned) },
+                allowLinkTap = false,
+                allowLongPressCopy = false,
+            )
+        } else {
+            CompactBody(baseDocument)
+        }
+        Spacer(Modifier.height(4.dp))
     }
 
     val docSubtitle = buildString {
@@ -308,12 +373,21 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
         title = "Товары (поз. ${products.size})",
         items = products,
         initiallyExpanded = false,
+        expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.PRODUCTS) else null,
+        onExpandedChange = if (useStacked) {
+            { b -> onStackedDetailsSnapshotChange!!(stackedDetailsSnapshot!!.withSectionExpanded(ComplectationDetailsSection.PRODUCTS, b)) }
+        } else {
+            null
+        },
         listContentPadding = WorkOrderLineItemsExpandableListPadding,
         itemSpacing = 0.dp,
         showItemDividers = true,
         dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
     ) { product ->
-        WorkOrderProductLineRowCompact(product)
+        WorkOrderProductLineRowCompact(
+            product = product,
+            onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+        )
     }
     Spacer(Modifier.height(6.dp))
 
@@ -323,6 +397,12 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
         title = "Работы (поз. ${jobs.size})",
         items = jobs,
         initiallyExpanded = false,
+        expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.JOBS) else null,
+        onExpandedChange = if (useStacked) {
+            { b -> onStackedDetailsSnapshotChange!!(stackedDetailsSnapshot!!.withSectionExpanded(ComplectationDetailsSection.JOBS, b)) }
+        } else {
+            null
+        },
         listContentPadding = WorkOrderLineItemsExpandableListPadding,
         itemSpacing = 0.dp,
         showItemDividers = true,
@@ -343,6 +423,12 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
         title = "Дефектовка (поз. ${defectsNew.size})",
         items = defectsNew,
         initiallyExpanded = false,
+        expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.DEFECTS) else null,
+        onExpandedChange = if (useStacked) {
+            { b -> onStackedDetailsSnapshotChange!!(stackedDetailsSnapshot!!.withSectionExpanded(ComplectationDetailsSection.DEFECTS, b)) }
+        } else {
+            null
+        },
         listContentPadding = WorkOrderLineItemsExpandableListPadding,
         itemSpacing = 0.dp,
         showItemDividers = true,
@@ -357,6 +443,12 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
         title = "Планирование (поз. ${planning.size})",
         items = planning,
         initiallyExpanded = false,
+        expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.PLANNING) else null,
+        onExpandedChange = if (useStacked) {
+            { b -> onStackedDetailsSnapshotChange!!(stackedDetailsSnapshot!!.withSectionExpanded(ComplectationDetailsSection.PLANNING, b)) }
+        } else {
+            null
+        },
         listContentPadding = WorkOrderLineItemsExpandableListPadding,
         itemSpacing = 0.dp,
         showItemDividers = true,
@@ -371,6 +463,12 @@ private fun wireframeComplectationHeader(wo: WorkOrderDto) {
         title = "Чек лист (поз. ${checklist.size})",
         items = checklist,
         initiallyExpanded = false,
+        expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.CHECKLIST) else null,
+        onExpandedChange = if (useStacked) {
+            { b -> onStackedDetailsSnapshotChange!!(stackedDetailsSnapshot!!.withSectionExpanded(ComplectationDetailsSection.CHECKLIST, b)) }
+        } else {
+            null
+        },
         listContentPadding = WorkOrderLineItemsExpandableListPadding,
         itemSpacing = 0.dp,
         showItemDividers = true,

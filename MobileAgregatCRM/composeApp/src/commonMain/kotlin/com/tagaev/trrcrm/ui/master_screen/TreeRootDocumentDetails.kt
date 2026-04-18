@@ -5,6 +5,7 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.ui.buyer_order.BuyerOrderDetailsSheet
 import com.tagaev.trrcrm.ui.cargo.CargoDetailsSheet
 import com.tagaev.trrcrm.ui.complectation.ComplectationDetailsSheet
+import com.tagaev.trrcrm.ui.complectation.ComplectationTreeStackedUi
 import com.tagaev.trrcrm.ui.complaints.ComplaintDetailsSheetWithMessages
 import com.tagaev.trrcrm.ui.events.EventDetailsSheet
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrderDetailsSheetWithMessages
@@ -16,6 +17,8 @@ fun TreeRootDocumentDetailsSheet(
     document: TreeRootResolvedDocument,
     onBack: () -> Unit,
     onOpenBaseDocument: (String) -> Unit,
+    /** For [TreeRootResolvedDocument.Complectation] only: restore scroll / sections when deep-linking the stack. */
+    complectationStacked: ComplectationTreeStackedUi? = null,
 ) {
     when (document) {
         is TreeRootResolvedDocument.Event -> EventDetailsSheet(
@@ -33,6 +36,10 @@ fun TreeRootDocumentDetailsSheet(
             order = document.value,
             onBack = onBack,
             onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
+            stackedDetailsSnapshot = complectationStacked?.detailsSnapshot,
+            onStackedDetailsSnapshotChange = complectationStacked?.onDetailsSnapshot,
+            detailsScrollState = complectationStacked?.detailsScroll,
+            onOpenBaseDocument = onOpenBaseDocument,
         )
         is TreeRootResolvedDocument.Complaint -> ComplaintDetailsSheetWithMessages(
             complaint = document.value,
