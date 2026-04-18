@@ -46,13 +46,16 @@ import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
-import com.tagaev.trrcrm.domain.displayNameRu
+import com.tagaev.trrcrm.domain.TreeRootDocumentKind
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
+import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.ui.custom.SessionTrrImage
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.mainscreen.StatusBadge
 import com.tagaev.trrcrm.ui.mainscreen.format
+import com.tagaev.trrcrm.ui.master_screen.LinkedDocumentStackTabStrip
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
@@ -182,7 +185,6 @@ fun EventsScreen(
             component.changePanel(MasterPanel.List)
         }
     }
-    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
     val sessionLoadingImage = remember { SessionTrrImage.get() }
     var isLoadingOverlayVisible by remember { mutableStateOf(false) }
     var wasLoading by remember { mutableStateOf(false) }
@@ -350,8 +352,8 @@ fun EventsScreen(
                         )
                     }
                 }
-                panel == MasterPanel.Details && linkedDocTitle != null -> {
-                    { Text("Документ Основание: $linkedDocTitle", modifier = Modifier.padding(horizontal = 10.dp)) }
+                panel == MasterPanel.Details && linkedDocuments.isNotEmpty() -> {
+                    { Text(linkedDocuments.last().linkTabLabel(), modifier = Modifier.padding(horizontal = 10.dp)) }
                 }
                 else -> null
             },
@@ -402,6 +404,25 @@ fun EventsScreen(
                     }
                 }
             },
+            topBarTopContent = if (panel == MasterPanel.Details && selectedId != null && linkedDocuments.isNotEmpty()) {
+                {
+                    val rows = (resource as? Resource.Success)?.data.orEmpty()
+                    val rootEv = rows.firstOrNull { it.guid.toString() == selectedId }
+                    val rootLabel = rootEv?.let { ev ->
+                        linkTabCaptionForListRow(ev.link, TreeRootDocumentKind.EVENT, ev.number)
+                    }.orEmpty()
+                    LinkedDocumentStackTabStrip(
+                        tabLabels = listOf(rootLabel) + linkedDocuments.map { it.linkTabLabel() },
+                        selectedIndex = linkedDocuments.size,
+                        onTabClick = { idx ->
+                            if (idx == 0) linkedDocuments.clear()
+                            else while (linkedDocuments.size > idx) {
+                                linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                            }
+                        },
+                    )
+                }
+            } else null,
             topBarBottomContent = if (panel == MasterPanel.List && isSearchMode) {
                 {
                     EventsSearchTypeRow(

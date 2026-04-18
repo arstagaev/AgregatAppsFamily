@@ -85,6 +85,8 @@ fun <T, F> MasterScreen(
     topBarNavigationIcon: (@Composable () -> Unit)? = null,
     topBarTitleContent: (@Composable () -> Unit)? = null,
     topBarActionsContent: (@Composable RowScope.(isLoadingTopBar: Boolean) -> Unit)? = null,
+    /** Shown above [TopAppBar] (e.g. linked-document stack tabs). */
+    topBarTopContent: (@Composable () -> Unit)? = null,
     topBarBottomContent: (@Composable () -> Unit)? = null,
     onDetailsBack: (() -> Unit)? = null,
 ) {
@@ -96,6 +98,7 @@ fun <T, F> MasterScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                topBarTopContent?.invoke()
                 val titleSlot: @Composable () -> Unit = {
                     when {
                         topBarTitleContent != null -> topBarTitleContent()

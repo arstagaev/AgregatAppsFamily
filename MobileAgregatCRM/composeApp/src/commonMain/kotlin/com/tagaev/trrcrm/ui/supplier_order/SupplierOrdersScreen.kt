@@ -43,10 +43,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootDocumentKind
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
-import com.tagaev.trrcrm.domain.displayNameRu
+import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
+import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
+import com.tagaev.trrcrm.ui.master_screen.LinkedDocumentStackTabStrip
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
@@ -141,8 +144,6 @@ fun SupplierOrdersScreen(
             component.changePanel(MasterPanel.List)
         }
     }
-    val linkedDocTitle = linkedDocuments.lastOrNull()?.kind?.displayNameRu()
-
     MasterScreen(
         title = "Заказ поставщику",
         resource = resource,
@@ -248,8 +249,8 @@ fun SupplierOrdersScreen(
                     )
                 }
             }
-            panel == MasterPanel.Details && linkedDocTitle != null -> {
-                { Text("Документ Основание: $linkedDocTitle") }
+            panel == MasterPanel.Details && linkedDocuments.isNotEmpty() -> {
+                { Text(linkedDocuments.last().linkTabLabel()) }
             }
             else -> null
         },
@@ -296,6 +297,25 @@ fun SupplierOrdersScreen(
                 }
             }
         },
+        topBarTopContent = if (panel == MasterPanel.Details && selectedId != null && linkedDocuments.isNotEmpty()) {
+            {
+                val rows = (resource as? Resource.Success)?.data.orEmpty()
+                val root = rows.firstOrNull { it.guid.toString() == selectedId }
+                val rootLabel = root?.let { o ->
+                    linkTabCaptionForListRow(o.link, TreeRootDocumentKind.SUPPLIER_ORDER, o.number)
+                }.orEmpty()
+                LinkedDocumentStackTabStrip(
+                    tabLabels = listOf(rootLabel) + linkedDocuments.map { it.linkTabLabel() },
+                    selectedIndex = linkedDocuments.size,
+                    onTabClick = { idx ->
+                        if (idx == 0) linkedDocuments.clear()
+                        else while (linkedDocuments.size > idx) {
+                            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                        }
+                    },
+                )
+            }
+        } else null,
         topBarBottomContent = if (panel == MasterPanel.List && isSearchMode) {
             {
                 SupplierOrderSearchRow(

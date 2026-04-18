@@ -101,6 +101,42 @@ fun TreeRootResolvedDocument.stableStateKey(): String {
 }
 
 /**
+ * Caption for stack tabs: trimmed API [Ссылка] value only; if empty, kind + number (no "Ссылка" label).
+ */
+fun TreeRootResolvedDocument.linkTabLabel(): String {
+    val linkText = when (this) {
+        is TreeRootResolvedDocument.Event -> value.link
+        is TreeRootResolvedDocument.WorkOrder -> value.link
+        is TreeRootResolvedDocument.Complectation -> value.link
+        is TreeRootResolvedDocument.Complaint -> value.link
+        is TreeRootResolvedDocument.InnerOrder -> value.link
+        is TreeRootResolvedDocument.BuyerOrder -> value.link
+        is TreeRootResolvedDocument.SupplierOrder -> value.link
+        is TreeRootResolvedDocument.Cargo -> value.link
+    }?.trim().orEmpty()
+    if (linkText.isNotBlank()) return linkText
+    val number = when (this) {
+        is TreeRootResolvedDocument.Event -> value.number
+        is TreeRootResolvedDocument.WorkOrder -> value.number
+        is TreeRootResolvedDocument.Complectation -> value.number
+        is TreeRootResolvedDocument.Complaint -> value.number
+        is TreeRootResolvedDocument.InnerOrder -> value.number
+        is TreeRootResolvedDocument.BuyerOrder -> value.number
+        is TreeRootResolvedDocument.SupplierOrder -> value.number
+        is TreeRootResolvedDocument.Cargo -> value.number
+    }?.trim().orEmpty()
+    return if (number.isNotBlank()) "${kind.displayNameRu()} № $number" else kind.displayNameRu()
+}
+
+/** Root list row tab caption from the same `Ссылка` field as [TreeRootResolvedDocument.linkTabLabel]. */
+fun linkTabCaptionForListRow(link: String?, kind: TreeRootDocumentKind, number: String?): String {
+    val t = link?.trim().orEmpty()
+    if (t.isNotBlank()) return t
+    val n = number?.trim().orEmpty()
+    return if (n.isNotBlank()) "${kind.displayNameRu()} № $n" else kind.displayNameRu()
+}
+
+/**
  * Normalizes 1C-style document reference strings for display and for [TreeRootDocument.parse]:
  * NBSP, CR/LF to spaces, collapses whitespace.
  */
