@@ -26,6 +26,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
+import com.tagaev.trrcrm.models.IncomingApplicationDto
+import com.tagaev.trrcrm.models.RepairTemplateCatalogItemDto
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.SentMessageResponse
 import com.tagaev.trrcrm.models.SupplierOrderDto
@@ -610,6 +612,90 @@ class EventsApi(
 
         val raw = response.bodyAsText()
         decodeOrWarning<List<SupplierOrderDto>>(json, raw)
+    }
+
+    suspend fun getIncomingApplications(
+        apiConfig: ApiConfig,
+        ncount: Int = 0,
+        currentRefine: RefineState,
+        city: String,
+    ): Resource<List<IncomingApplicationDto>> = resourceify {
+        val url = apiConfig.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+                parameters.append("type", "Документ")
+                parameters.append("name", "ВходящиеЗаявки")
+                parameters.append("count", "30")
+                parameters.append("ncount", "$ncount")
+                if (currentRefine.orderBy != Refiner.OrderBy.OFF) {
+                    parameters.append("orderby", currentRefine.orderBy.wire)
+                    parameters.append("orderdir", currentRefine.orderDir.wire)
+                } else {
+                    parameters.append("orderdir", Refiner.Dir.DESC.wire)
+                }
+                if (currentRefine.status == Refiner.Status.ACTIVE) {
+                    parameters.append("state", FilterByOption.ACTIVE.wire)
+                } else if (currentRefine.status == Refiner.Status.DONE) {
+                    parameters.append("state", FilterByOption.NO_ACTIVE.wire)
+                }
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    parameters.append("filterby", currentRefine.searchQueryType.wire)
+                    parameters.append("filterval", currentRefine.searchQuery)
+                } else if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue.ifBlank { city })
+                }
+                parameters.append("viewtype", "onlymy1")
+            }
+        }
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<IncomingApplicationDto>>(json, raw)
+    }
+
+    suspend fun getRepairTemplateCatalog(
+        apiConfig: ApiConfig,
+        ncount: Int = 0,
+        currentRefine: RefineState,
+        city: String,
+    ): Resource<List<RepairTemplateCatalogItemDto>> = resourceify {
+        val url = apiConfig.baseUrl
+        val response = client.get(url) {
+            url {
+                parameters.append("token", apiConfig.token)
+                parameters.append("task", "getitemslist")
+                parameters.append("type", "Справочник")
+                parameters.append("name", "ШаблоныРемонта")
+                parameters.append("count", "30")
+                parameters.append("ncount", "$ncount")
+                parameters.append("orderby", "Наименование")
+                parameters.append("orderdir", currentRefine.orderDir.wire)
+                if (currentRefine.searchQuery.isNotEmpty()) {
+                    val filterBy =
+                        if (currentRefine.searchQueryType in Refiner.SearchQueryType.repairTemplateCatalogSearchTypes) {
+                            currentRefine.searchQueryType.wire
+                        } else {
+                            Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL.wire
+                        }
+                    parameters.append("filterby", filterBy)
+                    parameters.append("filterval", currentRefine.searchQuery)
+                } else if (currentRefine.filter == Refiner.Filter.DEPARTMENT) {
+                    parameters.append("filterby", currentRefine.filter.wire)
+                    parameters.append("filterval", currentRefine.filterValue.ifBlank { city })
+                }
+            }
+        }
+        if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText().take(2000) }.getOrNull()
+            throw ClientRequestException(response, body ?: "HTTP ${response.status}")
+        }
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<RepairTemplateCatalogItemDto>>(json, raw)
     }
 
     suspend fun getCargos(apiConfig: ApiConfig, ncount: Int = 0, currentRefine: RefineState, city: String): Resource<List<CargoDto>> = resourceify {

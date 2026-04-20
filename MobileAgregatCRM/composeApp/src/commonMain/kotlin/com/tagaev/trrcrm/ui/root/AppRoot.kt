@@ -49,6 +49,8 @@ import com.tagaev.trrcrm.ui.buyer_order.BuyerOrdersScreen
 import com.tagaev.trrcrm.ui.complectation.ComplectationsScreen
 import com.tagaev.trrcrm.ui.complaints.ComplaintsScreen
 import com.tagaev.trrcrm.ui.events.EventsScreen
+import com.tagaev.trrcrm.ui.incoming_applications.IncomingApplicationsScreen
+import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
 import com.tagaev.trrcrm.ui.menu.MenuScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
@@ -57,8 +59,10 @@ import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
 import compose.icons.LineAwesomeIcons
 import compose.icons.feathericons.Box
 import compose.icons.feathericons.Grid
+import compose.icons.feathericons.Phone
 import compose.icons.feathericons.Truck
 import compose.icons.feathericons.Zap
+import compose.icons.feathericons.Cpu
 import compose.icons.lineawesomeicons.CarSideSolid
 import compose.icons.lineawesomeicons.CheckCircle
 import compose.icons.lineawesomeicons.QrcodeSolid
@@ -164,6 +168,22 @@ fun AppRoot(root: IRootComponent) {
                                 }
                                 root.openInnerOrder(needBackToList)
                             },
+                            onIncomingApplications = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.IncomingApplications) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openIncomingApplications(needBackToList)
+                            },
+                            onRepairTemplateCatalog = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.RepairTemplateCatalog) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openRepairTemplateCatalog(needBackToList)
+                            },
                             onMenu = { if (activeChild !is IRootComponent.Child.Menu) root.openMenu() },
                             onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
                         )
@@ -187,6 +207,8 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.SupplierOrder -> SupplierOrdersScreen(c.component)
                         is IRootComponent.Child.Complaint -> ComplaintsScreen(c.component)
                         is IRootComponent.Child.InnerOrder -> InnerOrdersScreen(c.component)
+                        is IRootComponent.Child.IncomingApplications -> IncomingApplicationsScreen(c.component)
+                        is IRootComponent.Child.RepairTemplateCatalog -> RepairTemplateCatalogScreen(c.component)
                         is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
                         is IRootComponent.Child.Settings -> SettingsScreen(c.component)
                         is IRootComponent.Child.Menu -> MenuScreen(c.component)
@@ -214,7 +236,9 @@ fun AppBottomNavBar2(
     onWorkOrder: () -> Unit,
     onComplectation: () -> Unit,
     onComplaint: () -> Unit,
-    onInnerOrder: () -> Unit
+    onInnerOrder: () -> Unit,
+    onIncomingApplications: () -> Unit,
+    onRepairTemplateCatalog: () -> Unit,
 ) {
     // Use Surface to mimic NavigationBar style but control layout ourselves
     Surface(
@@ -284,6 +308,20 @@ fun AppBottomNavBar2(
                 onClick = onInnerOrder,
                 icon = { Icon(FeatherIcons.Box, contentDescription = null) },
                 label = "Внутр. заказы"
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.IncomingApplications,
+                onClick = onIncomingApplications,
+                icon = { Icon(FeatherIcons.Phone, contentDescription = null) },
+                label = "Входящие Заявки"
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.RepairTemplateCatalog,
+                onClick = onRepairTemplateCatalog,
+                icon = { Icon(FeatherIcons.Cpu, contentDescription = null) },
+                label = "Калькуляция"
             )
 
             BottomNavChip(

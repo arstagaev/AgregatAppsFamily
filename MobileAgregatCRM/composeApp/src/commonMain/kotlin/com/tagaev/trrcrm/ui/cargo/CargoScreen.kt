@@ -84,6 +84,17 @@ private fun Refiner.SearchQueryType.cargoSearchLabel(): String = when (this) {
     Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
     Refiner.SearchQueryType.FIX_TYPE -> "Вид ремонта"
     Refiner.SearchQueryType.CLIENT -> "Заказчик"
+    Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
+    Refiner.SearchQueryType.PHONE -> "Телефон"
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_CODE,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_YEAR_FROM,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_YEAR_TO,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_TRANSMISSION,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
+    -> "Калькуляция"
 }
 
 @Composable

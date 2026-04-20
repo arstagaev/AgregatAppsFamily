@@ -91,7 +91,34 @@ sealed interface Refiner : ApiOption {
         CLIENT("По заказчику (клиенту) в ЗН", "Заказчик"),
         ROUTE("По маршруту", "Маршрут"),
         CARRIER("По грузоперевозчику", "Грузоперевозчик"),
-        //OFF("Выключить","")
+        /** Документ «ВходящиеЗаявки» и др. с реквизитом «СутьОбращения». */
+        SUBJECT_MATTER("По сути обращения", "СутьОбращения"),
+        /** Телефон клиента (реквизит «Телефон»). */
+        PHONE("По телефону", "Телефон"),
+        /** Справочник «ШаблоныРемонта» (калькуляция). */
+        REPAIR_TEMPLATE_MODEL("Модель", "Модель"),
+        REPAIR_TEMPLATE_NAME("Наименование", "Наименование"),
+        REPAIR_TEMPLATE_CODE("Код", "Код"),
+        REPAIR_TEMPLATE_YEAR_FROM("Год от", "ГодОт"),
+        REPAIR_TEMPLATE_YEAR_TO("Год до", "ГодДо"),
+        REPAIR_TEMPLATE_TRANSMISSION("Тип КПП", "ТипКПП"),
+        REPAIR_TEMPLATE_ENGINE("ДВС", "ДВС"),
+        REPAIR_TEMPLATE_REPAIR_KIND("Вид ремонта", "ВидРемонта"),
+        ;
+
+        companion object {
+            /** Реквизиты `filterby` для справочника «ШаблоныРемонта» (экран Калькуляция). */
+            val repairTemplateCatalogSearchTypes: Set<SearchQueryType> = setOf(
+                REPAIR_TEMPLATE_MODEL,
+                REPAIR_TEMPLATE_NAME,
+                REPAIR_TEMPLATE_CODE,
+                REPAIR_TEMPLATE_YEAR_FROM,
+                REPAIR_TEMPLATE_YEAR_TO,
+                REPAIR_TEMPLATE_TRANSMISSION,
+                REPAIR_TEMPLATE_ENGINE,
+                REPAIR_TEMPLATE_REPAIR_KIND,
+            )
+        }
     }
 
     enum class Filter(

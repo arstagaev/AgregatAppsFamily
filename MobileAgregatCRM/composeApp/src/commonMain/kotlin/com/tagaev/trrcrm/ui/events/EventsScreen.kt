@@ -101,6 +101,17 @@ private fun Refiner.SearchQueryType.eventsSearchLabel(): String = when (this) {
     Refiner.SearchQueryType.CLIENT -> "Заказчик"
     Refiner.SearchQueryType.ROUTE -> "Маршрут"
     Refiner.SearchQueryType.CARRIER -> "Перевозчик"
+    Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
+    Refiner.SearchQueryType.PHONE -> "Телефон"
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_CODE,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_YEAR_FROM,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_YEAR_TO,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_TRANSMISSION,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
+    Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
+    -> "Калькуляция"
 }
 
 @Composable

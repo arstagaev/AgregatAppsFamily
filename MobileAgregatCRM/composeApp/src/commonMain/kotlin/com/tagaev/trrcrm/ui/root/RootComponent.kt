@@ -17,6 +17,8 @@ import com.tagaev.trrcrm.ui.complaints.ComplaintsComponent
 import com.tagaev.trrcrm.ui.details.DetailsComponent
 import com.tagaev.trrcrm.ui.events.EventsComponent
 import com.tagaev.trrcrm.ui.favorites.FavoritesComponent
+import com.tagaev.trrcrm.ui.incoming_applications.IncomingApplicationsComponent
+import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogComponent
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersComponent
 import com.tagaev.trrcrm.ui.login.ILoginComponent
 import com.tagaev.trrcrm.ui.login.LoginComponent
@@ -47,6 +49,8 @@ interface IRootComponent {
     fun openSupplierOrders(needBackToList: Boolean)
     fun openComplaint(needBackToList: Boolean)
     fun openInnerOrder(needBackToList: Boolean)
+    fun openIncomingApplications(needBackToList: Boolean)
+    fun openRepairTemplateCatalog(needBackToList: Boolean)
     fun openComplectation(needBackToList: Boolean)
     fun openWorkOrders(needBackToList: Boolean)
     fun openQRScanner()
@@ -74,6 +78,8 @@ interface IRootComponent {
         data object SupplierOrder : Config
         data object Complaint : Config
         data object InnerOrder : Config
+        data object IncomingApplications : Config
+        data object RepairTemplateCatalog : Config
         data object Favorites : Config
         data object Menu : Config
         data object Settings : Config
@@ -92,6 +98,8 @@ interface IRootComponent {
         data class SupplierOrder(val component: SupplierOrdersComponent) : Child
         data class Complaint(val component: ComplaintsComponent) : Child
         data class InnerOrder(val component: InnerOrdersComponent) : Child
+        data class IncomingApplications(val component: IncomingApplicationsComponent) : Child
+        data class RepairTemplateCatalog(val component: RepairTemplateCatalogComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
         data class Menu(val component: IMenuComponent) : Child
         data class QRScanner(val component: IQRScannerComponent) : Child
@@ -168,6 +176,12 @@ class DefaultRootComponent(
 
             is IRootComponent.Config.InnerOrder ->
                 IRootComponent.Child.InnerOrder(InnerOrdersComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.IncomingApplications ->
+                IRootComponent.Child.IncomingApplications(IncomingApplicationsComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.RepairTemplateCatalog ->
+                IRootComponent.Child.RepairTemplateCatalog(RepairTemplateCatalogComponent(ctx) { nav.pop() })
 
             is IRootComponent.Config.Menu ->
                 IRootComponent.Child.Menu(MenuComponent(ctx,
@@ -357,6 +371,28 @@ class DefaultRootComponent(
         }
     }
 
+    override fun openIncomingApplications(needBackToList: Boolean) {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.IncomingApplications }
+                ?.instance as? IRootComponent.Child.IncomingApplications
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.IncomingApplications)
+        }
+    }
+
+    override fun openRepairTemplateCatalog(needBackToList: Boolean) {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.RepairTemplateCatalog }
+                ?.instance as? IRootComponent.Child.RepairTemplateCatalog
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            nav.bringToFront(IRootComponent.Config.RepairTemplateCatalog)
+        }
+    }
+
     override fun openSettings() = nav.bringToFront(IRootComponent.Config.Settings)
     override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)
     override fun back() = nav.pop()
@@ -438,6 +474,8 @@ class DefaultRootComponent(
                 is IRootComponent.Child.SupplierOrder -> childInstance.component
                 is IRootComponent.Child.Complaint -> childInstance.component
                 is IRootComponent.Child.InnerOrder -> childInstance.component
+                is IRootComponent.Child.IncomingApplications -> childInstance.component
+                is IRootComponent.Child.RepairTemplateCatalog -> childInstance.component
                 else -> null
             }
             if (master != null) return master
@@ -483,6 +521,21 @@ class DefaultRootComponent(
             "supplier_orders", "supplierorders", "supplier_order", "supplierorder", "заказпоставщику" -> IRootComponent.Config.SupplierOrder
             "complaints", "complaint" -> IRootComponent.Config.Complaint
             "inner_orders", "innerorders", "inner_order", "innerorder" -> IRootComponent.Config.InnerOrder
+            "incoming_applications",
+            "incomingapplications",
+            "incoming_application",
+            "incomingapplication",
+            "incoming_orders",
+            "входящиезаявки",
+            "входящие_заказы",
+            -> IRootComponent.Config.IncomingApplications
+            "calculation",
+            "repair_templates",
+            "repair_template_catalog",
+            "шаблоныремонта",
+            "шаблоны_ремонта",
+            "калькуляция",
+            -> IRootComponent.Config.RepairTemplateCatalog
             else -> null
         }
     }
