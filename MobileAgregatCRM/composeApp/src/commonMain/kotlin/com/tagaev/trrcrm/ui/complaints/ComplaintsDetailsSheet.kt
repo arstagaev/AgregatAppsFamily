@@ -22,13 +22,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.domain.UserRow
 import com.tagaev.trrcrm.domain.sortedByRolePriority
-import com.tagaev.trrcrm.ext.toIntSafe
 import com.tagaev.trrcrm.models.ComplaintChecklistItemDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.models.ComplaintWorkDto
 import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableDividerOutdent
 import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableListPadding
+import com.tagaev.trrcrm.ui.work_order.buildGoodsTitle
+import com.tagaev.trrcrm.ui.work_order.parseMoneyAmount
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.SectionTitle
@@ -241,7 +242,6 @@ fun ComplaintDetailsSheetTopPart(
 
         // 9. Работы (expandable)
         val works = complaint.works
-        val valSumWorks = works.sumOf { (it.totalAmount?.toIntSafe() ?: 0) }
         ExpandableListSection(
             title = "Работы (поз. ${works.size})",
             items = works
@@ -253,14 +253,14 @@ fun ComplaintDetailsSheetTopPart(
 
         // 10. Товары (expandable)
         val goods = complaint.goods
-        val valSum = goods.sumOf { (it.totalAmount?.toIntSafe() ?: 0) }
-        goods.forEach {
-            println("|>>>>>> ${it.totalAmount} ${it.unit}  ${it.qty}")
-            println("|>>>>>> ${it.totalAmount?.toIntSafe()} ${it.unit?.toIntSafe()}  ${it.qty?.toIntSafe()}")
-        }
+        val goodsTotal = goods.sumOf { parseMoneyAmount(it.totalAmount) ?: 0.0 }
 
         ExpandableListSection(
-            title = "Товары (поз. ${goods.size})",
+            title = buildGoodsTitle(
+                baseTitle = "Товары",
+                positionsCount = goods.size,
+                totalAmount = goodsTotal
+            ),
             items = goods
         ) { good ->
             ComplaintGoodsItemRow(goods = good)

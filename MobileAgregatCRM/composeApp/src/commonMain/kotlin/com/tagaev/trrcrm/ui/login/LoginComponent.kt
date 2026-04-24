@@ -12,7 +12,7 @@ import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.push.PushRegistration
-import com.tagaev.trrcrm.utils.AVAILABLE_ROLES
+import com.tagaev.trrcrm.utils.SessionPermissions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -206,20 +206,22 @@ class LoginComponent(
 //                                settings.setString(AppSettingsKeys.FILTER_VAL, data.department)
                                 runCatching { apiConfig.token = data.token }
 
-                                AVAILABLE_ROLES.clear()
-                                val roles = repo.getRole()
+                                SessionPermissions.clear()
+                                val permissions = withContext(Dispatchers.Default) {
+                                    repo.getPermission()
+                                }
 
-                                when (roles) {
+                                when (permissions) {
                                     is Resource.Success -> {
-                                        AVAILABLE_ROLES = roles.data.roles.toMutableList()
-                                        println("Current roles: ${AVAILABLE_ROLES.joinToString()}")
+                                        SessionPermissions.replaceAll(permissions.data)
                                         completeLogin()
                                     }
-                                    is Resource.Loading -> {
-
-                                    }
+                                    is Resource.Loading -> Unit
                                     is Resource.Error -> {
-                                        completeLogin()
+                                        val msg = permissions.causes
+                                            ?: permissions.exception?.message
+                                            ?: "Не удалось загрузить права доступа"
+                                        _uiState.value = LoginUiState.Error(msg)
                                     }
                                 }
 
@@ -268,10 +270,37 @@ class LoginComponent(
     }
 
     override fun onLoginWithToken(token: String) {
-        // Persist and update runtime config so API starts using it immediately
-        appSettings.setString("API_TOKEN", token)
-        runCatching { apiConfig.token = token }
-        onLoginSuccess()
+        if (_uiState.value is LoginUiState.Loading) return
+        appScope.launch {
+            withContext(Dispatchers.Main.immediate) {
+                _uiState.value = LoginUiState.Loading
+            }
+            try {
+                appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
+                runCatching { apiConfig.token = token }
+                SessionPermissions.clear()
+                val permissions = withContext(Dispatchers.Default) { repo.getPermission() }
+                withContext(Dispatchers.Main.immediate) {
+                    when (permissions) {
+                        is Resource.Success -> {
+                            SessionPermissions.replaceAll(permissions.data)
+                            completeLogin()
+                        }
+                        is Resource.Loading -> Unit
+                        is Resource.Error -> {
+                            val msg = permissions.causes
+                                ?: permissions.exception?.message
+                                ?: "Не удалось загрузить права доступа"
+                            _uiState.value = LoginUiState.Error(msg)
+                        }
+                    }
+                }
+            } catch (t: Throwable) {
+                withContext(Dispatchers.Main.immediate) {
+                    _uiState.value = LoginUiState.Error(t.message ?: "Ошибка авторизации")
+                }
+            }
+        }
     }
 
 

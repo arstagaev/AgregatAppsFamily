@@ -321,6 +321,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                 current = current,
                 onBack = onDismiss,
                 messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                orderByOptions = Refiner.OrderBy.allForUi,
                 sections = setOf(
                     RefineSection.STATUS,
                     RefineSection.FILTER_VAL,

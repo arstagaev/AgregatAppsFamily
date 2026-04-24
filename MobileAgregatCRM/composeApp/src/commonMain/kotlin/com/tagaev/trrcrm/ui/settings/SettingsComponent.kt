@@ -6,6 +6,7 @@ import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.db.EventsCacheStore
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.push.PushRegistration
+import com.tagaev.trrcrm.utils.SessionPermissions
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -44,6 +45,7 @@ class SettingsComponent(
 
         eventsCacheStore.clearAll()
 
+        SessionPermissions.clear()
         settings.clearAll()
 //        settings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE,"")
 //        settings.setString(AppSettingsKeys.EVENTS_REFINE_STATE,"")

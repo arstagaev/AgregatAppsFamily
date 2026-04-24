@@ -27,6 +27,7 @@ import com.tagaev.trrcrm.models.WorkOrderJobDto
 import com.tagaev.trrcrm.models.WorkOrderProductDto
 import com.tagaev.trrcrm.ui.custom.TextC
 import androidx.compose.runtime.remember
+import kotlin.math.roundToLong
 
 /** Horizontal padding aligned with [WorkOrderLineItemsExpandableDividerOutdent] for list dividers */
 val WorkOrderLineItemsExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
@@ -53,6 +54,58 @@ internal fun formatRubleAmount(raw: String?): String {
     if (s.isBlank()) return "—"
     return if (s.contains('₽')) s else "$s ₽"
 }
+
+internal fun parseMoneyAmount(raw: String?): Double? {
+    val source = raw
+        ?.replace('\u00A0', ' ')
+        ?.trim()
+        .orEmpty()
+    if (source.isBlank()) return null
+
+    val candidate = source
+        .replace("₽", "", ignoreCase = true)
+        .replace("руб.", "", ignoreCase = true)
+        .replace("руб", "", ignoreCase = true)
+        .replace(" ", "")
+        .replace(Regex("[^0-9,.-]"), "")
+    if (candidate.isBlank()) return null
+
+    val normalized = when {
+        candidate.count { it == ',' } > 1 -> {
+            val last = candidate.lastIndexOf(',')
+            val intPart = candidate.substring(0, last).replace(",", "").replace(".", "")
+            val fracPart = candidate.substring(last + 1).replace(",", "").replace(".", "")
+            if (fracPart.isBlank()) intPart else "$intPart.$fracPart"
+        }
+        candidate.count { it == '.' } > 1 -> {
+            val last = candidate.lastIndexOf('.')
+            val intPart = candidate.substring(0, last).replace(",", "").replace(".", "")
+            val fracPart = candidate.substring(last + 1).replace(",", "").replace(".", "")
+            if (fracPart.isBlank()) intPart else "$intPart.$fracPart"
+        }
+        candidate.contains(',') && candidate.contains('.') -> {
+            val lastComma = candidate.lastIndexOf(',')
+            val lastDot = candidate.lastIndexOf('.')
+            val decimalIndex = maxOf(lastComma, lastDot)
+            val intPart = candidate.substring(0, decimalIndex).replace(",", "").replace(".", "")
+            val fracPart = candidate.substring(decimalIndex + 1).replace(",", "").replace(".", "")
+            if (fracPart.isBlank()) intPart else "$intPart.$fracPart"
+        }
+        candidate.contains(',') -> candidate.replace(",", ".")
+        else -> candidate
+    }
+
+    return normalized.toDoubleOrNull()
+}
+
+internal fun formatTotalMoneyAmount(total: Double): String {
+    val rounded = (total * 100.0).roundToLong() / 100.0
+    return if (rounded % 1.0 == 0.0) "${rounded.toLong()} ₽"
+    else "${rounded.toString().replace('.', ',')} ₽"
+}
+
+internal fun buildGoodsTitle(baseTitle: String, positionsCount: Int, totalAmount: Double): String =
+    "$baseTitle (поз. $positionsCount, сум. ${formatTotalMoneyAmount(totalAmount)})"
 
 internal fun productDisplayTitle(p: WorkOrderProductDto): String {
     val line = p.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> "Стр. $ln" }
@@ -90,6 +143,7 @@ internal fun jobExecutorTitle(job: WorkOrderJobDto, executors: List<WorkOrderExe
 fun WorkOrderProductLineRowCompact(
     product: WorkOrderProductDto,
     onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
+    characteristicLabel: String = "хар-ка",
 ) {
     val charRaw = product.characteristic?.trim().orEmpty()
     val charDisplay = if (onNomenclatureCharacteristicSearch != null) {
@@ -126,7 +180,7 @@ fun WorkOrderProductLineRowCompact(
             verticalAlignment = Alignment.Top
         ) {
             WorkOrderProductMetaCell(
-                label = "хар-ка",
+                label = characteristicLabel,
                 value = charDisplay,
                 modifier = Modifier.weight(1f),
                 emphasize = true,

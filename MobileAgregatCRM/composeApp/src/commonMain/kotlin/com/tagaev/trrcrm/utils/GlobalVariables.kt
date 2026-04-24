@@ -41,5 +41,3 @@ var TARGET_EVENT = mutableStateOf(EventItemDto())
 // In-memory storage of drafted (not yet sent) messages per order GUID.
 // Using mutableStateListOf so Compose can react if someone ever observes it.
 val DRAFTED_MESSAGES_ARRAY = mutableStateListOf<DraftedMessage>()
-
-var AVAILABLE_ROLES : MutableList<String> = mutableListOf()

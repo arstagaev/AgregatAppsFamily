@@ -17,15 +17,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextOverflow
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
-import com.tagaev.trrcrm.data.remote.models.UserRole
 import com.tagaev.trrcrm.ui.custom.ScreenWithDismissableKeyboard
 import com.tagaev.trrcrm.ui.style.DefaultColors.RainbowRedFg
 import com.tagaev.trrcrm.ui.style.ThemeController
-import com.tagaev.trrcrm.utils.AVAILABLE_ROLES
+import com.tagaev.trrcrm.utils.SessionPermissions
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.AlertTriangle
 import org.koin.compose.koinInject
-import kotlin.collections.contains
 
 enum class RefineSection {
     STATUS,
@@ -49,14 +47,26 @@ fun RefineScreen(
     onBack: () -> Unit,
     onApply: (RefineState) -> Unit,
     messageForUser: String? = null,
-    sections: Set<RefineSection> = RefineSection.values().toSet()
+    sections: Set<RefineSection> = RefineSection.values().toSet(),
+    /** Варианты «Сортировать по»; для большинства разделов без [Refiner.OrderBy.DATE_LAST_MODIFICATION]. */
+    orderByOptions: List<Refiner.OrderBy> = Refiner.OrderBy.allForUi,
 ) {
     val appSettings = koinInject<AppSettings>()
 
     val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
     val departmentData = remember { appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED") }
 
-    var selOrderBy by remember { mutableStateOf(current.orderBy) }
+    val permissionMap by SessionPermissions.state
+    val showDepartmentFilter = remember(permissionMap) { SessionPermissions.canShowDepartmentFilter() }
+
+    var selOrderBy by remember(current.orderBy, orderByOptions) {
+        val allowed = orderByOptions.toSet()
+        mutableStateOf(
+            current.orderBy.takeIf { it in allowed }
+                ?: Refiner.OrderBy.DATE.takeIf { it in allowed }
+                ?: orderByOptions.first()
+        )
+    }
     var selOrderDir by remember { mutableStateOf(current.orderDir) }
     var setStatus by remember { mutableStateOf(current.status) }
     var setFilter by remember { mutableStateOf(current.filter) }
@@ -81,7 +91,13 @@ fun RefineScreen(
                         onClick = {
                             searchQuery = ""
                             searchQueryType = Refiner.SearchQueryType.TOPIC
-                            selOrderBy = Refiner.OrderBy.DATE_LAST_MODIFICATION
+                            selOrderBy =
+                                if (Refiner.OrderBy.DATE_LAST_MODIFICATION in orderByOptions) {
+                                    Refiner.OrderBy.DATE_LAST_MODIFICATION
+                                } else {
+                                    Refiner.OrderBy.DATE.takeIf { it in orderByOptions }
+                                        ?: orderByOptions.first()
+                                }
                             selOrderDir = Refiner.Dir.DESC
                             setStatus = Refiner.Status.OFF
                             setFilter = Refiner.Filter.OFF
@@ -140,7 +156,7 @@ fun RefineScreen(
                     )
                 }
 
-                if (RefineSection.FILTER_VAL in sections && (AVAILABLE_ROLES.contains(UserRole.FULL_ACCESS.shortTitle))) {
+                if (RefineSection.FILTER_VAL in sections && showDepartmentFilter) {
                     // Фильтр
                     Text("Фильтр по подразделению", style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
@@ -171,7 +187,7 @@ fun RefineScreen(
                     // Поле сортировки
                     Text("Сортировать по", style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
-                        options = Refiner.OrderBy.values().toList(),
+                        options = orderByOptions,
                         selected = selOrderBy,
                         onSelect = { selOrderBy = it },
                         labelFor = { it.label }

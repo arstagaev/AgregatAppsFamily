@@ -68,6 +68,8 @@ import compose.icons.lineawesomeicons.CheckCircle
 import compose.icons.lineawesomeicons.QrcodeSolid
 import compose.icons.lineawesomeicons.ToolsSolid
 import kotlinx.coroutines.launch
+import com.tagaev.trrcrm.utils.KnownPermission
+import com.tagaev.trrcrm.utils.SessionPermissions
 
 val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
     { _ -> }
@@ -240,6 +242,26 @@ fun AppBottomNavBar2(
     onIncomingApplications: () -> Unit,
     onRepairTemplateCatalog: () -> Unit,
 ) {
+    val permissionMap by SessionPermissions.state
+    val showWorkOrderTab = remember(permissionMap) {
+        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_NARYAD)
+    }
+    val showComplectationTab = remember(permissionMap) {
+        SessionPermissions.canOpenDocumentTab(KnownPermission.KOMPLEKTATSIYA)
+    }
+    val showCargoTab = remember(permissionMap) {
+        SessionPermissions.canOpenDocumentTab(KnownPermission.GRUZ)
+    }
+    val showBuyerOrderTab = remember(permissionMap) {
+        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_POKUPATELYA)
+    }
+    val showSupplierOrderTab = remember(permissionMap) {
+        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_POSTAVSHCHIKU)
+    }
+    val showInnerOrderTab = remember(permissionMap) {
+        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_VNUTRENNIY)
+    }
+
     // Use Surface to mimic NavigationBar style but control layout ourselves
     Surface(
         tonalElevation = NavigationBarDefaults.Elevation,
@@ -261,40 +283,50 @@ fun AppBottomNavBar2(
                 label = "События"
             )
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.WorkOrder,
-                onClick = onWorkOrder,
-                icon = { Icon(LineAwesomeIcons.CarSideSolid, contentDescription = null) },
-                label = "Заказ-Наряды"
-            )
+            if (showWorkOrderTab) {
+                BottomNavChip(
+                    selected = activeChild is IRootComponent.Child.WorkOrder,
+                    onClick = onWorkOrder,
+                    icon = { Icon(LineAwesomeIcons.CarSideSolid, contentDescription = null) },
+                    label = "Заказ-Наряды"
+                )
+            }
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.Complectation,
-                onClick = onComplectation,
-                icon = { Icon(LineAwesomeIcons.ToolsSolid, contentDescription = null) },
-                label = "Комплектация"
-            )
+            if (showComplectationTab) {
+                BottomNavChip(
+                    selected = activeChild is IRootComponent.Child.Complectation,
+                    onClick = onComplectation,
+                    icon = { Icon(LineAwesomeIcons.ToolsSolid, contentDescription = null) },
+                    label = "Комплектация"
+                )
+            }
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.Cargo,
-                onClick = onCargo,
-                icon = { Icon(FeatherIcons.Truck, contentDescription = null) },
-                label = "Доставки"
-            )
+            if (showCargoTab) {
+                BottomNavChip(
+                    selected = activeChild is IRootComponent.Child.Cargo,
+                    onClick = onCargo,
+                    icon = { Icon(FeatherIcons.Truck, contentDescription = null) },
+                    label = "Доставки"
+                )
+            }
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.BuyerOrder,
-                onClick = onBuyerOrder,
-                icon = { Icon(FeatherIcons.Box, contentDescription = null) },
-                label = "Заказы покуп."
-            )
+            if (showBuyerOrderTab) {
+                BottomNavChip(
+                    selected = activeChild is IRootComponent.Child.BuyerOrder,
+                    onClick = onBuyerOrder,
+                    icon = { Icon(FeatherIcons.Box, contentDescription = null) },
+                    label = "Заказы покуп."
+                )
+            }
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.SupplierOrder,
-                onClick = onSupplierOrder,
-                icon = { Icon(FeatherIcons.Box, contentDescription = null) },
-                label = "Заказы пост."
-            )
+            if (showSupplierOrderTab) {
+                BottomNavChip(
+                    selected = activeChild is IRootComponent.Child.SupplierOrder,
+                    onClick = onSupplierOrder,
+                    icon = { Icon(FeatherIcons.Box, contentDescription = null) },
+                    label = "Заказы пост."
+                )
+            }
 
             BottomNavChip(
                 selected = activeChild is IRootComponent.Child.Complaint,
@@ -303,12 +335,14 @@ fun AppBottomNavBar2(
                 label = "Рекламации"
             )
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.InnerOrder,
-                onClick = onInnerOrder,
-                icon = { Icon(FeatherIcons.Box, contentDescription = null) },
-                label = "Внутр. заказы"
-            )
+            if (showInnerOrderTab) {
+                BottomNavChip(
+                    selected = activeChild is IRootComponent.Child.InnerOrder,
+                    onClick = onInnerOrder,
+                    icon = { Icon(FeatherIcons.Box, contentDescription = null) },
+                    label = "Внутр. заказы"
+                )
+            }
 
             BottomNavChip(
                 selected = activeChild is IRootComponent.Child.IncomingApplications,

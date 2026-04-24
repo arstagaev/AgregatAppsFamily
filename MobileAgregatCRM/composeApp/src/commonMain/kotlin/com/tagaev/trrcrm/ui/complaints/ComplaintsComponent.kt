@@ -44,7 +44,7 @@ class ComplaintsComponent(
         MutableStateFlow<Resource<List<ComplaintDto>>>(Resource.Loading)
     override val complaints: StateFlow<Resource<List<ComplaintDto>>> = _complaints
 
-    private val _refineState = MutableStateFlow(RefineState.Default)
+    private val _refineState = MutableStateFlow(RefineState.EventsLikeDefault)
     override val refineState: StateFlow<RefineState> = _refineState
 
     val _masterScreenPanel = MutableStateFlow(MasterPanel.List)
@@ -164,14 +164,14 @@ class ComplaintsComponent(
     fun loadRefineState(): RefineState {
         val raw = appSettings.getStringOrNull(AppSettingsKeys.COMPLAINTS_REFINE_STATE)
         if (raw.isNullOrBlank()) {
-            return RefineState.Default
+            return RefineState.EventsLikeDefault
         }
 
         return runCatching {
             json.decodeFromString<RefineState>(raw)
         }.getOrElse {
             // if schema changed or data corrupted – fail gracefully
-            RefineState()
+            RefineState.EventsLikeDefault
         }
     }
 

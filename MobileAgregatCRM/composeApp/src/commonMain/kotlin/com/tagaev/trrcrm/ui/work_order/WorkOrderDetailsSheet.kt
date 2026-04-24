@@ -265,8 +265,13 @@ fun WorkOrderDetailsSheet(
         val jobs = wo.jobs.orEmpty()
         val executors = wo.executors
         val productsBuyer = wo.products2.orEmpty()
+        val productsBuyerTotal = productsBuyer.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
         ExpandableListSection(
-            title = "Товары для Покупателя (поз. ${productsBuyer.size})",
+            title = buildGoodsTitle(
+                baseTitle = "Товары для Покупателя",
+                positionsCount = productsBuyer.size,
+                totalAmount = productsBuyerTotal
+            ),
             items = productsBuyer,
             initiallyExpanded = false,
             listContentPadding = WorkOrderLineItemsExpandableListPadding,
@@ -274,7 +279,10 @@ fun WorkOrderDetailsSheet(
             showItemDividers = true,
             dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
         ) { product ->
-            WorkOrderProductLineRowCompact(product)
+            WorkOrderProductLineRowCompact(
+                product = product,
+                characteristicLabel = "№ кат."
+            )
         }
         Spacer(Modifier.height(6.dp))
 
@@ -293,8 +301,13 @@ fun WorkOrderDetailsSheet(
         Spacer(Modifier.height(6.dp))
         // 8–9. Товары и работы (как в «Комплектации»): раскрывающиеся карточки
         val products = wo.products.orEmpty()
+        val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
         ExpandableListSection(
-            title = "Товары (поз. ${products.size})",
+            title = buildGoodsTitle(
+                baseTitle = "Товары",
+                positionsCount = products.size,
+                totalAmount = productsTotal
+            ),
             items = products,
             initiallyExpanded = false,
             listContentPadding = WorkOrderLineItemsExpandableListPadding,

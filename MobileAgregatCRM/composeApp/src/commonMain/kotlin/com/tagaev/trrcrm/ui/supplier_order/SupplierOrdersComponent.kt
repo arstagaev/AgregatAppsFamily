@@ -9,6 +9,7 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
@@ -160,7 +161,10 @@ class SupplierOrdersComponent(
     private fun loadRefineState(): RefineState {
         val raw = appSettings.getStringOrNull(AppSettingsKeys.SUPPLIER_ORDERS_REFINE_STATE)
         if (raw.isNullOrBlank()) return SUPPLIER_ORDERS_DEFAULT_REFINE
-        return runCatching { json.decodeFromString<RefineState>(raw) }.getOrDefault(SUPPLIER_ORDERS_DEFAULT_REFINE)
+        val decoded = runCatching { json.decodeFromString<RefineState>(raw) }.getOrDefault(SUPPLIER_ORDERS_DEFAULT_REFINE)
+        val migrated = decoded.withOrderByMigratedFromDateLastModificationIfNeeded(false)
+        if (migrated != decoded) saveRefineState(migrated)
+        return migrated
     }
 
     private fun saveRefineState(state: RefineState) {

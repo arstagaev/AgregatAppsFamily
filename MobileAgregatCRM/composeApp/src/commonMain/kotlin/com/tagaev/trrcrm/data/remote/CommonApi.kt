@@ -2,7 +2,7 @@ package com.tagaev.trrcrm.data.remote
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.secrets.Secrets
-import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
+import com.tagaev.trrcrm.models.UserPermissionEntryDto
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
@@ -749,25 +749,17 @@ class EventsApi(
         decodeOrWarning<List<CargoDto>>(json, raw)
     }
 
-    suspend fun getRole(apiConfig: ApiConfig): Resource<GetRolesResponse> = resourceify {
-
+    /** Список пар `permission` / `value` из `task=getpermission` (корень ответа — JSON-массив). */
+    suspend fun getPermission(apiConfig: ApiConfig): Resource<List<UserPermissionEntryDto>> = resourceify {
         val response = client.get(apiConfig.baseUrl) {
-            expectSuccess = true            // make non-2xx throw ResponseException
+            expectSuccess = true
             url {
                 parameters.append("token", apiConfig.token)
-                parameters.append("task", "getroles")
+                parameters.append("task", "getpermission")
             }
         }
-
-        // If the server sometimes sends a preface you strip off:
-        val raw = response.bodyAsText().cleanJsonStart()
-        val obj = json.parseToJsonElement(raw).jsonObject
-        val err = obj["error"]?.jsonPrimitive?.contentOrNull
-        if (err != null) {
-            // Map logical 200-OK errors into Resource.Error via resourceify
-            throw IllegalStateException(err)
-        }
-        json.decodeFromJsonElement<GetRolesResponse>(obj)
+        val raw = response.bodyAsText()
+        decodeOrWarning<List<UserPermissionEntryDto>>(json, raw)
     }
 
     companion object {

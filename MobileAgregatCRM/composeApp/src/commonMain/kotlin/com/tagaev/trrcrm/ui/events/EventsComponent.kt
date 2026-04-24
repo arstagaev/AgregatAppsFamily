@@ -48,7 +48,7 @@ class EventsComponent(
         MutableStateFlow<Resource<List<EventItemDto>>>(Resource.Loading)
     override val events: StateFlow<Resource<List<EventItemDto>>> = _events
 
-    private val _refineState = MutableStateFlow(RefineState.Default)
+    private val _refineState = MutableStateFlow(RefineState.EventsLikeDefault)
     override val refineState: StateFlow<RefineState> = _refineState
 
     val _masterScreenPanel = MutableStateFlow(MasterPanel.List)
@@ -184,14 +184,14 @@ class EventsComponent(
         val raw = appSettings.getStringOrNull(AppSettingsKeys.EVENTS_REFINE_STATE)
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
-            return RefineState()
+            return RefineState.EventsLikeDefault
         }
 
         return runCatching {
             json.decodeFromString<RefineState>(raw)
         }.getOrElse {
             // if schema changed or data corrupted – fail gracefully
-            RefineState()
+            RefineState.EventsLikeDefault
         }
     }
 

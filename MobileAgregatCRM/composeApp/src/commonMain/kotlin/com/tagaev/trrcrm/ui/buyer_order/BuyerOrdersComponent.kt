@@ -9,6 +9,7 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
@@ -165,9 +166,11 @@ class BuyerOrdersComponent(
         val raw = appSettings.getStringOrNull(AppSettingsKeys.BUYER_ORDERS_REFINE_STATE)
         if (raw.isNullOrBlank()) return BUYER_ORDERS_DEFAULT_REFINE
         val decoded = runCatching { json.decodeFromString<RefineState>(raw) }.getOrDefault(BUYER_ORDERS_DEFAULT_REFINE)
-        return decoded.copy(
+        val migrated = decoded.withOrderByMigratedFromDateLastModificationIfNeeded(false)
+        if (migrated != decoded) saveRefineState(migrated)
+        return migrated.copy(
             orderBy = Refiner.OrderBy.DATE,
-            orderDir = decoded.orderDir
+            orderDir = migrated.orderDir
         )
     }
 

@@ -36,8 +36,10 @@ import com.tagaev.trrcrm.ui.work_order.WorkOrderJobLineRowCompact
 import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableDividerOutdent
 import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableListPadding
 import com.tagaev.trrcrm.ui.work_order.WorkOrderProductLineRowCompact
+import com.tagaev.trrcrm.ui.work_order.buildGoodsTitle
 import com.tagaev.trrcrm.ui.work_order.dashOr
 import com.tagaev.trrcrm.ui.work_order.formatRubleAmount
+import com.tagaev.trrcrm.ui.work_order.parseMoneyAmount
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import compose.icons.FeatherIcons
@@ -369,8 +371,13 @@ private fun wireframeComplectationHeader(
     CompactBody(wo.comment?.takeIf { it.isNotBlank() } ?: "—")
 
     val products = complectationProductsForDisplay(wo)
+    val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
     ExpandableListSection(
-        title = "Товары (поз. ${products.size})",
+        title = buildGoodsTitle(
+            baseTitle = "Товары",
+            positionsCount = products.size,
+            totalAmount = productsTotal
+        ),
         items = products,
         initiallyExpanded = false,
         expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.PRODUCTS) else null,

@@ -25,7 +25,9 @@ import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.work_order.buildGoodsTitle
 import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
+import com.tagaev.trrcrm.ui.work_order.parseMoneyAmount
 
 private val SupplierExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 private val SupplierExpandableDividerOutdent = 8.dp
@@ -121,8 +123,13 @@ private fun SupplierOrderHeaderContent(
     }
     Spacer(Modifier.height(8.dp))
 
+    val productsTotal = order.products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
     ExpandableListSection(
-        title = "Товары (список) (поз. ${order.products.size})",
+        title = buildGoodsTitle(
+            baseTitle = "Товары (список)",
+            positionsCount = order.products.size,
+            totalAmount = productsTotal
+        ),
         items = order.products,
         initiallyExpanded = false,
         listContentPadding = SupplierExpandableListPadding,

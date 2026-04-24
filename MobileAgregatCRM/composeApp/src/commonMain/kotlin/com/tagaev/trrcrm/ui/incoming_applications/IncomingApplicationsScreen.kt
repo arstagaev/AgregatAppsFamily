@@ -167,6 +167,7 @@ fun IncomingApplicationsScreen(
                 current = current,
                 onBack = onDismiss,
                 messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                orderByOptions = Refiner.OrderBy.allForUiExceptDateLastModification,
                 sections = setOf(
                     RefineSection.STATUS,
                     RefineSection.FILTER_VAL,

@@ -208,6 +208,7 @@ fun BuyerOrdersScreen(
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
+                orderByOptions = Refiner.OrderBy.allForUiExceptDateLastModification,
                 sections = setOf(
                     RefineSection.STATUS,
                     RefineSection.FILTER_VAL,

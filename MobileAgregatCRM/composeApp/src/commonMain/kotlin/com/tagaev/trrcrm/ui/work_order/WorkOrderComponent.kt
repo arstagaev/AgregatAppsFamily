@@ -45,7 +45,7 @@ class WorkOrdersComponent(
         MutableStateFlow<Resource<List<WorkOrderDto>>>(Resource.Loading)
     override val workOrders: StateFlow<Resource<List<WorkOrderDto>>> = _workOrders
 
-    private val _refineState = MutableStateFlow(RefineState.Default)
+    private val _refineState = MutableStateFlow(RefineState.EventsLikeDefault)
     override val refineState: StateFlow<RefineState> = _refineState
 
     val _masterScreenPanel = MutableStateFlow(MasterPanel.List)
@@ -231,14 +231,14 @@ class WorkOrdersComponent(
 
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
-            return RefineState()
+            return RefineState.EventsLikeDefault
         }
 
         val decoded = runCatching {
             json.decodeFromString<RefineState>(raw)
         }.getOrElse {
             // if schema changed or data corrupted – fail gracefully
-            RefineState()
+            RefineState.EventsLikeDefault
         }
 
         // One-time migration path from old key to isolated work-order key.

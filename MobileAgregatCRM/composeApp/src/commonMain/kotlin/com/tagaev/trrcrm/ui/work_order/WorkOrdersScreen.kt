@@ -186,6 +186,7 @@ fun WorkOrdersScreen(
                 current = current,
                 onBack = onDismiss,
                 messageForUser = WORK_ORDER_REPAIR_FILTER_WARNING.trimIndent(),
+                orderByOptions = Refiner.OrderBy.allForUi,
                 sections = setOf(
                     RefineSection.STATUS,
                     RefineSection.FILTER_VAL,

@@ -9,6 +9,7 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.models.IncomingApplicationDto
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -143,9 +144,11 @@ class IncomingApplicationsComponent(
         val raw = appSettings.getStringOrNull(AppSettingsKeys.INCOMING_APPLICATIONS_REFINE_STATE)
         if (raw.isNullOrBlank()) return DEFAULT_REFINE
         val decoded = runCatching { json.decodeFromString<RefineState>(raw) }.getOrDefault(DEFAULT_REFINE)
-        return decoded.copy(
+        val migrated = decoded.withOrderByMigratedFromDateLastModificationIfNeeded(false)
+        if (migrated != decoded) saveRefineState(migrated)
+        return migrated.copy(
             orderBy = Refiner.OrderBy.DATE,
-            orderDir = decoded.orderDir,
+            orderDir = migrated.orderDir,
         )
     }
 

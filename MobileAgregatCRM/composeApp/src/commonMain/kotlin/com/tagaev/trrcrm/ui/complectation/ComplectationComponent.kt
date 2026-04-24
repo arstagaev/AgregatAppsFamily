@@ -12,6 +12,7 @@ import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -349,15 +350,18 @@ class ComplectationComponent(
         val raw = appSettings.getStringOrNull(AppSettingsKeys.COMPLECTATION_REFINE_STATE)
         if (raw.isNullOrBlank()) {
             // default state when nothing stored
-            return RefineState()
+            return RefineState.Default
         }
 
-        return runCatching {
+        val decoded = runCatching {
             json.decodeFromString<RefineState>(raw)
         }.getOrElse {
             // if schema changed or data corrupted – fail gracefully
-            RefineState()
+            RefineState.Default
         }
+        val migrated = decoded.withOrderByMigratedFromDateLastModificationIfNeeded(false)
+        if (migrated != decoded) saveRefineState(migrated)
+        return migrated
     }
 
     fun saveRefineState(state: RefineState) {

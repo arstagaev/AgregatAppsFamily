@@ -25,12 +25,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -153,6 +155,7 @@ fun EventsScreen(
         is Resource.Success -> state.additionalLoading
         is Resource.Error -> false
     }
+    val currentIsEventsLoading by rememberUpdatedState(isEventsLoading)
     val isTopBarLoading = resource is Resource.Loading ||
             (resource as? Resource.Success<*>)?.additionalLoading == true
 
@@ -223,7 +226,14 @@ fun EventsScreen(
         if (loadingSessionId == 0) return@LaunchedEffect
         delay(EVENTS_LOADING_MIN_DELAY_MS)
         minDelayPassed = true
-        if (!isEventsLoading && shouldShowOverlayForCurrentLoad) {
+        if (!currentIsEventsLoading && shouldShowOverlayForCurrentLoad) {
+            isLoadingOverlayVisible = false
+            shouldShowOverlayForCurrentLoad = false
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
             isLoadingOverlayVisible = false
             shouldShowOverlayForCurrentLoad = false
         }

@@ -51,6 +51,16 @@ sealed interface Refiner : ApiOption {
         NUMBER("Номер", "Номер"),
 
         OFF("Без сортировки", ""),
+        ;
+
+        companion object {
+            /** Все варианты сортировки (в т.ч. «Дата мод.») — для Событий, ЗН, Рекламаций. */
+            val allForUi: List<OrderBy> = values().toList()
+
+            /** Без «Дата мод.» — для остальных разделов. */
+            val allForUiExceptDateLastModification: List<OrderBy> =
+                values().filter { it != DATE_LAST_MODIFICATION }
+        }
     }
 
     enum class Dir(
@@ -133,7 +143,7 @@ sealed interface Refiner : ApiOption {
 
 @Serializable
 data class RefineState(
-    val orderBy: Refiner.OrderBy = Refiner.OrderBy.DATE_LAST_MODIFICATION,
+    val orderBy: Refiner.OrderBy = Refiner.OrderBy.DATE,
 
     val orderDir: Refiner.Dir = Refiner.Dir.DESC,
 
@@ -148,7 +158,22 @@ data class RefineState(
     val searchQueryType: Refiner.SearchQueryType = Refiner.SearchQueryType.TOPIC
 ) {
     companion object Companion {
+        /** Дефолт для большинства разделов: сортировка по дате документа. */
         val Default = RefineState()
+
+        /**
+         * Дефолт для Событий, Заказ-нарядов и Рекламаций: сортировка по дате изменения.
+         */
+        val EventsLikeDefault = RefineState(orderBy = Refiner.OrderBy.DATE_LAST_MODIFICATION)
     }
+}
+
+/** Если сохранённое состояние содержит «Дата мод.», а раздел её не показывает — заменить на «Дата». */
+fun RefineState.withOrderByMigratedFromDateLastModificationIfNeeded(
+    allowDateLastModification: Boolean,
+): RefineState {
+    if (allowDateLastModification) return this
+    if (orderBy != Refiner.OrderBy.DATE_LAST_MODIFICATION) return this
+    return copy(orderBy = Refiner.OrderBy.DATE)
 }
 

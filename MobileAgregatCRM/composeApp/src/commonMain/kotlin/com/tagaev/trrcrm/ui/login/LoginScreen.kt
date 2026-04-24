@@ -35,6 +35,7 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import com.tagaev.trrcrm.data.AppSettings
+import com.tagaev.trrcrm.data.AppSettingsKeys
 import mobileagregatcrm.composeapp.generated.resources.botlogo
 
 import androidx.compose.runtime.collectAsState
@@ -50,7 +51,7 @@ import mobileagregatcrm.composeapp.generated.resources.carv
  * 1) Login + Password
  * 2) Token only
  *
- * Token is persisted via AppSettings (key: "API_TOKEN") and restored on open.
+ * В режиме токена значение пишется в AppSettings ([AppSettingsKeys.TOKEN_KEY]) по мере ввода.
  *
  * Expected component API:
  *   - component.onLoginWithCredentials(user, pass)
@@ -137,10 +138,7 @@ fun LoginScreen(component: ILoginComponent) {
 //    var pass by rememberSaveable { mutableStateOf("c3BzvPjgesW@") }
 
     // Persisted token
-    var token by rememberSaveable {
-        mutableStateOf("")
-//        mutableStateOf(appSettings.getString("API_TOKEN", ""))
-    }
+    var token by rememberSaveable { mutableStateOf("") }
 
     // TextField theme colors (ensures readability in dark mode)
     val tfColors = OutlinedTextFieldDefaults.colors(
@@ -282,7 +280,7 @@ fun LoginScreen(component: ILoginComponent) {
                                     value = token,
                                     onValueChange = { value ->
                                         token = value
-                                        appSettings.setString("API_TOKEN", token)
+                                        appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
                                     },
                                     label = { Text("API Token") },
                                     placeholder = { Text("Paste your token here") },

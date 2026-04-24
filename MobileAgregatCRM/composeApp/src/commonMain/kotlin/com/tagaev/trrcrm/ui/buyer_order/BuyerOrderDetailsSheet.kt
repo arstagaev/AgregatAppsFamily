@@ -26,7 +26,9 @@ import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.work_order.buildGoodsTitle
 import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
+import com.tagaev.trrcrm.ui.work_order.parseMoneyAmount
 
 private val BuyerOrderExpandableListPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
 private val BuyerOrderExpandableDividerOutdent = 8.dp
@@ -171,8 +173,13 @@ private fun BuyerOrderHeaderContent(
     Spacer(Modifier.height(6.dp))
 
     val products = if (order.products.isNotEmpty()) order.products else order.spareParts
+    val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
     ExpandableListSection(
-        title = "Товары (Вып работ) (поз. ${products.size})",
+        title = buildGoodsTitle(
+            baseTitle = "Товары (Вып работ)",
+            positionsCount = products.size,
+            totalAmount = productsTotal
+        ),
         items = products,
         initiallyExpanded = false,
         listContentPadding = BuyerOrderExpandableListPadding,

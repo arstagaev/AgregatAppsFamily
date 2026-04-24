@@ -4,7 +4,7 @@ import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.Resource
-import com.tagaev.trrcrm.data.remote.models.GetRolesResponse
+import com.tagaev.trrcrm.models.UserPermissionEntryDto
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
 import com.tagaev.trrcrm.domain.TreeRootDocument
@@ -63,7 +63,7 @@ class MainRepository(
 
     suspend fun probeStartup(): Resource<Unit> = api.probeStartup(cfg)
 
-    suspend fun getRole(): Resource<GetRolesResponse> = api.getRole(cfg)
+    suspend fun getPermission(): Resource<List<UserPermissionEntryDto>> = api.getPermission(cfg)
 
     suspend fun sendMessage(number: String, date: String, message: String): Resource<SentMessageResponse> =
         api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
