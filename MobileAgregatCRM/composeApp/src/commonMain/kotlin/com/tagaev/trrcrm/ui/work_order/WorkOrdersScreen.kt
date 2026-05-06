@@ -1,6 +1,8 @@
 package com.tagaev.trrcrm.ui.work_order
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,8 +21,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.TextC
@@ -28,7 +32,9 @@ import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.MasterScreen
 import com.tagaev.trrcrm.ui.master_screen.RefineSection
 import com.tagaev.trrcrm.ui.master_screen.RefineScreen
+import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ChevronsUp
@@ -99,6 +105,11 @@ fun WorkOrdersScreen(
     val selectedId by component.selectedItemGuid.collectAsState()
 
     val scope = rememberCoroutineScope()
+    val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    var characteristicMatches by remember { mutableStateOf<List<WorkOrderDto>>(emptyList()) }
+    var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
+    var isResolvingLinkedByCharacteristic by rememberSaveable { mutableStateOf(false) }
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
     var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
     var searchTypeDraft by rememberSaveable { mutableStateOf(refineState.searchQueryType) }
@@ -112,6 +123,41 @@ fun WorkOrdersScreen(
                 refineState.searchQueryType
             } else {
                 Refiner.SearchQueryType.CODE
+            }
+        }
+    }
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        characteristicMatches = emptyList()
+        isResolvingBaseDocument = false
+        isResolvingLinkedByCharacteristic = false
+    }
+
+    val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
+        val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
+        if (token.isBlank()) {
+            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+        } else {
+            scope.launch {
+                isResolvingLinkedByCharacteristic = true
+                try {
+                    when (val res = component.searchComplectationsByKitCharacteristicToken(token)) {
+                        is Resource.Success -> {
+                            val list = res.data.orEmpty()
+                            when {
+                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.size == 1 -> linkedDocuments.add(TreeRootResolvedDocument.Complectation(list.first()))
+                                else -> characteristicMatches = list
+                            }
+                        }
+                        is Resource.Error -> showSnackbar(
+                            res.causes ?: res.exception?.message ?: "Ошибка поиска комплектации"
+                        )
+                        is Resource.Loading -> Unit
+                    }
+                } finally {
+                    isResolvingLinkedByCharacteristic = false
+                }
             }
         }
     }
@@ -163,21 +209,52 @@ fun WorkOrdersScreen(
 
         // Full-screen details content (not bottom-sheet)
         detailsContent = { order, onClose ->
-            WorkOrderDetailsSheet(
-                order = order,
-                onBack = onClose,
-                onSendMessage = { message, onResult ->
-                    val number = order.number.orEmpty()
-                    val date = order.date.orEmpty()
-                    scope.launch {
-                        val err = component.sendMessage(number, date, message)
-                        if (err == null) {
-                            component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+            val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                scope.launch {
+                    isResolvingBaseDocument = true
+                    try {
+                        when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
+                            .getOrElse { e -> Resource.Error(causes = e.message ?: "Ошибка поиска документа") }) {
+                            is Resource.Success -> linkedDocuments.add(resolved.data)
+                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Loading -> Unit
                         }
-                        onResult(err)
+                    } finally {
+                        isResolvingBaseDocument = false
                     }
                 }
-            )
+            }
+            val onNestedBack: () -> Unit = {
+                if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                else onClose()
+            }
+
+            val currentLinked = linkedDocuments.lastOrNull()
+            if (currentLinked != null) {
+                TreeRootDocumentDetailsSheet(
+                    document = currentLinked,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
+                )
+            } else {
+                WorkOrderDetailsSheet(
+                    order = order,
+                    onBack = onNestedBack,
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    onSendMessage = { message, onResult ->
+                        val number = order.number.orEmpty()
+                        val date = order.date.orEmpty()
+                        scope.launch {
+                            val err = component.sendMessage(number, date, message)
+                            if (err == null) {
+                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+                            }
+                            onResult(err)
+                        }
+                    }
+                )
+            }
         },
 
         // Full-screen filter screen (not dialog)
@@ -313,6 +390,79 @@ fun WorkOrdersScreen(
 
         modifier = modifier
     )
+
+    if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Открытие документа...") },
+            text = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text("Подождите, выполняем поиск.")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    if (characteristicMatches.size >= 2) {
+        AlertDialog(
+            onDismissRequest = { characteristicMatches = emptyList() },
+            title = { Text("Найдено ${characteristicMatches.size} комплектаций") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    characteristicMatches.forEach { item ->
+                        val title = item.link?.takeIf { it.isNotBlank() }
+                            ?: item.number?.takeIf { it.isNotBlank() }
+                            ?: "Без номера"
+                        val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—"
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    linkedDocuments.add(TreeRootResolvedDocument.Complectation(item))
+                                    characteristicMatches = emptyList()
+                                },
+                            tonalElevation = 2.dp,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { characteristicMatches = emptyList() }) {
+                    Text("Закрыть")
+                }
+            }
+        )
+    }
 }
 
 @Composable

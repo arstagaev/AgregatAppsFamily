@@ -10,8 +10,8 @@ import org.koin.core.component.inject
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
-import com.tagaev.trrcrm.getPlatform
-import com.tagaev.trrcrm.push.PushRegistration
+import com.tagaev.trrcrm.pushPlatformId
+import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.utils.SessionPermissions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -251,20 +251,7 @@ class LoginComponent(
 
     private fun completeLogin() {
         _uiState.value = LoginUiState.Idle
-        val token = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN)
-        val personalData = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
-
-        if (token.isNullOrBlank() || personalData.isNullOrBlank()) {
-            println("FCM token or personalData is empty, skip register $token / $personalData")
-
-        } else {
-            println("Register FCM token for user $personalData")
-            PushRegistration.registerCurrentUserToken(
-                fullName = personalData,
-                platform = "${getPlatform()}",
-                token = token
-            )
-        }
+        PushRegistrationCoordinator.registerIfReady(preferredPlatform = pushPlatformId())
 
         onLoginSuccess() // navigate (must be MAIN)
     }

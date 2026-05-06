@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,8 +46,10 @@ import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootDocumentKind
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
+import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
@@ -123,7 +126,9 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
     val linkedDocuments = androidx.compose.runtime.remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    var characteristicMatches by androidx.compose.runtime.remember { mutableStateOf<List<WorkOrderDto>>(emptyList()) }
     var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
+    var isResolvingLinkedByCharacteristic by rememberSaveable { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
         if (!isSearchMode) {
@@ -137,7 +142,38 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     }
     androidx.compose.runtime.LaunchedEffect(selectedId) {
         linkedDocuments.clear()
+        characteristicMatches = emptyList()
         isResolvingBaseDocument = false
+        isResolvingLinkedByCharacteristic = false
+    }
+
+    val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
+        val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
+        if (token.isBlank()) {
+            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+        } else {
+            scope.launch {
+                isResolvingLinkedByCharacteristic = true
+                try {
+                    when (val res = component.searchComplectationsByKitCharacteristicToken(token)) {
+                        is Resource.Success -> {
+                            val list = res.data.orEmpty()
+                            when {
+                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.size == 1 -> linkedDocuments.add(TreeRootResolvedDocument.Complectation(list.first()))
+                                else -> characteristicMatches = list
+                            }
+                        }
+                        is Resource.Error -> showSnackbar(
+                            res.causes ?: res.exception?.message ?: "Ошибка поиска комплектации"
+                        )
+                        is Resource.Loading -> Unit
+                    }
+                } finally {
+                    isResolvingLinkedByCharacteristic = false
+                }
+            }
+        }
     }
 
     val applySearch: () -> Unit = {
@@ -295,13 +331,15 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                 TreeRootDocumentDetailsSheet(
                     document = currentLinked,
                     onBack = onNestedBack,
-                    onOpenBaseDocument = onOpenBaseDocument
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
                 )
             } else {
                 InnerOrderDetailsSheetWithMessages(
                     complaint = complaint,
                     onBack = onNestedBack,
                     onOpenBaseDocument = onOpenBaseDocument,
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
                     onSendMessage = { message, onResult ->
                         val number = complaint.number.orEmpty()
                         val date = complaint.date.orEmpty()
@@ -466,12 +504,68 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
         onDetailsBack = handleDetailsBack,
     )
 
-    if (isResolvingBaseDocument) {
+    if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Пожалуйста, подождите") },
             text = { Text("ищем документ основание....") },
             confirmButton = {}
+        )
+    }
+
+    if (characteristicMatches.size >= 2) {
+        AlertDialog(
+            onDismissRequest = { characteristicMatches = emptyList() },
+            title = { Text("Найдено несколько комплектаций") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(320.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    characteristicMatches.forEach { item ->
+                        val title = item.link?.takeIf { it.isNotBlank() }
+                            ?: item.number?.takeIf { it.isNotBlank() }
+                            ?: "Без номера"
+                        val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—"
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    linkedDocuments.add(TreeRootResolvedDocument.Complectation(item))
+                                    characteristicMatches = emptyList()
+                                },
+                            tonalElevation = 2.dp,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { characteristicMatches = emptyList() }) {
+                    Text("Отмена")
+                }
+            }
         )
     }
 }

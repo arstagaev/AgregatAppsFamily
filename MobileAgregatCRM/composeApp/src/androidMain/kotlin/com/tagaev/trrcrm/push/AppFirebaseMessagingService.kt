@@ -2,42 +2,13 @@ package com.tagaev.trrcrm.push
 
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.tagaev.trrcrm.data.AppSettings
-import com.tagaev.trrcrm.data.AppSettingsKeys
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import kotlin.getValue
+import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 
-class AppFirebaseMessagingService : FirebaseMessagingService(), KoinComponent {
-    private val appSettings: AppSettings by inject()
+class AppFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        println("FCM token (Android): $token")
-
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA) // adapt to your storage
-        val lastSavedFCMToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN) // adapt to your storage
-
-        if (lastSavedFCMToken == token) {
-            println("FCM: token unchanged, skip register")
-            return
-        }
-
-        // save token locally
-        appSettings.setString(AppSettingsKeys.FCM_TOKEN, token)
-
-        if (fullName.isNullOrBlank() || token.isBlank()) {
-            repeat(5) {
-                println("FCM: no user fullName yet, skip register")
-            }
-            return
-        }
-
-        PushRegistration.registerCurrentUserToken(
-            fullName = fullName,
-            platform = "android",
-            token = token
-        )
+        PushRegistrationCoordinator.onTokenReceived(token, preferredPlatform = "android")
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {

@@ -42,3 +42,4 @@ private fun buildDeviceSpecificInfo(): String {
 }
 
 actual fun getPlatform(): Platform = IOSPlatform()
+actual fun pushPlatformId(): String = "ios"

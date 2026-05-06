@@ -19,20 +19,37 @@ import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.domain.UserRow
 import com.tagaev.trrcrm.domain.sortedByRolePriority
 import com.tagaev.trrcrm.models.ComplaintWorkDto
+import com.tagaev.trrcrm.models.InnerOrderGoodsDto
 import com.tagaev.trrcrm.models.InnerOrderDto
+import com.tagaev.trrcrm.models.WorkOrderProductDto
 import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.DetailsWithMessagesSheet
 import com.tagaev.trrcrm.ui.master_screen.SectionTitle
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
-import com.tagaev.trrcrm.ui.work_order.formatProductQuantityWithUnit
+import com.tagaev.trrcrm.ui.work_order.WorkOrderProductLineRowCompact
 import kotlin.collections.map
+
+private fun InnerOrderGoodsDto.toWorkOrderProduct(): WorkOrderProductDto =
+    WorkOrderProductDto(
+        lineNumber = lineNumber,
+        name = itemName,
+        quantity = quantity,
+        unit = unit,
+        coefficient = coefficient,
+        price = price,
+        amount = amount?.takeIf { it.isNotBlank() } ?: totalAmount,
+        characteristic = itemCharacteristic,
+        cell = storageCell,
+        note = comment,
+    )
 
 @Composable
 fun InnerOrderDetailsSheetTopPart(
     innerOrder: InnerOrderDto,
     onBack: () -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
@@ -273,66 +290,10 @@ fun InnerOrderDetailsSheetTopPart(
                 title = "Товары",
                 items = goods
             ) { g ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
-                    TextC(
-                        text = g.itemName.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-
-                    // Кол-во / Цена
-                    if (formatProductQuantityWithUnit(g.quantity, g.unit) != null || !g.price.isNullOrBlank()) {
-                        val qtyWithUnit = formatProductQuantityWithUnit(g.quantity, g.unit)
-
-                        DetailTwoColumnRow(
-                            firstTitle = "Кол-во:",
-                            firstValue = qtyWithUnit,
-                            secondTitle = "Цена:",
-                            secondValue = g.price
-                        )
-                    }
-
-                    // Сумма / Всего
-                    if (!g.amount.isNullOrBlank() || !g.totalAmount.isNullOrBlank()) {
-                        DetailTwoColumnRow(
-                            firstTitle = "Сумма:",
-                            firstValue = g.amount,
-                            secondTitle = "Всего:",
-                            secondValue = g.totalAmount
-                        )
-                    }
-
-                    // Доп. сведения
-                    if (!g.itemCharacteristic.isNullOrBlank() ||
-                        !g.storageCell.isNullOrBlank() ||
-                        !g.comment.isNullOrBlank()
-                    ) {
-                        Spacer(Modifier.height(2.dp))
-                        g.itemCharacteristic?.takeIf { it.isNotBlank() }?.let { ch ->
-                            Text(
-                                text = "Хар-ка: $ch",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        g.storageCell?.takeIf { it.isNotBlank() }?.let { cell ->
-                            Text(
-                                text = "Ячейка: $cell",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        g.comment?.takeIf { it.isNotBlank() }?.let { c ->
-                            Text(
-                                text = c,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
+                WorkOrderProductLineRowCompact(
+                    product = g.toWorkOrderProduct(),
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                )
             }
             Spacer(Modifier.height(4.dp))
         }
@@ -839,6 +800,7 @@ fun InnerOrderDetailsSheetWithMessages(
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -859,7 +821,8 @@ fun InnerOrderDetailsSheetWithMessages(
         InnerOrderDetailsSheetTopPart(
             io,
             onBack = onBack,
-            onOpenBaseDocument = onOpenBaseDocument
+            onOpenBaseDocument = onOpenBaseDocument,
+            onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
         )
     }
 }

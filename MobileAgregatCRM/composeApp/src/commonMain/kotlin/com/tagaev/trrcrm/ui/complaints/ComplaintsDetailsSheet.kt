@@ -24,10 +24,13 @@ import com.tagaev.trrcrm.domain.UserRow
 import com.tagaev.trrcrm.domain.sortedByRolePriority
 import com.tagaev.trrcrm.models.ComplaintChecklistItemDto
 import com.tagaev.trrcrm.models.ComplaintDto
+import com.tagaev.trrcrm.models.ComplaintGoodsDto
 import com.tagaev.trrcrm.models.ComplaintWorkDto
+import com.tagaev.trrcrm.models.WorkOrderProductDto
 import com.tagaev.trrcrm.ui.cargo.ExpandableListSection
 import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableDividerOutdent
 import com.tagaev.trrcrm.ui.work_order.WorkOrderLineItemsExpandableListPadding
+import com.tagaev.trrcrm.ui.work_order.WorkOrderProductLineRowCompact
 import com.tagaev.trrcrm.ui.work_order.buildGoodsTitle
 import com.tagaev.trrcrm.ui.work_order.parseMoneyAmount
 import com.tagaev.trrcrm.ui.custom.TextC
@@ -45,11 +48,24 @@ private val ComplaintChecklistDoneGreen = Color(0xFF388E3C)
 private fun complaintChecklistItemDone(state: String?): Boolean =
     state?.trim()?.equals("да", ignoreCase = true) == true
 
+private fun ComplaintGoodsDto.toWorkOrderProduct(): WorkOrderProductDto =
+    WorkOrderProductDto(
+        lineNumber = lineNumber,
+        name = itemName,
+        quantity = qty,
+        unit = unit,
+        coefficient = coefficient,
+        price = price,
+        amount = amount?.takeIf { it.isNotBlank() } ?: totalAmount,
+        characteristic = itemCharacteristic,
+    )
+
 @Composable
 fun ComplaintDetailsSheetTopPart(
     complaint: ComplaintDto,
     onBack: () -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
 ) {
     // If you have a generic "details sheet" wrapper like DetailsWithMessagesSheet
     // but you don't want messages here – you can wrap this content into that later.
@@ -263,7 +279,10 @@ fun ComplaintDetailsSheetTopPart(
             ),
             items = goods
         ) { good ->
-            ComplaintGoodsItemRow(goods = good)
+            WorkOrderProductLineRowCompact(
+                product = good.toWorkOrderProduct(),
+                onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+            )
         }
 
         Spacer(Modifier.height(3.dp))
@@ -803,6 +822,7 @@ fun ComplaintDetailsSheetWithMessages(
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {}
 ) {
@@ -824,6 +844,7 @@ fun ComplaintDetailsSheetWithMessages(
             ev,
             onBack = onBack,
             onOpenBaseDocument = onOpenBaseDocument,
+            onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
         )
     }
 }

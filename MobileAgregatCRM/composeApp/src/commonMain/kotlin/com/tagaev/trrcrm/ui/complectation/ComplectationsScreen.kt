@@ -4,6 +4,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -116,6 +117,7 @@ fun ComplectationsScreen(
     val stackedDetails = remember { mutableStateMapOf<String, StackedDocumentDetailsSnapshot>() }
     var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
     var isResolvingLinkedByCharacteristic by rememberSaveable { mutableStateOf(false) }
+    var characteristicMatches by remember { mutableStateOf<List<WorkOrderDto>>(emptyList()) }
     var isSearchMode by rememberSaveable { mutableStateOf(false) }
     var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
     var searchTypeDraft by rememberSaveable {
@@ -134,7 +136,42 @@ fun ComplectationsScreen(
         linkedDocuments.clear()
         isResolvingBaseDocument = false
         isResolvingLinkedByCharacteristic = false
+        characteristicMatches = emptyList()
         stackedDetails.clear()
+    }
+
+    val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
+        val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
+        if (token.isBlank()) {
+            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+        } else {
+            scope.launch {
+                isResolvingLinkedByCharacteristic = true
+                try {
+                    when (val res = component.searchComplectationsByKitCharacteristicToken(token)) {
+                        is Resource.Success -> {
+                            val list = res.data.orEmpty()
+                            when {
+                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.size == 1 -> linkedDocuments.add(
+                                    TreeRootResolvedDocument.Complectation(list.first())
+                                )
+                                else -> {
+                                    characteristicMatches = list
+                                }
+                            }
+                        }
+                        is Resource.Error -> showSnackbar(
+                            res.causes ?: res.exception?.message
+                            ?: "Ошибка поиска комплектации"
+                        )
+                        is Resource.Loading -> Unit
+                    }
+                } finally {
+                    isResolvingLinkedByCharacteristic = false
+                }
+            }
+        }
     }
 
     val applySearch: () -> Unit = {
@@ -249,7 +286,8 @@ fun ComplectationsScreen(
                     document = currentLinked,
                     onBack = onNestedBack,
                     onOpenBaseDocument = onOpenBaseDocument,
-                    complectationStacked = complectationStackedUi
+                    complectationStacked = complectationStackedUi,
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
                 )
             } else {
                 ComplectationDetailsSheet(
@@ -270,40 +308,7 @@ fun ComplectationsScreen(
                             onResult(err)
                         }
                     },
-                    onNomenclatureCharacteristicSearch = { rawCharacteristic ->
-                        val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
-                        if (token.isBlank()) {
-                            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
-                        } else {
-                            scope.launch {
-                                isResolvingLinkedByCharacteristic = true
-                                try {
-                                    when (val res = component.searchComplectationsByKitCharacteristicToken(token)) {
-                                        is Resource.Success -> {
-                                            val list = res.data.orEmpty()
-                                            if (list.isEmpty()) {
-                                                showSnackbar("Комплектации не найдены")
-                                            } else {
-                                                linkedDocuments.add(
-                                                    TreeRootResolvedDocument.Complectation(list.first())
-                                                )
-                                                if (list.size > 1) {
-                                                    showSnackbar("Найдено ${list.size}, открыт первый")
-                                                }
-                                            }
-                                        }
-                                        is Resource.Error -> showSnackbar(
-                                            res.causes ?: res.exception?.message
-                                                ?: "Ошибка поиска комплектации"
-                                        )
-                                        is Resource.Loading -> Unit
-                                    }
-                                } finally {
-                                    isResolvingLinkedByCharacteristic = false
-                                }
-                            }
-                        }
-                    }
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
                 )
             }
         },
@@ -465,6 +470,63 @@ fun ComplectationsScreen(
             title = { Text("Пожалуйста, подождите") },
             text = { Text("Поиск документа…") },
             confirmButton = {}
+        )
+    }
+
+    if (characteristicMatches.size >= 2) {
+        AlertDialog(
+            onDismissRequest = { characteristicMatches = emptyList() },
+            title = { Text("Найдено несколько комплектаций") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    characteristicMatches.forEach { item ->
+                        val title = item.link?.takeIf { it.isNotBlank() }
+                            ?: item.number?.takeIf { it.isNotBlank() }
+                            ?: "Без номера"
+                        val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() }
+                            ?: "—"
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    linkedDocuments.add(TreeRootResolvedDocument.Complectation(item))
+                                    characteristicMatches = emptyList()
+                                },
+                            tonalElevation = 2.dp,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { characteristicMatches = emptyList() }) {
+                    Text("Отмена")
+                }
+            }
         )
     }
 }

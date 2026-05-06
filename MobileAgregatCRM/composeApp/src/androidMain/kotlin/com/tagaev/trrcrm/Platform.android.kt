@@ -27,3 +27,4 @@ private object AndroidPlatformHolder : KoinComponent {
 }
 
 actual fun getPlatform(): Platform = AndroidPlatformHolder.instance
+actual fun pushPlatformId(): String = "android"

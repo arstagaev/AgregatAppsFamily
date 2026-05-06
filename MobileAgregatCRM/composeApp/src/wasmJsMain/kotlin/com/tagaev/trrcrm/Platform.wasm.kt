@@ -7,4 +7,4 @@ private class WebPlatform : Platform {
 }
 
 actual fun getPlatform(): Platform = WebPlatform()
-
+actual fun pushPlatformId(): String = "web"

@@ -19,6 +19,8 @@ fun TreeRootDocumentDetailsSheet(
     onOpenBaseDocument: (String) -> Unit,
     /** For [TreeRootResolvedDocument.Complectation] only: restore scroll / sections when deep-linking the stack. */
     complectationStacked: ComplectationTreeStackedUi? = null,
+    /** For [TreeRootResolvedDocument.Complectation] only: click on product characteristic. */
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
 ) {
     when (document) {
         is TreeRootResolvedDocument.Event -> EventDetailsSheet(
@@ -40,6 +42,7 @@ fun TreeRootDocumentDetailsSheet(
             onStackedDetailsSnapshotChange = complectationStacked?.onDetailsSnapshot,
             detailsScrollState = complectationStacked?.detailsScroll,
             onOpenBaseDocument = onOpenBaseDocument,
+            onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
         )
         is TreeRootResolvedDocument.Complaint -> ComplaintDetailsSheetWithMessages(
             complaint = document.value,

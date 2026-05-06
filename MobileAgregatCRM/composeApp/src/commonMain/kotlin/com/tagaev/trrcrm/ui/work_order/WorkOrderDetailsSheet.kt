@@ -31,7 +31,8 @@ fun WorkOrderDetailsSheet(
     onBack: () -> Unit,
     onSendMessage: (String, (String?) -> Unit) -> Unit,
     initialDraft: String? = null,
-    onDraftChanged: (String) -> Unit = {}
+    onDraftChanged: (String) -> Unit = {},
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
 ) {
     DetailsWithMessagesSheet(
         item = order,
@@ -281,7 +282,8 @@ fun WorkOrderDetailsSheet(
         ) { product ->
             WorkOrderProductLineRowCompact(
                 product = product,
-                characteristicLabel = "№ кат."
+                characteristicLabel = "№ кат.",
+                onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
             )
         }
         Spacer(Modifier.height(6.dp))
@@ -296,7 +298,11 @@ fun WorkOrderDetailsSheet(
             showItemDividers = true,
             dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
         ) { job ->
-            WorkOrderJobLineRowCompact(job, executors = executors)
+            WorkOrderJobLineRowCompact(
+                job = job,
+                executors = executors,
+                hideEmptyExecutor = true
+            )
         }
         Spacer(Modifier.height(6.dp))
         // 8–9. Товары и работы (как в «Комплектации»): раскрывающиеся карточки
@@ -315,7 +321,10 @@ fun WorkOrderDetailsSheet(
             showItemDividers = true,
             dividerHorizontalOutdent = WorkOrderLineItemsExpandableDividerOutdent
         ) { product ->
-            WorkOrderProductLineRowCompact(product)
+            WorkOrderProductLineRowCompact(
+                product = product,
+                onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+            )
         }
         Spacer(Modifier.height(6.dp))
 

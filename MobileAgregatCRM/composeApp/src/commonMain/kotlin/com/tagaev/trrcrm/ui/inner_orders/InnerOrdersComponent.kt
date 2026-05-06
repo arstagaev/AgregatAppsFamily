@@ -13,6 +13,7 @@ import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNee
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.InnerOrderMessageDto
+import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
@@ -27,6 +28,7 @@ interface IInnerOrdersComponent : IListMaster {
     fun back()
 
     val innerOrders: StateFlow<Resource<List<InnerOrderDto>>>
+    suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>>
 }
 
 class InnerOrdersComponent(
@@ -182,6 +184,16 @@ class InnerOrdersComponent(
 
     override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
         return repository.resolveTreeRootDocument(rawBaseDocument)
+    }
+
+    override suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
+        val trimmed = token.trim()
+        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        val searchState = _refineState.value.copy(
+            searchQuery = trimmed,
+            searchQueryType = com.tagaev.trrcrm.domain.Refiner.SearchQueryType.KIT_CHARACTERISTIC
+        )
+        return repository.loadComplectations(0, searchState)
     }
 
     /**

@@ -79,32 +79,34 @@ fun LoginScreen(component: ILoginComponent) {
 
     // Observe LoginComponent state (Idle / Loading / Error)
     val uiState by component.uiState.collectAsState()
-    var showErrorDialog by rememberSaveable { mutableStateOf(true) }
+    var showErrorDialog by rememberSaveable { mutableStateOf(false) }
     var currentError by remember { mutableStateOf("") }
-    var showManualLoginFromBlocked by rememberSaveable { mutableStateOf(false) }
 
     var keepSplash by rememberSaveable { mutableStateOf(true) }
     val startupBlocked = uiState as? LoginUiState.StartupBlocked
+    var errorDialogTitle by remember { mutableStateOf("Ошибка входа") }
 
     // Keep the loading splash on screen a bit longer when leaving Login,
     // so the forms never flash during navigation to MainList.
     LaunchedEffect(uiState) {
-        if (uiState !is LoginUiState.StartupBlocked) {
-            showManualLoginFromBlocked = false
-        }
         when (uiState) {
             is LoginUiState.Loading -> keepSplash = true
             is LoginUiState.Error -> {
                 keepSplash = false
                 val e = uiState as LoginUiState.Error
                 showErrorDialog = true
+                errorDialogTitle = "Ошибка входа"
                 currentError = e.message
             }
             is LoginUiState.StartupBlocked -> {
                 keepSplash = false
+                showErrorDialog = true
+                errorDialogTitle = "Ошибка соединения"
+                currentError = "Connection timeout or server unavailable"
             }
             else -> {
                 // Navigation / success / idle — hold splash briefly
+                showErrorDialog = false
                 keepSplash = true
                 kotlinx.coroutines.delay(SPLASH_HOLD_MS)
                 // Only drop splash if we haven't gone back to Loading in the meantime
@@ -180,20 +182,6 @@ fun LoginScreen(component: ILoginComponent) {
 
     val showSplash = keepSplash || (uiState is LoginUiState.Loading)
     val splashImage = remember { SessionTrrImage.get() }
-
-    if (startupBlocked != null && !showManualLoginFromBlocked) {
-        StartupBlockedScreen(
-            image = splashImage,
-            onRefresh = {
-                showManualLoginFromBlocked = false
-                component.retryStartup()
-            },
-            onRelogin = {
-                showManualLoginFromBlocked = true
-            }
-        )
-        return
-    }
 
     if (!showSplash) {
         ScreenWithDismissableKeyboard {
@@ -324,13 +312,16 @@ fun LoginScreen(component: ILoginComponent) {
                     }
                 }
 
-                if (showErrorDialog && uiState is LoginUiState.Error) {
+                if (showErrorDialog) {
                     AlertDialog(
-                        onDismissRequest = { showErrorDialog = false },
+                        onDismissRequest = { },
                         confirmButton = {
-                            TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
+                            TextButton(
+                                onClick = { component.retryStartup() },
+                                enabled = uiState !is LoginUiState.Loading
+                            ) { Text("Refresh") }
                         },
-                        title = { Text("Ошибка входа") },
+                        title = { Text(errorDialogTitle) },
                         text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
                     )
                 }
@@ -363,65 +354,6 @@ fun LoginScreen(component: ILoginComponent) {
 
 
 }
-
-@Composable
-private fun StartupBlockedScreen(
-    image: org.jetbrains.compose.resources.DrawableResource,
-    onRefresh: () -> Unit,
-    onRelogin: () -> Unit
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(image),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f))
-        )
-
-        Surface(
-            color = Color.Gray.copy(alpha = 0.88f),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 0.dp,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 48.dp, start = 20.dp, end = 20.dp)
-                .fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Connection Error",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onRefresh,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Refresh")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onRelogin,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Re-login")
-                }
-            }
-        }
-    }
-}
-
 
 @Composable
 private fun ShimmerTitle(

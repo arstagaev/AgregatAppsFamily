@@ -13,6 +13,7 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.models.ComplaintMessageDto
 import com.tagaev.trrcrm.models.MessageDto
+import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
@@ -27,6 +28,7 @@ interface IComplaintsComponent: IListMaster {
     fun back()
 
     val complaints: StateFlow<Resource<List<ComplaintDto>>>
+    suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>>
 }
 
 class ComplaintsComponent(
@@ -158,6 +160,16 @@ class ComplaintsComponent(
 
     override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
         return repository.resolveTreeRootDocument(rawBaseDocument)
+    }
+
+    override suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
+        val trimmed = token.trim()
+        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        val searchState = _refineState.value.copy(
+            searchQuery = trimmed,
+            searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
+        )
+        return repository.loadComplectations(0, searchState)
     }
     // ---------- Work Orders refine state ----------
 

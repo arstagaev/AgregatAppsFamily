@@ -270,8 +270,10 @@ private fun WorkOrderProductMetaCell(
 fun WorkOrderJobLineRowCompact(
     job: WorkOrderJobDto,
     executors: List<WorkOrderExecutorDto>,
+    hideEmptyExecutor: Boolean = false,
 ) {
     val executorTitle = jobExecutorTitle(job, executors)
+    val shouldShowExecutor = !(hideEmptyExecutor && executorTitle == "—")
     val normWithCoefficient = buildString {
         val qty = job.quantity?.trim().orEmpty()
         val coef = job.coefficient?.trim().orEmpty()
@@ -322,25 +324,27 @@ fun WorkOrderJobLineRowCompact(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(1.dp))
-                    Text(
-                        text = "Исполнитель",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = dashOr(executorTitle),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (shouldShowExecutor) {
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            text = "Исполнитель",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = dashOr(executorTitle),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                lineHeight = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 Column(

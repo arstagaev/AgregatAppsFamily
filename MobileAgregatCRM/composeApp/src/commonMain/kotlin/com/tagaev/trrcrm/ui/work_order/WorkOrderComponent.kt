@@ -24,6 +24,7 @@ import org.koin.core.component.inject
 
 interface IWorkOrdersComponent: IListMaster {
     val workOrders: StateFlow<Resource<List<WorkOrderDto>>>
+    suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>>
 }
 
 class WorkOrdersComponent(
@@ -165,6 +166,16 @@ class WorkOrdersComponent(
 
     override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
         return repository.resolveTreeRootDocument(rawBaseDocument)
+    }
+
+    override suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
+        val trimmed = token.trim()
+        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        val searchState = _refineState.value.copy(
+            searchQuery = trimmed,
+            searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
+        )
+        return repository.loadComplectations(0, searchState)
     }
 
     /**

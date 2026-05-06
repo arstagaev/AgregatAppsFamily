@@ -14,3 +14,4 @@ private class DesktopPlatform : Platform {
 }
 
 actual fun getPlatform(): Platform = DesktopPlatform()
+actual fun pushPlatformId(): String = "desktop"
