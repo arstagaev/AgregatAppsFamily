@@ -14,6 +14,7 @@ import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.MessageDto
+import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
@@ -72,6 +73,17 @@ class EventsComponent(
     private val loadedEvents = mutableListOf<EventItemDto>()
 
     private val loadedKeys = mutableSetOf<String>()
+    private var deepLinkSnapshot: DeepLinkSnapshot? = null
+
+    private data class DeepLinkSnapshot(
+        val events: List<EventItemDto>,
+        val keys: Set<String>,
+        val refineState: RefineState,
+        val ncount: Int,
+        val selectedGuid: String?,
+        val panel: MasterPanel,
+        val pickedEvent: EventItemDto?,
+    )
 
     val backCallback = BackCallback { _masterScreenPanel.value = MasterPanel.List }
 
@@ -281,6 +293,94 @@ class EventsComponent(
         val remoteMatches = (repository.loadEvents(0, searchState) as? Resource.Success)?.data.orEmpty()
             .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
         return pickEventMatch(remoteMatches, messageHint)?.guid
+    }
+
+    override fun enterDeepLinkMode() {
+        if (deepLinkSnapshot != null) return
+        deepLinkSnapshot = DeepLinkSnapshot(
+            events = loadedEvents.toList(),
+            keys = loadedKeys.toSet(),
+            refineState = _refineState.value,
+            ncount = _ncount.value,
+            selectedGuid = _selectedOrderGuid.value,
+            panel = _masterScreenPanel.value,
+            pickedEvent = pickedEvent,
+        )
+    }
+
+    override fun restoreAfterDeepLinkIfNeeded() {
+        val snapshot = deepLinkSnapshot ?: return
+        deepLinkSnapshot = null
+        loadedEvents.clear()
+        loadedEvents.addAll(snapshot.events)
+        loadedKeys.clear()
+        loadedKeys.addAll(snapshot.keys)
+        _refineState.value = snapshot.refineState
+        _ncount.value = snapshot.ncount
+        _selectedOrderGuid.value = snapshot.selectedGuid
+        _masterScreenPanel.value = snapshot.panel
+        pickedEvent = snapshot.pickedEvent
+        _events.value = Resource.Success(loadedEvents.toList(), additionalLoading = false)
+    }
+
+    override suspend fun resolveAndOpenDeepLink(
+        identifier: String,
+        messageHint: String?,
+        preferredSearchType: Refiner.SearchQueryType?,
+    ): DeepLinkOpenResult {
+        val normalizedIdentifier = normalizeIdentifier(identifier)
+            ?: return DeepLinkOpenResult.NotFound
+        val searchState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = preferredSearchType ?: Refiner.SearchQueryType.CODE
+        )
+        return when (val remote = repository.loadEvents(0, searchState)) {
+            is Resource.Success -> {
+                val matches = remote.data.orEmpty()
+                    .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+                    .sortedWith(
+                        compareBy<EventItemDto> { normalizeIdentifier(it.number).orEmpty() }
+                            .thenBy { normalizeIdentifier(it.guid).orEmpty() }
+                            .thenBy { it.date?.toString().orEmpty() }
+                    )
+                when {
+                    matches.isEmpty() -> DeepLinkOpenResult.NotFound
+                    matches.size == 1 -> {
+                        val target = matches.first()
+                        applyDeepLinkCandidates(matches, selectedGuid = target.guid?.toString(), openDetails = true)
+                        pickedEvent = target
+                        DeepLinkOpenResult.OpenedDetails(target.guid?.toString().orEmpty())
+                    }
+                    else -> {
+                        applyDeepLinkCandidates(matches, selectedGuid = null, openDetails = false)
+                        DeepLinkOpenResult.OpenedResultsList(matches.size)
+                    }
+                }
+            }
+            is Resource.Error -> DeepLinkOpenResult.Failed(
+                remote.causes ?: friendlyError(remote.exception, "Ошибка поиска события")
+            )
+            is Resource.Loading -> DeepLinkOpenResult.Failed("Поиск события не завершён")
+        }
+    }
+
+    private fun applyDeepLinkCandidates(
+        candidates: List<EventItemDto>,
+        selectedGuid: String?,
+        openDetails: Boolean,
+    ) {
+        loadedEvents.clear()
+        loadedKeys.clear()
+        candidates.forEach { item ->
+            val key = item.key()
+            if (loadedKeys.add(key)) {
+                loadedEvents.add(item)
+            }
+        }
+        _ncount.value = 0
+        _selectedOrderGuid.value = selectedGuid
+        _events.value = Resource.Success(loadedEvents.toList(), additionalLoading = false)
+        _masterScreenPanel.value = if (openDetails) MasterPanel.Details else MasterPanel.List
     }
 
     private fun pickEventMatch(candidates: List<EventItemDto>, messageHint: String?): EventItemDto? {

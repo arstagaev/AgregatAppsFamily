@@ -90,6 +90,7 @@ data class CoreNotificationIntentRequest(
     val source_system: String,
     val event_type: String,
     val title: String,
+    val subtitle: String? = null,
     val body: String,
     val recipient_names: List<String>,
     val dedupe_key: String? = null,
@@ -107,3 +108,81 @@ data class CoreNotificationIntentResponse(
     val message: String? = null,
 )
 
+@Serializable
+data class CoreNotificationsFeedRequest(
+    @SerialName("session_id")
+    val sessionId: String,
+    val limit: Int = 30,
+    val cursor: String? = null,
+    @SerialName("search_query")
+    val searchQuery: String? = null,
+    @SerialName("status_filter")
+    val statusFilter: String = "all",
+)
+
+@Serializable
+data class CoreNotificationFeedItem(
+    val id: String,
+    @SerialName("created_at")
+    val createdAt: String,
+    @SerialName("expires_at")
+    val expiresAt: String? = null,
+    val title: String,
+    @SerialName("message_text")
+    val messageText: String? = null,
+    val screen: String? = null,
+    @SerialName("search_key")
+    val searchKey: String? = null,
+    @SerialName("search_query_type")
+    val searchQueryType: String? = null,
+    @SerialName("doc_number")
+    val docNumber: String? = null,
+    @SerialName("doc_title")
+    val docTitle: String? = null,
+    val status: String = "unread",
+    @SerialName("read_at")
+    val readAt: String? = null,
+)
+
+@Serializable
+data class CoreNotificationsFeedResponse(
+    val status: String? = null,
+    val items: List<CoreNotificationFeedItem> = emptyList(),
+    @SerialName("next_cursor")
+    val nextCursor: String? = null,
+    @SerialName("unread_count")
+    val unreadCount: Int = 0,
+)
+
+@Serializable
+data class CoreNotificationStatusUpdateRequest(
+    @SerialName("session_id")
+    val sessionId: String,
+    @SerialName("notification_id")
+    val notificationId: Long,
+    val status: String,
+    val source: String = "manual",
+)
+
+@Serializable
+data class CoreNotificationStatusUpdateResponse(
+    val status: String? = null,
+    @SerialName("notification_id")
+    val notificationId: String? = null,
+    @SerialName("new_status")
+    val newStatus: String? = null,
+    @SerialName("read_at")
+    val readAt: String? = null,
+)
+
+@Serializable
+data class CoreNotificationsReadAllRequest(
+    @SerialName("session_id")
+    val sessionId: String,
+)
+
+@Serializable
+data class CoreNotificationsReadAllResponse(
+    val status: String? = null,
+    val updated: Int = 0,
+)

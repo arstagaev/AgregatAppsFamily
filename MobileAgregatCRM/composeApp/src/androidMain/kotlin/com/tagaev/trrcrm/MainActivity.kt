@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
+import com.tagaev.trrcrm.push.NotificationContextParser
 import com.arkivanov.decompose.defaultComponentContext
 import com.tagaev.trrcrm.ui.root.AppRoot
 import com.tagaev.trrcrm.ui.root.DefaultRootComponent
@@ -50,26 +51,68 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         val extras = intent?.extras
         val extraKeys = extras?.keySet()?.sorted().orEmpty()
-        val screen = firstIntentValue(intent, "screen", "screen_raw")
-        val rawDocId = firstIntentValue(intent, "docId", "doc_id", "doc_id_raw")
-        val messageHint = firstIntentValue(intent, "message_text", "body", "gcm.notification.body", "gcm.n.body")
-        val title = firstIntentValue(intent, "title", "docTitle", "gcm.notification.title", "gcm.n.title")
-        val hasCanonicalPayload = intent?.getBooleanExtra("has_canonical_payload", false) ?: false
-        val docId = extractGuidOrTrim(rawDocId)
-        val inferredScreen = screen ?: inferScreenFromTitle(title) ?: if (!title.isNullOrBlank()) "events" else null
-        val hasDeepLinkContext = !inferredScreen.isNullOrBlank() || !docId.isNullOrBlank() || !title.isNullOrBlank() || !messageHint.isNullOrBlank()
-        val signature = listOf(inferredScreen.orEmpty(), docId.orEmpty(), title.orEmpty(), messageHint.orEmpty()).joinToString("|")
+        val hasPushLaunchMarkers = hasPushLaunchMarkers(intent, extraKeys)
+        val screen = firstIntentText(intent, "screen", "screen_raw")
+        val rawDocId = firstIntentText(
+            intent,
+            "docId",
+            "doc_id",
+            "doc_id_raw",
+            "search_key",
+            "searchQuery",
+            "search_query"
+        )
+        val messageHint = firstIntentText(
+            intent,
+            "message_text",
+            "body",
+            "gcm.notification.body",
+            "gcm.n.body",
+            "android.text",
+            "android.bigText"
+        )
+        val title = firstIntentText(
+            intent,
+            "title",
+            "docTitle",
+            "doc_title",
+            "notification_title",
+            "gcm.notification.title",
+            "gcm.n.title",
+            "android.title",
+            "android.title.big"
+        )
+        val parsedContext = NotificationContextParser.parse(
+            title = title,
+            screen = screen,
+            docId = rawDocId,
+            messageText = messageHint
+        )
+        val parsedScreen = parsedContext.screen
+        val parsedIdentifier = parsedContext.primaryKey
+        val hasDeepLinkContext =
+            !parsedScreen.isNullOrBlank() ||
+                    !parsedIdentifier.isNullOrBlank() ||
+                    !title.isNullOrBlank() ||
+                    !messageHint.isNullOrBlank()
+        val signature = listOf(
+            parsedScreen.orEmpty(),
+            parsedIdentifier.orEmpty(),
+            title.orEmpty(),
+            messageHint.orEmpty()
+        ).joinToString("|")
         println(
             "PUSH_SERVICE DEEPLINK: MainActivity.handleIntent hasDeepLink=$hasDeepLinkContext, " +
-                    "screen='$inferredScreen', docId='$docId' (raw='$rawDocId'), " +
+                    "screen='$parsedScreen', identifier='$parsedIdentifier' (rawDocId='$rawDocId'), " +
                     "title='${title.orEmpty()}', keys=$extraKeys, root=${root != null}"
         )
-        if (!hasDeepLinkContext) {
-            println("PUSH_SERVICE DEEPLINK: missing_push_context, ignoring")
+        if (hasPushLaunchMarkers) {
+            println("PUSH_SERVICE DEEPLINK: detected push launch markers, opening MainHome")
+            root?.onPushLaunchIntent()
             return
         }
-        if (!hasCanonicalPayload && title.isNullOrBlank()) {
-            println("PUSH_SERVICE DEEPLINK: missing_canonical_push_payload and no title fallback, skip")
+        if (!hasDeepLinkContext) {
+            println("PUSH_SERVICE DEEPLINK: missing_push_context, ignoring")
             return
         }
         if (signature == lastHandledDeepLinkSignature) {
@@ -78,9 +121,9 @@ class MainActivity : ComponentActivity() {
         }
 
         if (root != null) {
-            val resolvedScreen = inferredScreen ?: "events"
+            val resolvedScreen = parsedScreen ?: "events"
             println("PUSH_SERVICE DEEPLINK: Calling onDeepLink with screen='$resolvedScreen'")
-            root?.onDeepLink(resolvedScreen, docId, messageHint, title)
+            root?.onDeepLink(resolvedScreen, parsedIdentifier, messageHint, title)
             lastHandledDeepLinkSignature = signature
             clearDeepLinkExtras(intent)
         } else {
@@ -98,40 +141,34 @@ class MainActivity : ComponentActivity() {
         intent?.removeExtra("body")
         intent?.removeExtra("title")
         intent?.removeExtra("docTitle")
+        intent?.removeExtra("doc_title")
         intent?.removeExtra("gcm.notification.title")
         intent?.removeExtra("gcm.notification.body")
         intent?.removeExtra("gcm.n.title")
         intent?.removeExtra("gcm.n.body")
+        intent?.removeExtra("search_key")
+        intent?.removeExtra("searchQuery")
+        intent?.removeExtra("search_query")
     }
 
-    private fun extractGuidOrTrim(value: String?): String? {
-        if (value.isNullOrBlank()) return null
-        val trimmed = value.trim()
-        val match = GUID_REGEX.find(trimmed)
-        return match?.value ?: trimmed
-    }
-
-    private fun firstIntentValue(intent: Intent?, vararg keys: String): String? {
+    private fun firstIntentText(intent: Intent?, vararg keys: String): String? {
+        val extras = intent?.extras
         for (key in keys) {
             val value = intent?.getStringExtra(key)?.trim()
             if (!value.isNullOrBlank()) return value
+            val bundledText = extras?.getString(key)?.trim()
+            if (!bundledText.isNullOrBlank()) return bundledText
+            val bundledSequence = extras?.getCharSequence(key)?.toString()?.trim()
+            if (!bundledSequence.isNullOrBlank()) return bundledSequence
         }
         return null
     }
 
-    private fun inferScreenFromTitle(title: String?): String? {
-        val normalized = title?.lowercase()?.trim().orEmpty()
-        if (normalized.isBlank()) return null
-        return when {
-            normalized.contains("комплект") -> "complectation"
-            normalized.contains("заказ-нар") || normalized.contains("заказнар") -> "work_orders"
-            normalized.contains("событ") -> "events"
-            else -> null
+    private fun hasPushLaunchMarkers(intent: Intent?, keys: List<String>): Boolean {
+        if (keys.any { it == "google.message_id" || it == "from" || it == "collapse_key" || it == "gcm.n.analytics_data" }) {
+            return true
         }
-    }
-
-    private companion object {
-        private val GUID_REGEX = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+        return !firstIntentText(intent, "google.message_id", "from", "collapse_key").isNullOrBlank()
     }
 }
 

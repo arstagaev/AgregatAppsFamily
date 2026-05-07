@@ -4,7 +4,6 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
-import kotlinx.coroutines.flow.StateFlow
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -14,11 +13,13 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -69,6 +70,19 @@ class WorkOrdersComponent(
     private val loadedOrders = mutableListOf<WorkOrderDto>()
 
     private val loadedKeys = mutableSetOf<String>()
+    private val _transientWarning = MutableStateFlow<String?>(null)
+    val transientWarning: StateFlow<String?> = _transientWarning
+    private var deepLinkSnapshot: DeepLinkSnapshot? = null
+
+    private data class DeepLinkSnapshot(
+        val orders: List<WorkOrderDto>,
+        val keys: Set<String>,
+        val refineState: RefineState,
+        val ncount: Int,
+        val selectedGuid: String?,
+        val panel: MasterPanel,
+        val pickedOrder: WorkOrderDto?,
+    )
 
 
 
@@ -160,25 +174,38 @@ class WorkOrdersComponent(
             itemDate.substringBefore(' '),
             message
         )
-        val wo = pickedOrder
-        val users = buildWorkOrderRecipients(wo)
-        val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
-        if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
-            repository.sendMessageEventPUSH(
-                docId = wo?.guid ?: wo?.number ?: itemNumber,
-                docTitle = "Заказ-Наряд ${wo?.number ?: itemNumber} (${wo?.branch.orEmpty()})",
-                authorName = author,
-                recipientNames = users,
-                message = "${author}:\n${message}",
-                screen = "work_orders",
-                rawMessage = message
-            )
-        }
         return when (res) {
-            is Resource.Success -> null
+            is Resource.Success -> {
+                val wo = pickedOrder
+                val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)?.trim()
+                val users = buildWorkOrderRecipients(wo, currentUser = author)
+                if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+                    when (val pushRes = repository.sendMessageEventPUSH(
+                        docId = wo?.guid ?: wo?.number ?: itemNumber,
+                        docTitle = "Заказ-Наряд ${wo?.number ?: itemNumber} (${wo?.branch.orEmpty()})",
+                        authorName = author,
+                        recipientNames = users,
+                        message = "${author}:\n${message}",
+                        screen = "work_orders",
+                        rawMessage = message
+                    )) {
+                        is Resource.Error -> {
+                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, "Не удалось отправить уведомление")
+                            println("PUSH_SERVICE: WorkOrder push intent failed after message save: $reason")
+                            _transientWarning.value = "Комментарий сохранён, уведомление не отправлено"
+                        }
+                        else -> Unit
+                    }
+                }
+                null
+            }
             is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
+    }
+
+    fun consumeTransientWarning() {
+        _transientWarning.value = null
     }
 
     override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
@@ -218,6 +245,94 @@ class WorkOrdersComponent(
         val remoteMatches = (repository.loadWorkOrders(0, searchState) as? Resource.Success)?.data.orEmpty()
             .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
         return pickWorkOrderMatch(remoteMatches, messageHint)?.guid
+    }
+
+    override fun enterDeepLinkMode() {
+        if (deepLinkSnapshot != null) return
+        deepLinkSnapshot = DeepLinkSnapshot(
+            orders = loadedOrders.toList(),
+            keys = loadedKeys.toSet(),
+            refineState = _refineState.value,
+            ncount = _ncount.value,
+            selectedGuid = _selectedOrderGuid.value,
+            panel = _masterScreenPanel.value,
+            pickedOrder = pickedOrder,
+        )
+    }
+
+    override fun restoreAfterDeepLinkIfNeeded() {
+        val snapshot = deepLinkSnapshot ?: return
+        deepLinkSnapshot = null
+        loadedOrders.clear()
+        loadedOrders.addAll(snapshot.orders)
+        loadedKeys.clear()
+        loadedKeys.addAll(snapshot.keys)
+        _refineState.value = snapshot.refineState
+        _ncount.value = snapshot.ncount
+        _selectedOrderGuid.value = snapshot.selectedGuid
+        _masterScreenPanel.value = snapshot.panel
+        pickedOrder = snapshot.pickedOrder
+        _workOrders.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+    }
+
+    override suspend fun resolveAndOpenDeepLink(
+        identifier: String,
+        messageHint: String?,
+        preferredSearchType: Refiner.SearchQueryType?,
+    ): DeepLinkOpenResult {
+        val normalizedIdentifier = normalizeIdentifier(identifier)
+            ?: return DeepLinkOpenResult.NotFound
+        val searchState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = preferredSearchType ?: Refiner.SearchQueryType.CODE
+        )
+        return when (val remote = repository.loadWorkOrders(0, searchState)) {
+            is Resource.Success -> {
+                val matches = remote.data.orEmpty()
+                    .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+                    .sortedWith(
+                        compareBy<WorkOrderDto> { normalizeIdentifier(it.number).orEmpty() }
+                            .thenBy { normalizeIdentifier(it.guid).orEmpty() }
+                            .thenBy { it.date.orEmpty() }
+                    )
+                when {
+                    matches.isEmpty() -> DeepLinkOpenResult.NotFound
+                    matches.size == 1 -> {
+                        val target = matches.first()
+                        applyDeepLinkCandidates(matches, selectedGuid = target.guid?.toString(), openDetails = true)
+                        pickedOrder = target
+                        DeepLinkOpenResult.OpenedDetails(target.guid?.toString().orEmpty())
+                    }
+                    else -> {
+                        applyDeepLinkCandidates(matches, selectedGuid = null, openDetails = false)
+                        DeepLinkOpenResult.OpenedResultsList(matches.size)
+                    }
+                }
+            }
+            is Resource.Error -> DeepLinkOpenResult.Failed(
+                remote.causes ?: friendlyError(remote.exception, "Ошибка поиска заказ-наряда")
+            )
+            is Resource.Loading -> DeepLinkOpenResult.Failed("Поиск заказ-наряда не завершён")
+        }
+    }
+
+    private fun applyDeepLinkCandidates(
+        candidates: List<WorkOrderDto>,
+        selectedGuid: String?,
+        openDetails: Boolean,
+    ) {
+        loadedOrders.clear()
+        loadedKeys.clear()
+        candidates.forEach { item ->
+            val key = item.key()
+            if (loadedKeys.add(key)) {
+                loadedOrders.add(item)
+            }
+        }
+        _ncount.value = 0
+        _selectedOrderGuid.value = selectedGuid
+        _workOrders.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+        _masterScreenPanel.value = if (openDetails) MasterPanel.Details else MasterPanel.List
     }
 
     /**
@@ -307,7 +422,7 @@ class WorkOrdersComponent(
         appSettings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE, encoded)
     }
 
-    private fun buildWorkOrderRecipients(order: WorkOrderDto?): List<String> {
+    private fun buildWorkOrderRecipients(order: WorkOrderDto?, currentUser: String?): List<String> {
         if (order == null) return emptyList()
         val rawCandidates = buildList {
             add(order.author)
@@ -316,14 +431,17 @@ class WorkOrdersComponent(
             add(order.master)
             order.messages.forEach { add(it.author) }
         }
-        return uniqueNormalizedNames(rawCandidates)
+        return uniqueNormalizedNames(rawCandidates, currentUser = currentUser)
     }
 
-    private fun uniqueNormalizedNames(candidates: List<String?>): List<String> {
+    private fun uniqueNormalizedNames(candidates: List<String?>, currentUser: String?): List<String> {
         val result = LinkedHashSet<String>()
+        val normalizedCurrentUser = currentUser?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
         candidates.forEach { value ->
             val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
-            if (normalized.isNotBlank()) result.add(normalized)
+            if (normalized.isNotBlank() && !normalized.equals(normalizedCurrentUser, ignoreCase = true)) {
+                result.add(normalized)
+            }
         }
         return result.toList()
     }

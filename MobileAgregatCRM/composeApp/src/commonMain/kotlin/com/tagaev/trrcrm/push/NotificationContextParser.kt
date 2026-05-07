@@ -15,15 +15,18 @@ object NotificationContextParser {
         messageText: String?,
     ): NotificationContext {
         val normalizedTitle = title.orEmpty().trim()
+        val normalizedMessage = normalizeMessageHint(messageText).orEmpty()
         val resolvedScreen = inferScreen(normalizedTitle, screen)
         val keyFromTitle = extractPrimaryKeyFromTitle(normalizedTitle, resolvedScreen)
+        val keyFromMessage = extractPrimaryKeyFromTitle(normalizedMessage, resolvedScreen)
         val label = inferDocTypeLabel(normalizedTitle, resolvedScreen)
         val normalizedDocId = normalizeKey(docId)
+        val safeDocFallback = normalizedDocId?.takeUnless { looksLikeGuid(it) }
         return NotificationContext(
             screen = resolvedScreen,
             docTypeLabel = label,
-            primaryKey = keyFromTitle ?: normalizedDocId,
-            messageHint = normalizeMessageHint(messageText),
+            primaryKey = keyFromTitle ?: keyFromMessage ?: safeDocFallback,
+            messageHint = normalizedMessage.ifBlank { null },
         )
     }
 
@@ -42,7 +45,7 @@ object NotificationContextParser {
         if (title.isBlank()) return null
         return when (screen) {
             "complectation" -> {
-                val complectation = Regex("(?iu)с\\s*/?\\s*н\\s*([\\p{L}0-9\\-]+)")
+                val complectation = Regex("(?iu)\\bс\\s*/?\\s*н\\b\\s*([\\p{L}0-9\\-]+)")
                     .find(title)
                     ?.groupValues
                     ?.getOrNull(1)
@@ -73,7 +76,7 @@ object NotificationContextParser {
                 normalizeKey(number)
             }
             else -> {
-                val complectation = Regex("(?iu)с\\s*/?\\s*н\\s*([\\p{L}0-9\\-]+)")
+                val complectation = Regex("(?iu)\\bс\\s*/?\\s*н\\b\\s*([\\p{L}0-9\\-]+)")
                     .find(title)
                     ?.groupValues
                     ?.getOrNull(1)
@@ -110,6 +113,10 @@ object NotificationContextParser {
         }
     }
 
+    private fun looksLikeGuid(value: String): Boolean {
+        return GUID_REGEX.matches(value)
+    }
+
     private fun inferDocTypeLabel(title: String, screen: String?): String? {
         val t = title.lowercase()
         return when {
@@ -119,4 +126,6 @@ object NotificationContextParser {
             else -> null
         }
     }
+
+    private val GUID_REGEX = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 }

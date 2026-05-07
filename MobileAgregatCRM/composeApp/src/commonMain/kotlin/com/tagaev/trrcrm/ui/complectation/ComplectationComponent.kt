@@ -4,7 +4,6 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
-import kotlinx.coroutines.flow.StateFlow
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -15,11 +14,13 @@ import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -129,6 +130,19 @@ class ComplectationComponent(
 
     private val loadedKeys = mutableSetOf<String>()
     private val loadMutex = Mutex()
+    private val _transientWarning = MutableStateFlow<String?>(null)
+    val transientWarning: StateFlow<String?> = _transientWarning
+    private var deepLinkSnapshot: DeepLinkSnapshot? = null
+
+    private data class DeepLinkSnapshot(
+        val orders: List<WorkOrderDto>,
+        val keys: Set<String>,
+        val refineState: RefineState,
+        val ncount: Int,
+        val selectedGuid: String?,
+        val panel: MasterPanel,
+        val pickedComplectation: WorkOrderDto?,
+    )
 
 
 
@@ -282,25 +296,38 @@ class ComplectationComponent(
             itemDate.substringBefore(' '),
             message
         )
-        val co = pickedComplectation
-        val users = buildComplectationRecipients(co)
-        val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
-        if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
-            repository.sendMessageEventPUSH(
-                docId = co?.guid ?: co?.number ?: itemNumber,
-                docTitle = "Комплектация ${co?.complectationCharacteristic ?: itemNumber} (${co?.branch.orEmpty()})",
-                authorName = author,
-                recipientNames = users,
-                message = "${author}:\n${message}",
-                screen = "complectation",
-                rawMessage = message
-            )
-        }
         return when (res) {
-            is Resource.Success -> null
+            is Resource.Success -> {
+                val co = pickedComplectation
+                val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)?.trim()
+                val users = buildComplectationRecipients(co, currentUser = author)
+                if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+                    when (val pushRes = repository.sendMessageEventPUSH(
+                        docId = co?.guid ?: co?.number ?: itemNumber,
+                        docTitle = "Комплектация ${co?.complectationCharacteristic ?: itemNumber} (${co?.branch.orEmpty()})",
+                        authorName = author,
+                        recipientNames = users,
+                        message = "${author}:\n${message}",
+                        screen = "complectation",
+                        rawMessage = message
+                    )) {
+                        is Resource.Error -> {
+                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, "Не удалось отправить уведомление")
+                            println("PUSH_SERVICE: Complectation push intent failed after message save: $reason")
+                            _transientWarning.value = "Комментарий сохранён, уведомление не отправлено"
+                        }
+                        else -> Unit
+                    }
+                }
+                null
+            }
             is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
+    }
+
+    fun consumeTransientWarning() {
+        _transientWarning.value = null
     }
 
     override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {
@@ -467,21 +494,142 @@ class ComplectationComponent(
         return pickComplectationMatch(numberMatches, messageHint)?.guid
     }
 
-    private fun buildComplectationRecipients(order: WorkOrderDto?): List<String> {
+    override fun enterDeepLinkMode() {
+        if (deepLinkSnapshot != null) return
+        deepLinkSnapshot = DeepLinkSnapshot(
+            orders = loadedOrders.toList(),
+            keys = loadedKeys.toSet(),
+            refineState = _refineState.value,
+            ncount = _ncount.value,
+            selectedGuid = _selectedOrderGuid.value,
+            panel = _masterScreenPanel.value,
+            pickedComplectation = pickedComplectation,
+        )
+    }
+
+    override fun restoreAfterDeepLinkIfNeeded() {
+        val snapshot = deepLinkSnapshot ?: return
+        deepLinkSnapshot = null
+        loadedOrders.clear()
+        loadedOrders.addAll(snapshot.orders)
+        loadedKeys.clear()
+        loadedKeys.addAll(snapshot.keys)
+        _refineState.value = snapshot.refineState
+        _ncount.value = snapshot.ncount
+        _selectedOrderGuid.value = snapshot.selectedGuid
+        _masterScreenPanel.value = snapshot.panel
+        pickedComplectation = snapshot.pickedComplectation
+        _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+    }
+
+    override suspend fun resolveAndOpenDeepLink(
+        identifier: String,
+        messageHint: String?,
+        preferredSearchType: Refiner.SearchQueryType?,
+    ): DeepLinkOpenResult = loadMutex.withLock {
+        val normalizedIdentifier = normalizeIdentifier(identifier)
+            ?: return@withLock DeepLinkOpenResult.NotFound
+        val primarySearchType = preferredSearchType ?: Refiner.SearchQueryType.KIT_CHARACTERISTIC
+        val mergedMatches = linkedMapOf<String, WorkOrderDto>()
+
+        val primaryState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = primarySearchType
+        )
+        when (val primaryResult = repository.loadComplectations(0, primaryState)) {
+            is Resource.Success -> {
+                val primaryCandidates = primaryResult.data.orEmpty()
+                val filteredPrimary = if (primarySearchType == Refiner.SearchQueryType.KIT_CHARACTERISTIC) {
+                    // Backend already filtered by characteristic token. Keep returned rows to avoid false-negative drops.
+                    primaryCandidates
+                } else {
+                    primaryCandidates.filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+                }
+                filteredPrimary.forEach { mergedMatches[it.key()] = it }
+            }
+            is Resource.Error -> return@withLock DeepLinkOpenResult.Failed(
+                primaryResult.causes ?: friendlyError(primaryResult.exception, "Ошибка поиска комплектации")
+            )
+            is Resource.Loading -> return@withLock DeepLinkOpenResult.Failed("Поиск комплектации не завершён")
+        }
+
+        val canFallbackToNumber = identifier.trim().all { it.isDigit() }
+        if (primarySearchType != Refiner.SearchQueryType.CODE && canFallbackToNumber) {
+            val numberState = _refineState.value.copy(
+                searchQuery = identifier.trim(),
+                searchQueryType = Refiner.SearchQueryType.CODE
+            )
+            when (val numberResult = repository.loadComplectations(0, numberState)) {
+                is Resource.Success -> {
+                    numberResult.data.orEmpty()
+                        .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+                        .forEach { mergedMatches[it.key()] = it }
+                }
+                is Resource.Error -> return@withLock DeepLinkOpenResult.Failed(
+                    numberResult.causes ?: friendlyError(numberResult.exception, "Ошибка поиска комплектации")
+                )
+                is Resource.Loading -> return@withLock DeepLinkOpenResult.Failed("Поиск комплектации не завершён")
+            }
+        }
+
+        val matches = mergedMatches.values.toList().sortedWith(
+            compareBy<WorkOrderDto> { normalizeIdentifier(it.complectationCharacteristic).orEmpty() }
+                .thenBy { normalizeIdentifier(it.number).orEmpty() }
+                .thenBy { normalizeIdentifier(it.guid).orEmpty() }
+        )
+        when {
+            matches.isEmpty() -> DeepLinkOpenResult.NotFound
+            matches.size == 1 -> {
+                val target = matches.first()
+                applyDeepLinkCandidates(matches, selectedGuid = target.guid?.toString(), openDetails = true)
+                pickedComplectation = target
+                DeepLinkOpenResult.OpenedDetails(target.guid?.toString().orEmpty())
+            }
+            else -> {
+                applyDeepLinkCandidates(matches, selectedGuid = null, openDetails = false)
+                DeepLinkOpenResult.OpenedResultsList(matches.size)
+            }
+        }
+    }
+
+    private fun applyDeepLinkCandidates(
+        candidates: List<WorkOrderDto>,
+        selectedGuid: String?,
+        openDetails: Boolean,
+    ) {
+        loadedOrders.clear()
+        loadedKeys.clear()
+        candidates.forEach { item ->
+            val key = item.key()
+            if (loadedKeys.add(key)) {
+                loadedOrders.add(item)
+            }
+        }
+        _ncount.value = 0
+        _selectedOrderGuid.value = selectedGuid
+        _complectations.value = Resource.Success(loadedOrders.toList(), additionalLoading = false)
+        _masterScreenPanel.value = if (openDetails) MasterPanel.Details else MasterPanel.List
+    }
+
+    private fun buildComplectationRecipients(order: WorkOrderDto?, currentUser: String?): List<String> {
         if (order == null) return emptyList()
         val rawCandidates = buildList {
             add(order.author)
             add(order.master)
             order.executors.forEach { add(it.executor) }
+            order.messages.forEach { add(it.author) }
         }
-        return uniqueNormalizedNames(rawCandidates)
+        return uniqueNormalizedNames(rawCandidates, currentUser = currentUser)
     }
 
-    private fun uniqueNormalizedNames(candidates: List<String?>): List<String> {
+    private fun uniqueNormalizedNames(candidates: List<String?>, currentUser: String?): List<String> {
         val result = LinkedHashSet<String>()
+        val normalizedCurrentUser = currentUser?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
         candidates.forEach { value ->
             val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
-            if (normalized.isNotBlank()) result.add(normalized)
+            if (normalized.isNotBlank() && !normalized.equals(normalizedCurrentUser, ignoreCase = true)) {
+                result.add(normalized)
+            }
         }
         return result.toList()
     }

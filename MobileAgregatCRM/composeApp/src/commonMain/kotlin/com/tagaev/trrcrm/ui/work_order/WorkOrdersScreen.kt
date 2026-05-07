@@ -104,6 +104,7 @@ fun WorkOrdersScreen(
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
     val selectedId by component.selectedItemGuid.collectAsState()
+    val transientWarning by component.transientWarning.collectAsState()
 
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
@@ -132,6 +133,13 @@ fun WorkOrdersScreen(
         characteristicMatches = emptyList()
         isResolvingBaseDocument = false
         isResolvingLinkedByCharacteristic = false
+    }
+    LaunchedEffect(transientWarning) {
+        val warning = transientWarning
+        if (!warning.isNullOrBlank()) {
+            showSnackbar(warning)
+            component.consumeTransientWarning()
+        }
     }
 
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->

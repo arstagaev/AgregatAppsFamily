@@ -25,9 +25,13 @@ import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogCompone
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersComponent
 import com.tagaev.trrcrm.ui.login.ILoginComponent
 import com.tagaev.trrcrm.ui.login.LoginComponent
+import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
+import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.menu.IMenuComponent
 import com.tagaev.trrcrm.ui.menu.MenuComponent
+import com.tagaev.trrcrm.ui.feed.IFeedComponent
+import com.tagaev.trrcrm.ui.feed.FeedComponent
 import com.tagaev.trrcrm.ui.qrscanner.DefaultQRScannerComponent
 import com.tagaev.trrcrm.ui.qrscanner.IQRScannerComponent
 import com.tagaev.trrcrm.ui.settings.ISettingsComponent
@@ -45,6 +49,7 @@ interface IRootComponent {
     val childStack: Value<ChildStack<Config, Child>>
 
     fun openList()
+    fun openMainHome()
     fun openEvents(needBackToList: Boolean)
     fun openDetails()
     fun openCargo(needBackToList: Boolean)
@@ -61,6 +66,7 @@ interface IRootComponent {
     fun openMenu()
     fun openSettings()
     fun openLogin()
+    fun onPushLaunchIntent()
     fun back()
     /**
      * Handles deep link navigation from push notifications.
@@ -76,6 +82,7 @@ interface IRootComponent {
     fun consumeSearchDiagnostic()
 
     sealed interface Config {
+        data object MainHome : Config
         data object Events : Config
         data object Details : Config
         data object WorkOrder : Config
@@ -95,6 +102,7 @@ interface IRootComponent {
     }
 
     sealed interface Child {
+        data class MainHome(val component: IFeedComponent) : Child
         data class Events(val component: EventsComponent) : Child
         data class Details(val component: DetailsComponent) : Child
         data class WorkOrder(val component: WorkOrdersComponent) : Child
@@ -137,12 +145,15 @@ class DefaultRootComponent(
     
     // Store pending deep link to process after login
     private var pendingDeepLink: List<String?>? = null
+    private var pendingOpenMainHome: Boolean = false
     private val _notFoundDialogMessage = com.arkivanov.decompose.value.MutableValue("")
     override val notFoundDialogMessage: Value<String> = _notFoundDialogMessage
     private val _searchDiagnosticMessage = com.arkivanov.decompose.value.MutableValue("")
     override val searchDiagnosticMessage: Value<String> = _searchDiagnosticMessage
     private var deepLinkRequestCounter: Long = 0L
     private var activeDeepLinkRequestId: Long = 0L
+    private var deepLinkOwnedConfig: IRootComponent.Config? = null
+    private var deepLinkOwnedComponent: IListMaster? = null
     private data class DeepLinkResolutionContext(
         val requestId: Long,
         val screen: String,
@@ -175,6 +186,16 @@ class DefaultRootComponent(
 
     private fun createChild(cfg: IRootComponent.Config, ctx: ComponentContext): IRootComponent.Child =
         when (cfg) {
+            is IRootComponent.Config.MainHome ->
+                IRootComponent.Child.MainHome(
+                    FeedComponent(
+                        componentContext = ctx,
+                        onOpenNotification = { screen, identifier, messageText, title ->
+                            onDeepLink(screen, identifier, messageText, title)
+                        }
+                    )
+                )
+
             is IRootComponent.Config.Events ->
                 IRootComponent.Child.Events(EventsComponent(ctx) { nav.pop() })
 
@@ -241,7 +262,7 @@ class DefaultRootComponent(
                         appSettings.setString(AppSettingsKeys.EMAIL, "")
                         appSettings.setString(AppSettingsKeys.TOKEN_KEY, "")
                         openLogin()
-                        nav.replaceAll(IRootComponent.Config.Login)
+                        replaceAllWithRestore(IRootComponent.Config.Login)
                     },
                     onBack = {
                         nav.pop()
@@ -257,6 +278,7 @@ class DefaultRootComponent(
                         val pending = pendingDeepLink
                         pendingDeepLink = null
                         if (pending != null) {
+                            pendingOpenMainHome = false
                             val screen = pending.getOrNull(0).orEmpty()
                             val docId = pending.getOrNull(1)
                             val messageHint = pending.getOrNull(2)
@@ -267,17 +289,24 @@ class DefaultRootComponent(
                                 delay(50) // let Login settle, then navigate on Main
                                 onDeepLink(screen, docId, messageHint, title)
                             }
+                        } else if (pendingOpenMainHome) {
+                            pendingOpenMainHome = false
+                            replaceAllWithRestore(IRootComponent.Config.MainHome)
                         } else {
                             println("PUSH_SERVICE DEEPLINK: Login success no pending deep link, navigating to Events")
                             // Avoid keeping Login in the back stack
-                            nav.replaceAll(IRootComponent.Config.Events)
+                            replaceAllWithRestore(IRootComponent.Config.Events)
                         }
                     },
                 ) { nav.pop() })
         }
     @Deprecated("MIGRATE NEED")
     override fun openList() {
-        nav.bringToFront(IRootComponent.Config.Events)
+        bringToFrontWithRestore(IRootComponent.Config.Events)
+    }
+
+    override fun openMainHome() {
+        bringToFrontWithRestore(IRootComponent.Config.MainHome)
     }
     override fun openEvents(needBackToList: Boolean) {
 //        println(">>>>> openEvents $needBackToList")
@@ -287,10 +316,10 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.Events
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.Events)
+            bringToFrontWithRestore(IRootComponent.Config.Events)
         }
     }
-    override fun openDetails() = nav.bringToFront(IRootComponent.Config.Details)
+    override fun openDetails() = bringToFrontWithRestore(IRootComponent.Config.Details)
 
     override fun openWorkOrders(needBackToList: Boolean){
         if (needBackToList) {
@@ -299,7 +328,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.WorkOrder
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.WorkOrder)
+            bringToFrontWithRestore(IRootComponent.Config.WorkOrder)
         }
     }
 
@@ -310,11 +339,11 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.Complectation
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.Complectation)
+            bringToFrontWithRestore(IRootComponent.Config.Complectation)
         }
     }
 
-    override fun openQRScanner() = nav.bringToFront(IRootComponent.Config.QRScanner)
+    override fun openQRScanner() = bringToFrontWithRestore(IRootComponent.Config.QRScanner)
 
     override fun openMenu() {
         println("childStack.items ${childStack.items.joinToString()}")
@@ -328,24 +357,24 @@ class DefaultRootComponent(
             if (it.configuration is IRootComponent.Config.Settings || it.configuration is IRootComponent.Config.Menu) {
 
                 if (childStack.active.configuration is IRootComponent.Config.Cargo || childStack.active.configuration is IRootComponent.Config.Settings ) {
-                    nav.bringToFront(IRootComponent.Config.Menu)
+                    bringToFrontWithRestore(IRootComponent.Config.Menu)
                     return
                 }
 
                 when(it.configuration) {
                     is IRootComponent.Config.Settings -> {
-                        nav.bringToFront(IRootComponent.Config.Settings)
+                        bringToFrontWithRestore(IRootComponent.Config.Settings)
                     }
                     else -> {
-                        nav.bringToFront(IRootComponent.Config.Settings)
+                        bringToFrontWithRestore(IRootComponent.Config.Settings)
                     }
                 }
                 return
             }
         }
-        nav.bringToFront(IRootComponent.Config.Menu)
+        bringToFrontWithRestore(IRootComponent.Config.Menu)
     }
-    override fun openFavorites() = nav.bringToFront(IRootComponent.Config.Favorites)
+    override fun openFavorites() = bringToFrontWithRestore(IRootComponent.Config.Favorites)
     override fun openCargo(needBackToList: Boolean)  {
         if (needBackToList) {
             val listChild = childStack.value.items
@@ -353,7 +382,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.Cargo
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.Cargo)
+            bringToFrontWithRestore(IRootComponent.Config.Cargo)
         }
     }
     override fun openBuyerOrders(needBackToList: Boolean)  {
@@ -363,7 +392,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.BuyerOrder
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.BuyerOrder)
+            bringToFrontWithRestore(IRootComponent.Config.BuyerOrder)
         }
     }
 
@@ -374,7 +403,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.SupplierOrder
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.SupplierOrder)
+            bringToFrontWithRestore(IRootComponent.Config.SupplierOrder)
         }
     }
     override fun openComplaint(needBackToList: Boolean)  {
@@ -384,7 +413,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.Complaint
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.Complaint)
+            bringToFrontWithRestore(IRootComponent.Config.Complaint)
         }
     }
 
@@ -395,7 +424,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.InnerOrder
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.InnerOrder)
+            bringToFrontWithRestore(IRootComponent.Config.InnerOrder)
         }
     }
 
@@ -406,7 +435,7 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.IncomingApplications
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.IncomingApplications)
+            bringToFrontWithRestore(IRootComponent.Config.IncomingApplications)
         }
     }
 
@@ -417,15 +446,29 @@ class DefaultRootComponent(
                 ?.instance as? IRootComponent.Child.RepairTemplateCatalog
             listChild?.component?._masterScreenPanel?.value = MasterPanel.List
         } else {
-            nav.bringToFront(IRootComponent.Config.RepairTemplateCatalog)
+            bringToFrontWithRestore(IRootComponent.Config.RepairTemplateCatalog)
         }
     }
 
-    override fun openSettings() = nav.bringToFront(IRootComponent.Config.Settings)
-    override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)
-    override fun back() = nav.pop()
+    override fun openSettings() = bringToFrontWithRestore(IRootComponent.Config.Settings)
+    override fun openLogin() = bringToFrontWithRestore(IRootComponent.Config.Login)
+    override fun onPushLaunchIntent() {
+        val currentConfig = childStack.value.active.configuration
+        if (currentConfig is IRootComponent.Config.Login) {
+            pendingOpenMainHome = true
+            println("PUSH_SERVICE DEEPLINK: push launch on Login, pendingOpenMainHome=true")
+            return
+        }
+        if (pendingDeepLink != null) return
+        bringToFrontWithRestore(IRootComponent.Config.MainHome)
+    }
+    override fun back() {
+        maybeRestoreDeepLinkStateBeforeNavigation(nextConfig = null)
+        nav.pop()
+    }
 
     override fun onDeepLink(screen: String, docId: String?, messageHint: String?, title: String?) {
+        pendingOpenMainHome = false
         val requestId = ++deepLinkRequestCounter
         activeDeepLinkRequestId = requestId
         _notFoundDialogMessage.value = ""
@@ -437,7 +480,8 @@ class DefaultRootComponent(
             messageText = messageHint
         )
         val normalizedScreen = normalizeScreen(context.screen ?: screen)
-        val normalizedDocId = extractGuidOrTrim(context.primaryKey ?: NotificationContextParser.normalizeKey(docId))
+        val normalizedDocId = context.primaryKey
+            ?: NotificationContextParser.normalizeKey(docId)?.takeUnless { GUID_REGEX.matches(it) }
         val resolutionContext = DeepLinkResolutionContext(
             requestId = requestId,
             screen = normalizedScreen,
@@ -461,7 +505,7 @@ class DefaultRootComponent(
                 return
             }
         }
-
+        println("PUSH_SERVICE DEEPLINK: ")
         val config = mapScreenToConfig(normalizedScreen) ?: run {
             println("PUSH_SERVICE DEEPLINK: onDeepLink unknown screen '$screen', ignoring")
             return
@@ -475,9 +519,9 @@ class DefaultRootComponent(
 
             // If we're coming from Login, replace stack to avoid Login staying in back stack
             if (active is IRootComponent.Config.Login) {
-                nav.replaceAll(config)
+                replaceAllWithRestore(config)
             } else {
-                nav.bringToFront(config)
+                bringToFrontWithRestore(config)
             }
 
             // Wait until target child exists (navigation is async relative to composition)
@@ -488,10 +532,8 @@ class DefaultRootComponent(
             }
             if (requestId != activeDeepLinkRequestId) return@launch
 
-            println("PUSH_SERVICE DEEPLINK: onDeepLink found component; refresh + select docId=$normalizedDocId")
-
-            // Always refresh as requested
-            masterComponent.fullRefresh()
+            println("PUSH_SERVICE DEEPLINK: onDeepLink found component; resolveAndOpen docId=$normalizedDocId")
+            masterComponent.enterDeepLinkMode()
 
             processDeepLinkResolution(masterComponent, resolutionContext)
         }
@@ -509,7 +551,7 @@ class DefaultRootComponent(
         config: IRootComponent.Config,
         timeoutMs: Long = 1500,
         pollMs: Long = 50,
-    ): com.tagaev.trrcrm.ui.master_screen.IListMaster? {
+    ): IListMaster? {
         val attempts = ((timeoutMs / pollMs).toInt()).coerceAtLeast(1)
         repeat(attempts) {
             val targetChild = childStack.value.items.firstOrNull { it.configuration == config }
@@ -553,7 +595,7 @@ class DefaultRootComponent(
         if (targetNumber.isBlank()) return false
 
         withContext(Dispatchers.Main.immediate) {
-            nav.bringToFront(IRootComponent.Config.Complectation)
+            bringToFrontWithRestore(IRootComponent.Config.Complectation)
         }
 
         val component = awaitComplectationComponent() ?: return false
@@ -597,56 +639,48 @@ class DefaultRootComponent(
             .replace(' ', '_')
     }
 
-    private fun extractGuidOrTrim(value: String?): String? {
-        if (value.isNullOrBlank()) return null
-        val trimmed = value.trim()
-        val match = GUID_REGEX.find(trimmed)
-        return match?.value ?: trimmed
-    }
-
-    private fun isGuid(value: String): Boolean = GUID_REGEX.matches(value)
-
     private suspend fun processDeepLinkResolution(
-        masterComponent: com.tagaev.trrcrm.ui.master_screen.IListMaster,
+        masterComponent: IListMaster,
         context: DeepLinkResolutionContext
     ) {
         val identifier = context.identifier
         if (identifier.isNullOrBlank()) {
             if (context.requestId != activeDeepLinkRequestId) return
+            masterComponent.restoreAfterDeepLinkIfNeeded()
             masterComponent.changePanel(MasterPanel.List)
             return
         }
 
         _searchDiagnosticMessage.value = "Ищем: ${context.docTypeLabel} $identifier"
 
-        if (isGuid(identifier)) {
-            if (context.requestId != activeDeepLinkRequestId) return
-            masterComponent.selectItemFromList(identifier)
-            masterComponent.changePanel(MasterPanel.Details)
-            return
-        }
-
-        val resolvedTargetGuid = masterComponent.resolveNotificationTarget(
+        when (val result = masterComponent.resolveAndOpenDeepLink(
             identifier = identifier,
-            messageHint = context.messageHint
-        )
-        if (!resolvedTargetGuid.isNullOrBlank()) {
-            if (context.requestId != activeDeepLinkRequestId) return
-            masterComponent.selectItemFromList(resolvedTargetGuid)
-            masterComponent.changePanel(MasterPanel.Details)
-            return
-        }
-
-        if (context.requestId != activeDeepLinkRequestId) return
-        applyUnresolvedFallback(
-            masterComponent = masterComponent,
-            identifier = identifier,
+            messageHint = context.messageHint,
             preferredSearchType = context.searchQueryType
-        )
-        delay(250)
-        if (context.requestId != activeDeepLinkRequestId) return
-        if (masterComponent.masterScreenPanel.value == MasterPanel.Details) return
-        _notFoundDialogMessage.value = "Документ ${context.docTypeLabel}. $identifier не найден"
+        )) {
+            is DeepLinkOpenResult.OpenedDetails -> {
+                if (context.requestId != activeDeepLinkRequestId) return
+                deepLinkOwnedConfig = mapScreenToConfig(context.screen)
+                deepLinkOwnedComponent = masterComponent
+            }
+            is DeepLinkOpenResult.OpenedResultsList -> {
+                if (context.requestId != activeDeepLinkRequestId) return
+                deepLinkOwnedConfig = mapScreenToConfig(context.screen)
+                deepLinkOwnedComponent = masterComponent
+            }
+            is DeepLinkOpenResult.NotFound -> {
+                if (context.requestId != activeDeepLinkRequestId) return
+                masterComponent.restoreAfterDeepLinkIfNeeded()
+                _notFoundDialogMessage.value = "Документ ${context.docTypeLabel}. $identifier не найден"
+            }
+            is DeepLinkOpenResult.Failed -> {
+                if (context.requestId != activeDeepLinkRequestId) return
+                masterComponent.restoreAfterDeepLinkIfNeeded()
+                _notFoundDialogMessage.value = result.reason.ifBlank {
+                    "Документ ${context.docTypeLabel}. $identifier не найден"
+                }
+            }
+        }
     }
 
     private fun resolveSearchTypeForScreen(normalizedScreen: String): Refiner.SearchQueryType? {
@@ -657,18 +691,22 @@ class DefaultRootComponent(
         }
     }
 
-    private fun applyUnresolvedFallback(
-        masterComponent: com.tagaev.trrcrm.ui.master_screen.IListMaster,
-        identifier: String,
-        preferredSearchType: Refiner.SearchQueryType?
-    ) {
-        val currentRefine = masterComponent.refineState.value
-        val nextRefine = currentRefine.copy(
-            searchQuery = identifier,
-            searchQueryType = preferredSearchType ?: currentRefine.searchQueryType
-        )
-        masterComponent.setRefineState(nextRefine)
-        masterComponent.changePanel(MasterPanel.List)
+    private fun maybeRestoreDeepLinkStateBeforeNavigation(nextConfig: IRootComponent.Config?) {
+        val ownedConfig = deepLinkOwnedConfig ?: return
+        if (nextConfig == ownedConfig) return
+        deepLinkOwnedComponent?.restoreAfterDeepLinkIfNeeded()
+        deepLinkOwnedComponent = null
+        deepLinkOwnedConfig = null
+    }
+
+    private fun bringToFrontWithRestore(config: IRootComponent.Config) {
+        maybeRestoreDeepLinkStateBeforeNavigation(config)
+        nav.bringToFront(config)
+    }
+
+    private fun replaceAllWithRestore(config: IRootComponent.Config) {
+        maybeRestoreDeepLinkStateBeforeNavigation(config)
+        nav.replaceAll(config)
     }
 
     private companion object {

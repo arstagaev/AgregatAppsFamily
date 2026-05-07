@@ -54,6 +54,7 @@ import com.tagaev.trrcrm.ui.incoming_applications.IncomingApplicationsScreen
 import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
 import com.tagaev.trrcrm.ui.menu.MenuScreen
+import com.tagaev.trrcrm.ui.feed.FeedScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
 import com.tagaev.trrcrm.ui.supplier_order.SupplierOrdersScreen
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
@@ -71,6 +72,8 @@ import compose.icons.lineawesomeicons.ToolsSolid
 import kotlinx.coroutines.launch
 import com.tagaev.trrcrm.utils.KnownPermission
 import com.tagaev.trrcrm.utils.SessionPermissions
+import compose.icons.feathericons.Home
+import compose.icons.feathericons.Inbox
 
 val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
     { _ -> }
@@ -116,6 +119,7 @@ fun AppRoot(root: IRootComponent) {
                     AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
                         AppBottomNavBar2(
                             activeChild = activeChild,
+                            onMainHome = { if (activeChild !is IRootComponent.Child.MainHome) root.openMainHome() },
                             onEvents = {
                                 val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
                                     false
@@ -213,6 +217,7 @@ fun AppRoot(root: IRootComponent) {
                         .consumeWindowInsets(padding)
                 ) { created ->
                     when (val c = created.instance) {
+                        is IRootComponent.Child.MainHome -> FeedScreen(c.component)
                         is IRootComponent.Child.Events -> EventsScreen(c.component,)
                         is IRootComponent.Child.Details -> DetailsScreen(c.component)
                         is IRootComponent.Child.WorkOrder -> WorkOrdersScreen(c.component)
@@ -252,6 +257,7 @@ fun AppRoot(root: IRootComponent) {
 @Composable
 fun AppBottomNavBar2(
     activeChild: IRootComponent.Child,
+    onMainHome: () -> Unit,
     onEvents: () -> Unit,
     onDetails: () -> Unit,
     onQRScanner: () -> Unit,
@@ -302,6 +308,13 @@ fun AppBottomNavBar2(
                 .padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.MainHome,
+                onClick = onMainHome,
+                icon = { Icon(FeatherIcons.Inbox, contentDescription = null) },
+                label = "Главная"
+            )
+
             BottomNavChip(
                 selected = activeChild is IRootComponent.Child.Events,
                 onClick = onEvents,

@@ -15,6 +15,10 @@ import com.tagaev.trrcrm.models.CoreDeviceRegisterRequest
 import com.tagaev.trrcrm.models.CoreDeviceRegisterResponse
 import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
 import com.tagaev.trrcrm.models.CoreNotificationIntentResponse
+import com.tagaev.trrcrm.models.CoreNotificationsFeedRequest
+import com.tagaev.trrcrm.models.CoreNotificationsFeedResponse
+import com.tagaev.trrcrm.models.CoreNotificationsReadAllRequest
+import com.tagaev.trrcrm.models.CoreNotificationsReadAllResponse
 import com.tagaev.trrcrm.models.CoreResolveRecipientsRequest
 import com.tagaev.trrcrm.models.CoreResolveRecipientsResponse
 import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
@@ -23,6 +27,8 @@ import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
 import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
 import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
 import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
+import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateRequest
+import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateResponse
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -347,6 +353,36 @@ class EventsApi(
         }
         val raw = response.bodyAsText().cleanJsonStart()
         decodeOrWarning<CoreNotificationIntentResponse>(json, raw)
+    }
+
+    suspend fun coreNotificationsFeed(request: CoreNotificationsFeedRequest): Resource<CoreNotificationsFeedResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/feed") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreNotificationsFeedResponse>(json, raw)
+    }
+
+    suspend fun coreNotificationStatusUpdate(request: CoreNotificationStatusUpdateRequest): Resource<CoreNotificationStatusUpdateResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/status/update") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreNotificationStatusUpdateResponse>(json, raw)
+    }
+
+    suspend fun coreNotificationsReadAll(request: CoreNotificationsReadAllRequest): Resource<CoreNotificationsReadAllResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/status/read-all") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreNotificationsReadAllResponse>(json, raw)
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=

@@ -111,6 +111,7 @@ fun ComplectationsScreen(
     val isQrScannerOpen by component.isQrScannerOpen.collectAsState()
     val isQrLookupInProgress by component.isQrLookupInProgress.collectAsState()
     val qrLookupError by component.qrLookupError.collectAsState()
+    val transientWarning by component.transientWarning.collectAsState()
 
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
@@ -139,6 +140,13 @@ fun ComplectationsScreen(
         isResolvingLinkedByCharacteristic = false
         characteristicMatches = emptyList()
         stackedDetails.clear()
+    }
+    LaunchedEffect(transientWarning) {
+        val warning = transientWarning
+        if (!warning.isNullOrBlank()) {
+            showSnackbar(warning)
+            component.consumeTransientWarning()
+        }
     }
 
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->

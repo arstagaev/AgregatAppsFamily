@@ -18,6 +18,10 @@ import com.tagaev.trrcrm.models.CoreDeviceRegisterRequest
 import com.tagaev.trrcrm.models.CoreDeviceRegisterResponse
 import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
 import com.tagaev.trrcrm.models.CoreNotificationIntentResponse
+import com.tagaev.trrcrm.models.CoreNotificationsFeedRequest
+import com.tagaev.trrcrm.models.CoreNotificationsFeedResponse
+import com.tagaev.trrcrm.models.CoreNotificationsReadAllRequest
+import com.tagaev.trrcrm.models.CoreNotificationsReadAllResponse
 import com.tagaev.trrcrm.models.CoreResolveRecipientsRequest
 import com.tagaev.trrcrm.models.CoreResolveRecipientsResponse
 import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
@@ -26,6 +30,8 @@ import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
 import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
 import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
 import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
+import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateRequest
+import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateResponse
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.IncomingApplicationDto
 import com.tagaev.trrcrm.models.RepairTemplateCatalogItemDto
@@ -49,6 +55,12 @@ class MainRepository(
     private val api: EventsApi,
     private val cfg: ApiConfig,
 ): KoinComponent {
+    companion object {
+        private const val INTENT_TITLE_MAX = 40
+        private const val INTENT_SUBTITLE_MAX = 50
+        private const val INTENT_BODY_MAX = 120
+    }
+
     private val settings: AppSettings by inject()
 
     suspend fun loadEvents(
@@ -284,34 +296,38 @@ class MainRepository(
         recipientNames: List<String>,
         message: String,
         screen: String,
+        subtitle: String? = null,
         rawMessage: String = message
     ): Resource<ThreadMessageResponse> {
+        val normalizedScreen = screen.trim().lowercase().replace('-', '_').replace(' ', '_')
+        val boundedTitle = clampIntentText(docTitle, INTENT_TITLE_MAX)
+        val boundedSubtitle = subtitle?.let { clampIntentText(it, INTENT_SUBTITLE_MAX) }?.ifBlank { null }
+        val boundedBody = clampIntentText(message, INTENT_BODY_MAX)
+        val searchType = when (normalizedScreen) {
+            "events", "event", "work_orders", "workorders", "work_order", "workorder" -> "CODE"
+            "complectation", "complectations", "complectation_orders" -> "KIT_CHARACTERISTIC"
+            else -> null
+        }
         val payload = buildJsonObject {
-            put("screen", screen)
+            put("screen", normalizedScreen)
+            put("doc_title", docTitle)
+            put("search_key", docId)
+            if (searchType != null) {
+                put("search_query_type", searchType)
+            }
             put("message_text", rawMessage)
         }
-        val resolveOnlyIntent = CoreNotificationIntentRequest(
-            source_system = "mobile_agregatcrm",
-            event_type = "thread_message",
-            title = docTitle,
-            body = message,
-            recipient_names = recipientNames,
-            actor_full_name = authorName,
-            payload = payload,
-            send_now = false
-        )
         val coreRequest = CoreNotificationIntentRequest(
             source_system = "mobile_agregatcrm",
             event_type = "thread_message",
-            title = docTitle,
-            body = message,
+            title = boundedTitle,
+            subtitle = boundedSubtitle,
+            body = boundedBody,
             recipient_names = recipientNames,
             actor_full_name = authorName,
             payload = payload,
             send_now = true
         )
-        // Resolve-only pass keeps intent semantics explicit and helps diagnostics.
-        api.coreNotificationIntent(resolveOnlyIntent)
         val coreRes = api.coreNotificationIntent(coreRequest)
         return when (coreRes) {
             is Resource.Success -> {
@@ -363,6 +379,39 @@ class MainRepository(
     suspend fun coreNotificationIntent(request: CoreNotificationIntentRequest): Resource<CoreNotificationIntentResponse> =
         api.coreNotificationIntent(request)
 
+    suspend fun coreNotificationsFeed(
+        sessionId: String,
+        limit: Int = 30,
+        cursor: String? = null,
+        searchQuery: String? = null,
+        statusFilter: String = "all",
+    ): Resource<CoreNotificationsFeedResponse> = api.coreNotificationsFeed(
+        CoreNotificationsFeedRequest(
+            sessionId = sessionId,
+            limit = limit,
+            cursor = cursor,
+            searchQuery = searchQuery,
+            statusFilter = statusFilter
+        )
+    )
+
+    suspend fun coreNotificationStatusUpdate(
+        sessionId: String,
+        notificationId: Long,
+        status: String,
+        source: String,
+    ): Resource<CoreNotificationStatusUpdateResponse> = api.coreNotificationStatusUpdate(
+        CoreNotificationStatusUpdateRequest(
+            sessionId = sessionId,
+            notificationId = notificationId,
+            status = status,
+            source = source
+        )
+    )
+
+    suspend fun coreNotificationsReadAll(sessionId: String): Resource<CoreNotificationsReadAllResponse> =
+        api.coreNotificationsReadAll(CoreNotificationsReadAllRequest(sessionId = sessionId))
+
     private fun shouldFallbackToLegacyPush(message: String?): Boolean {
         val raw = message?.lowercase().orEmpty()
         if (raw.isBlank()) return true
@@ -373,6 +422,12 @@ class MainRepository(
             "unknownhost" in raw ||
             "network" in raw ||
             "failed to connect" in raw
+    }
+
+    private fun clampIntentText(text: String, maxLen: Int): String {
+        val normalized = text.trim()
+        if (normalized.length <= maxLen) return normalized
+        return normalized.take(maxLen)
     }
 
 
