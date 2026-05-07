@@ -35,6 +35,7 @@ import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.FilterState
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.utils.DefaultValuesConst
 import com.tagaev.trrcrm.domain.OrderDialog
 import com.tagaev.trrcrm.domain.toFilterByOption
@@ -94,7 +95,7 @@ fun MainListScreen(component: ListComponent) {
     LaunchedEffect(res) {
         when (val r = res) {
             is Resource.Error -> {
-                errorText = r.causes ?: r.exception?.message ?: "Неизвестная ошибка"
+                errorText = r.causes ?: friendlyError(r.exception, "Неизвестная ошибка")
                 showErrorDialog = true
             }
             else -> Unit
@@ -109,8 +110,8 @@ fun MainListScreen(component: ListComponent) {
             try {
                 component.setFiltersAndRefresh(filters.sanitize())
             } catch (t: Throwable) {
-                error = t.message ?: "Unknown error"
-                errorText = error ?: "Unknown error"
+                error = friendlyError(t, "Неизвестная ошибка")
+                errorText = error ?: "Неизвестная ошибка"
                 showErrorDialog = true
             } finally {
                 gate.join()
@@ -242,8 +243,8 @@ fun MainListScreen(component: ListComponent) {
                                                     // Scroll list to the top after refresh
                                                     listState.animateScrollToItem(0)
                                                 } catch (t: Throwable) {
-                                                    error = t.message ?: "Unknown error"
-                                                    errorText = error ?: "Unknown error"
+                                                    error = friendlyError(t, "Неизвестная ошибка")
+                                                    errorText = error ?: "Неизвестная ошибка"
                                                     showErrorDialog = true
                                                 } finally {
                                                     gate.join()

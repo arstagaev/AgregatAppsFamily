@@ -1,6 +1,7 @@
 package com.tagaev.trrcrm.ui.complectation
 
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,7 @@ import org.koin.core.component.inject
 
 interface IComplectationComponent: IListMaster {
     val complectations: StateFlow<Resource<List<WorkOrderDto>>>
+    var pickedComplectation: WorkOrderDto?
 }
 
 class ComplectationComponent(
@@ -60,6 +62,7 @@ class ComplectationComponent(
 
     private val _selectedOrderGuid = MutableStateFlow<String?>(null)
     override val selectedItemGuid: StateFlow<String?> = _selectedOrderGuid
+    override var pickedComplectation: WorkOrderDto? = null
     private val _isQrScannerOpen = MutableStateFlow(false)
     val isQrScannerOpen: StateFlow<Boolean> = _isQrScannerOpen
     private val _isQrLookupInProgress = MutableStateFlow(false)
@@ -95,7 +98,7 @@ class ComplectationComponent(
                 val resolvedNumber = when (val res = repository.getTRSData(code)) {
                     is Resource.Success -> res.data.completionNumber.trim()
                     is Resource.Error -> {
-                        _qrLookupError.value = res.causes ?: res.exception?.message ?: "Не удалось получить данные QR"
+                        _qrLookupError.value = res.causes ?: friendlyError(res.exception, "Не удалось получить данные QR")
                         ""
                     }
                     is Resource.Loading -> ""
@@ -279,9 +282,23 @@ class ComplectationComponent(
             itemDate.substringBefore(' '),
             message
         )
+        val co = pickedComplectation
+        val users = buildComplectationRecipients(co)
+        val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
+        if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+            repository.sendMessageEventPUSH(
+                docId = co?.guid ?: co?.number ?: itemNumber,
+                docTitle = "Комплектация ${co?.complectationCharacteristic ?: itemNumber} (${co?.branch.orEmpty()})",
+                authorName = author,
+                recipientNames = users,
+                message = "${author}:\n${message}",
+                screen = "complectation",
+                rawMessage = message
+            )
+        }
         return when (res) {
             is Resource.Success -> null
-            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
     }
@@ -411,5 +428,87 @@ class ComplectationComponent(
 
         return normalizeWithoutLeadingZeros(normalizedCandidate) ==
                 normalizeWithoutLeadingZeros(target)
+    }
+
+    override fun findAndSelectByNotification(identifier: String, messageHint: String?): Boolean {
+        val normalizedIdentifier = normalizeIdentifier(identifier) ?: return false
+        val matches = loadedOrders.filter { order -> order.matchesNormalizedIdentifier(normalizedIdentifier) }
+        val picked = pickComplectationMatch(matches, messageHint) ?: return false
+        selectItemFromList(picked.guid ?: picked.number)
+        return true
+    }
+
+    override suspend fun resolveNotificationTarget(identifier: String, messageHint: String?): String? {
+        val normalizedIdentifier = normalizeIdentifier(identifier) ?: return null
+        val localPicked = pickComplectationMatch(
+            loadedOrders.filter { it.matchesNormalizedIdentifier(normalizedIdentifier) },
+            messageHint
+        )
+        if (localPicked != null) return localPicked.guid
+
+        val characteristicSearchState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
+        )
+        val characteristicMatches = (repository.loadComplectations(0, characteristicSearchState) as? Resource.Success)?.data.orEmpty()
+            .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+        val pickedByCharacteristic = pickComplectationMatch(characteristicMatches, messageHint)
+        if (pickedByCharacteristic != null) return pickedByCharacteristic.guid
+
+        val canFallbackToNumber = identifier.trim().all { it.isDigit() }
+        if (!canFallbackToNumber) return null
+
+        val numberSearchState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = Refiner.SearchQueryType.CODE
+        )
+        val numberMatches = (repository.loadComplectations(0, numberSearchState) as? Resource.Success)?.data.orEmpty()
+            .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+        return pickComplectationMatch(numberMatches, messageHint)?.guid
+    }
+
+    private fun buildComplectationRecipients(order: WorkOrderDto?): List<String> {
+        if (order == null) return emptyList()
+        val rawCandidates = buildList {
+            add(order.author)
+            add(order.master)
+            order.executors.forEach { add(it.executor) }
+        }
+        return uniqueNormalizedNames(rawCandidates)
+    }
+
+    private fun uniqueNormalizedNames(candidates: List<String?>): List<String> {
+        val result = LinkedHashSet<String>()
+        candidates.forEach { value ->
+            val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
+            if (normalized.isNotBlank()) result.add(normalized)
+        }
+        return result.toList()
+    }
+
+    private fun normalizeIdentifier(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        return value.replace(Regex("\\s+"), "").trim().trimStart('0').ifBlank { "0" }
+    }
+
+    private fun pickComplectationMatch(candidates: List<WorkOrderDto>, messageHint: String?): WorkOrderDto? {
+        if (candidates.isEmpty()) return null
+        if (candidates.size == 1) return candidates.first()
+        val hint = messageHint?.trim().orEmpty()
+        if (hint.isBlank()) return candidates.first()
+        return candidates.firstOrNull { order ->
+            order.messages.orEmpty().any { msg ->
+                msg.comment?.contains(hint, ignoreCase = true) == true
+            }
+        } ?: candidates.first()
+    }
+
+    private fun WorkOrderDto.matchesNormalizedIdentifier(normalizedIdentifier: String): Boolean {
+        val guidNormalized = normalizeIdentifier(guid)
+        val numberNormalized = normalizeIdentifier(number)
+        val characteristicNormalized = normalizeIdentifier(complectationCharacteristic)
+        return guidNormalized == normalizedIdentifier ||
+                numberNormalized == normalizedIdentifier ||
+                characteristicNormalized == normalizedIdentifier
     }
 }

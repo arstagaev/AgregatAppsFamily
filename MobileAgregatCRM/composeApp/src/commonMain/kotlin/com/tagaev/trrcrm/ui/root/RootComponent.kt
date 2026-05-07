@@ -10,6 +10,9 @@ import com.arkivanov.decompose.value.Value
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.EventsApi
+import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.push.DeepLinkBridge
+import com.tagaev.trrcrm.push.NotificationContextParser
 import com.tagaev.trrcrm.ui.buyer_order.BuyerOrdersComponent
 import com.tagaev.trrcrm.ui.cargo.CargoComponent
 import com.tagaev.trrcrm.ui.complectation.ComplectationComponent
@@ -66,7 +69,11 @@ interface IRootComponent {
      * (events, work_orders, cargo, complaints, inner_orders, complectation)
      * @param docId Optional document ID to select after refresh
      */
-    fun onDeepLink(screen: String, docId: String?)
+    fun onDeepLink(screen: String, docId: String?, messageHint: String? = null, title: String? = null)
+    val notFoundDialogMessage: Value<String>
+    val searchDiagnosticMessage: Value<String>
+    fun consumeNotFoundDialog()
+    fun consumeSearchDiagnostic()
 
     sealed interface Config {
         data object Events : Config
@@ -118,6 +125,10 @@ class DefaultRootComponent(
     componentContext: ComponentContext,
 ) : IRootComponent, ComponentContext by componentContext, KoinComponent {
 
+    init {
+        DeepLinkBridge.setRoot(this)
+    }
+
     private val appSettings: AppSettings by inject()
     private val appScope: CoroutineScope by inject()
     private val api: EventsApi by inject()
@@ -125,7 +136,21 @@ class DefaultRootComponent(
     private val nav = StackNavigation<IRootComponent.Config>()
     
     // Store pending deep link to process after login
-    private var pendingDeepLink: Pair<String, String?>? = null
+    private var pendingDeepLink: List<String?>? = null
+    private val _notFoundDialogMessage = com.arkivanov.decompose.value.MutableValue("")
+    override val notFoundDialogMessage: Value<String> = _notFoundDialogMessage
+    private val _searchDiagnosticMessage = com.arkivanov.decompose.value.MutableValue("")
+    override val searchDiagnosticMessage: Value<String> = _searchDiagnosticMessage
+    private var deepLinkRequestCounter: Long = 0L
+    private var activeDeepLinkRequestId: Long = 0L
+    private data class DeepLinkResolutionContext(
+        val requestId: Long,
+        val screen: String,
+        val docTypeLabel: String,
+        val identifier: String?,
+        val messageHint: String?,
+        val searchQueryType: Refiner.SearchQueryType?,
+    )
 
 //    private val _auth = MutableStateFlow<AuthState>(AuthState.Checking)
 //    val auth: StateFlow<AuthState> = _auth
@@ -227,20 +252,23 @@ class DefaultRootComponent(
                 IRootComponent.Child.Login(LoginComponent(
                     componentContext = ctx,
                     onLoginSuccess = { 
-                        println(">>> Login success callback: pendingDeepLink=$pendingDeepLink")
+                        println("PUSH_SERVICE DEEPLINK: Login success callback pendingDeepLink=$pendingDeepLink")
                         // Check if there's a pending deep link to process
                         val pending = pendingDeepLink
                         pendingDeepLink = null
                         if (pending != null) {
-                            val (screen, docId) = pending
-                            println(">>> Login success: Processing pending deep link: screen=$screen, docId=$docId")
+                            val screen = pending.getOrNull(0).orEmpty()
+                            val docId = pending.getOrNull(1)
+                            val messageHint = pending.getOrNull(2)
+                            val title = pending.getOrNull(3)
+                            println("PUSH_SERVICE DEEPLINK: Login success processing pending deep link screen=$screen, docId=$docId")
                             // Process the deep link after login
                             appScope.launch(Dispatchers.Main.immediate) {
                                 delay(50) // let Login settle, then navigate on Main
-                                onDeepLink(screen, docId)
+                                onDeepLink(screen, docId, messageHint, title)
                             }
                         } else {
-                            println(">>> Login success: No pending deep link, navigating to Events")
+                            println("PUSH_SERVICE DEEPLINK: Login success no pending deep link, navigating to Events")
                             // Avoid keeping Login in the back stack
                             nav.replaceAll(IRootComponent.Config.Events)
                         }
@@ -397,10 +425,28 @@ class DefaultRootComponent(
     override fun openLogin() = nav.bringToFront(IRootComponent.Config.Login)
     override fun back() = nav.pop()
 
-    override fun onDeepLink(screen: String, docId: String?) {
-        val normalizedScreen = normalizeScreen(screen)
-        val normalizedDocId = extractGuidOrTrim(docId)
-        println(">>> onDeepLink called: screen='$screen' -> '$normalizedScreen', docId='$normalizedDocId' (raw='$docId')")
+    override fun onDeepLink(screen: String, docId: String?, messageHint: String?, title: String?) {
+        val requestId = ++deepLinkRequestCounter
+        activeDeepLinkRequestId = requestId
+        _notFoundDialogMessage.value = ""
+        _searchDiagnosticMessage.value = ""
+        val context = NotificationContextParser.parse(
+            title = title,
+            screen = screen,
+            docId = docId,
+            messageText = messageHint
+        )
+        val normalizedScreen = normalizeScreen(context.screen ?: screen)
+        val normalizedDocId = extractGuidOrTrim(context.primaryKey ?: NotificationContextParser.normalizeKey(docId))
+        val resolutionContext = DeepLinkResolutionContext(
+            requestId = requestId,
+            screen = normalizedScreen,
+            docTypeLabel = context.docTypeLabel ?: "Документ",
+            identifier = normalizedDocId,
+            messageHint = context.messageHint,
+            searchQueryType = resolveSearchTypeForScreen(normalizedScreen),
+        )
+        println("PUSH_SERVICE DEEPLINK: onDeepLink called screen='$screen' -> '$normalizedScreen', docId='$normalizedDocId' (raw='$docId')")
 
         // Check if user is logged in by checking if token exists
         val isLoggedIn = !appSettings.getString(AppSettingsKeys.TOKEN_KEY, "").isBlank()
@@ -409,22 +455,23 @@ class DefaultRootComponent(
         // Login flow may auto-navigate to Events on success; pendingDeepLink prevents that override.
         val currentConfig = childStack.value.active.configuration
         if (currentConfig is IRootComponent.Config.Login) {
-            println(">>> onDeepLink: on Login; store pending deep link (isLoggedIn=$isLoggedIn)")
-            pendingDeepLink = normalizedScreen to normalizedDocId
+            println("PUSH_SERVICE DEEPLINK: onDeepLink on Login; store pending deep link (isLoggedIn=$isLoggedIn)")
+            pendingDeepLink = listOf(normalizedScreen, normalizedDocId, resolutionContext.messageHint, title)
             if (!isLoggedIn) {
                 return
             }
         }
 
         val config = mapScreenToConfig(normalizedScreen) ?: run {
-            println(">>> onDeepLink: Unknown screen '$screen', ignoring")
+            println("PUSH_SERVICE DEEPLINK: onDeepLink unknown screen '$screen', ignoring")
             return
         }
 
         // Always navigate on Main (Decompose navigation is not thread-safe)
         appScope.launch(Dispatchers.Main.immediate) {
+            if (requestId != activeDeepLinkRequestId) return@launch
             val active = childStack.value.active.configuration
-            println(">>> onDeepLink: Mapped to config $config; active=$active")
+            println("PUSH_SERVICE DEEPLINK: onDeepLink mapped to config $config; active=$active")
 
             // If we're coming from Login, replace stack to avoid Login staying in back stack
             if (active is IRootComponent.Config.Login) {
@@ -436,24 +483,26 @@ class DefaultRootComponent(
             // Wait until target child exists (navigation is async relative to composition)
             val masterComponent = awaitMasterComponent(config)
             if (masterComponent == null) {
-                println(">>> onDeepLink: Component not found for config $config")
+                println("PUSH_SERVICE DEEPLINK: onDeepLink component not found for config $config")
                 return@launch
             }
+            if (requestId != activeDeepLinkRequestId) return@launch
 
-            println(">>> onDeepLink: Found component; refresh + select docId=$normalizedDocId")
+            println("PUSH_SERVICE DEEPLINK: onDeepLink found component; refresh + select docId=$normalizedDocId")
 
             // Always refresh as requested
             masterComponent.fullRefresh()
 
-            // If a document ID was provided, select and open details.
-            // We don't need to wait for refresh completion; the UI will update when data arrives.
-            if (!normalizedDocId.isNullOrBlank()) {
-                masterComponent.selectItemFromList(normalizedDocId)
-                masterComponent.changePanel(MasterPanel.Details)
-            } else {
-                masterComponent.changePanel(MasterPanel.List)
-            }
+            processDeepLinkResolution(masterComponent, resolutionContext)
         }
+    }
+
+    override fun consumeNotFoundDialog() {
+        _notFoundDialogMessage.value = ""
+    }
+
+    override fun consumeSearchDiagnostic() {
+        _searchDiagnosticMessage.value = ""
     }
 
     private suspend fun awaitMasterComponent(
@@ -553,6 +602,73 @@ class DefaultRootComponent(
         val trimmed = value.trim()
         val match = GUID_REGEX.find(trimmed)
         return match?.value ?: trimmed
+    }
+
+    private fun isGuid(value: String): Boolean = GUID_REGEX.matches(value)
+
+    private suspend fun processDeepLinkResolution(
+        masterComponent: com.tagaev.trrcrm.ui.master_screen.IListMaster,
+        context: DeepLinkResolutionContext
+    ) {
+        val identifier = context.identifier
+        if (identifier.isNullOrBlank()) {
+            if (context.requestId != activeDeepLinkRequestId) return
+            masterComponent.changePanel(MasterPanel.List)
+            return
+        }
+
+        _searchDiagnosticMessage.value = "Ищем: ${context.docTypeLabel} $identifier"
+
+        if (isGuid(identifier)) {
+            if (context.requestId != activeDeepLinkRequestId) return
+            masterComponent.selectItemFromList(identifier)
+            masterComponent.changePanel(MasterPanel.Details)
+            return
+        }
+
+        val resolvedTargetGuid = masterComponent.resolveNotificationTarget(
+            identifier = identifier,
+            messageHint = context.messageHint
+        )
+        if (!resolvedTargetGuid.isNullOrBlank()) {
+            if (context.requestId != activeDeepLinkRequestId) return
+            masterComponent.selectItemFromList(resolvedTargetGuid)
+            masterComponent.changePanel(MasterPanel.Details)
+            return
+        }
+
+        if (context.requestId != activeDeepLinkRequestId) return
+        applyUnresolvedFallback(
+            masterComponent = masterComponent,
+            identifier = identifier,
+            preferredSearchType = context.searchQueryType
+        )
+        delay(250)
+        if (context.requestId != activeDeepLinkRequestId) return
+        if (masterComponent.masterScreenPanel.value == MasterPanel.Details) return
+        _notFoundDialogMessage.value = "Документ ${context.docTypeLabel}. $identifier не найден"
+    }
+
+    private fun resolveSearchTypeForScreen(normalizedScreen: String): Refiner.SearchQueryType? {
+        return when (normalizedScreen) {
+            "events", "event", "work_orders", "workorders", "work_order", "workorder" -> Refiner.SearchQueryType.CODE
+            "complectation", "complectations", "complectation_orders" -> Refiner.SearchQueryType.KIT_CHARACTERISTIC
+            else -> null
+        }
+    }
+
+    private fun applyUnresolvedFallback(
+        masterComponent: com.tagaev.trrcrm.ui.master_screen.IListMaster,
+        identifier: String,
+        preferredSearchType: Refiner.SearchQueryType?
+    ) {
+        val currentRefine = masterComponent.refineState.value
+        val nextRefine = currentRefine.copy(
+            searchQuery = identifier,
+            searchQueryType = preferredSearchType ?: currentRefine.searchQueryType
+        )
+        masterComponent.setRefineState(nextRefine)
+        masterComponent.changePanel(MasterPanel.List)
     }
 
     private companion object {

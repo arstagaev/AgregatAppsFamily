@@ -8,6 +8,7 @@ import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
@@ -177,7 +178,7 @@ class InnerOrdersComponent(
         )
         return when (res) {
             is Resource.Success -> null
-            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
     }

@@ -1,7 +1,6 @@
 package com.tagaev.trrcrm.data.remote
 
 import io.ktor.client.plugins.*
-import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -17,23 +16,20 @@ suspend inline fun <T> resourceify(
         onFailure = { t ->
             when (t) {
                 is WarningException -> {
-                    // soft-fail; UI can treat this differently
-                    Resource.Error(t, t.message ?: "Warning")
+                    Resource.Error(t, friendlyError(t, "Не удалось выполнить запрос"))
                 }
                 is RedirectResponseException -> {
-                    Resource.Error(t, "Redirect error: ${t.response.status}")
+                    Resource.Error(t, friendlyError(t, "Сервер временно недоступен"))
                 }
                 is ClientRequestException -> {
-                    val body = runCatching { t.response.bodyAsText().take(12) }.getOrNull()
-                    Resource.Error(t, "Client error ${t.response.status}: ${body ?: t.message}")
+                    Resource.Error(t, friendlyError(t, "Ошибка запроса"))
                 }
                 is ServerResponseException -> {
-                    val body = runCatching { t.response.bodyAsText().take(12) }.getOrNull()
-                    Resource.Error(t, "Server error ${t.response.status}: ${body ?: t.message}")
+                    Resource.Error(t, friendlyError(t, "Сервер временно недоступен"))
                 }
                 else -> {
                     val ex = (t as? Exception) ?: Exception(t.message)
-                    Resource.Error(ex, ex.message ?: "Unexpected error")
+                    Resource.Error(ex, friendlyError(t, "Не удалось выполнить запрос"))
                 }
             }
         }
@@ -51,8 +47,14 @@ inline fun <reified T> decodeOrWarning(json: Json, raw: String): T {
     val el = json.parseToJsonElement(cleaned) // never assumes array/object
     val obj = el as? kotlinx.serialization.json.JsonObject
 
+    // Backend may also wrap an error/warning inside a single-element array:
+    //   [{"error":"..."}]  or  [{"warning":"..."}]
+    val arr = el as? kotlinx.serialization.json.JsonArray
+    val singleObj = if (arr != null && arr.size == 1) arr.first() as? kotlinx.serialization.json.JsonObject else null
+    val source = obj ?: singleObj
+
     // Soft error branches first:
-    obj?.get("warning")?.jsonPrimitive?.contentOrNull
+    source?.get("warning")?.jsonPrimitive?.contentOrNull
         ?.takeIf { it.isNotBlank() }
         ?.let { warning ->
             // Backend sometimes returns {"warning":"Empty answers"} for empty lists.
@@ -64,7 +66,7 @@ inline fun <reified T> decodeOrWarning(json: Json, raw: String): T {
             throw WarningException(warning)
         }
 
-    obj?.get("error")?.jsonPrimitive?.contentOrNull
+    source?.get("error")?.jsonPrimitive?.contentOrNull
         ?.takeIf { it.isNotBlank() }
         ?.let { throw IllegalStateException(it) }
 

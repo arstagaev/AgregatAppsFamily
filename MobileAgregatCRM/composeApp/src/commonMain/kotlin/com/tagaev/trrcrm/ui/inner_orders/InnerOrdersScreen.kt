@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootDocumentKind
@@ -165,7 +166,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: res.exception?.message ?: "Ошибка поиска комплектации"
+                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
                         )
                         is Resource.Loading -> Unit
                     }

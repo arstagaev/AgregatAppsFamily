@@ -10,6 +10,7 @@ import org.koin.core.component.inject
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.utils.SessionPermissions
@@ -80,7 +81,7 @@ class LoginComponent(
 
         backHandler.register(backCallback)
         if (!Secrets.IS_PUBLISH.toBoolean()) {
-            println("FCM TOKEN: " +appSettings.getString(AppSettingsKeys.FCM_TOKEN,"NULL"))
+            println("PUSH_SERVICE: FCM TOKEN=" + appSettings.getString(AppSettingsKeys.FCM_TOKEN, "NULL"))
         }
     }
 
@@ -121,13 +122,13 @@ class LoginComponent(
         }
 
         tokenRefreshAttemptedThisLogin = false
-        if (savedToken.isNotBlank()) {
-            onLoginWithToken(savedToken)
-        } else if (hasSavedCredentials) {
+        if (hasSavedCredentials) {
             onLoginWithCredentials(
                 user = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
                 pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
             )
+        } else if (savedToken.isNotBlank()) {
+            onLoginWithToken(savedToken)
         } else {
             println("Email or Token is empty")
         }
@@ -238,8 +239,7 @@ class LoginComponent(
                                     is Resource.Loading -> Unit
                                     is Resource.Error -> {
                                         val msg = permissions.causes
-                                            ?: permissions.exception?.message
-                                            ?: "Не удалось загрузить права доступа"
+                                            ?: friendlyError(permissions.exception, "Не удалось загрузить права доступа")
                                         _uiState.value = LoginUiState.Error(msg)
                                     }
                                 }
@@ -251,7 +251,7 @@ class LoginComponent(
                         }
                     }
                     is Resource.Error -> {
-                        val msg = res.causes ?: res.exception?.message ?: "Ошибка авторизации"
+                        val msg = res.causes ?: friendlyError(res.exception, "Ошибка авторизации")
                         tokenRefreshAttemptedThisLogin = false
                         withContext(Dispatchers.Main.immediate) {
                             _uiState.value = LoginUiState.Error(msg)
@@ -264,7 +264,7 @@ class LoginComponent(
             } catch (t: Throwable) {
                 tokenRefreshAttemptedThisLogin = false
                 withContext(Dispatchers.Main.immediate) {
-                    _uiState.value = LoginUiState.Error(t.message ?: "Ошибка авторизации")
+                    _uiState.value = LoginUiState.Error(friendlyError(t, "Ошибка авторизации"))
                 }
             }
         }
@@ -353,8 +353,7 @@ class LoginComponent(
                         is Resource.Loading -> Unit
                         is Resource.Error -> {
                             val msg = permissions.causes
-                                ?: permissions.exception?.message
-                                ?: "Не удалось загрузить права доступа"
+                                ?: friendlyError(permissions.exception, "Не удалось загрузить права доступа")
                             val shouldFallbackToCredentials = !tokenRefreshAttemptedThisLogin &&
                                 isTokenAuthenticationError(msg) &&
                                 hasSavedCredentials()
@@ -375,7 +374,7 @@ class LoginComponent(
             } catch (t: Throwable) {
                 withContext(Dispatchers.Main.immediate) {
                     tokenRefreshAttemptedThisLogin = false
-                    _uiState.value = LoginUiState.Error(t.message ?: "Ошибка авторизации")
+                    _uiState.value = LoginUiState.Error(friendlyError(t, "Ошибка авторизации"))
                 }
             }
         }

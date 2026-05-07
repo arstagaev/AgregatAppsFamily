@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -78,11 +79,23 @@ val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
 @Composable
 fun AppRoot(root: IRootComponent) {
     val stack by root.childStack.subscribeAsState()   // State<ChildStack<..., ...>>
+    val notFoundMessage by root.notFoundDialogMessage.subscribeAsState()
+    val searchDiagnosticMessage by root.searchDiagnosticMessage.subscribeAsState()
     val activeChild = stack.active.instance
     val themeController = koinInject<ThemeController>()
     AppTheme(controller = themeController) {
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
+
+        LaunchedEffect(searchDiagnosticMessage) {
+            if (searchDiagnosticMessage.isNotBlank()) {
+                snackbarHostState.showSnackbar(
+                    message = searchDiagnosticMessage,
+                    duration = SnackbarDuration.Short
+                )
+                root.consumeSearchDiagnostic()
+            }
+        }
 
         CompositionLocalProvider(
             LocalAppSnackbar provides { message: String ->
@@ -218,6 +231,19 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.Login -> LoginScreen(c.component)
                     }
                 }
+            }
+
+            if (notFoundMessage.isNotBlank()) {
+                AlertDialog(
+                    onDismissRequest = root::consumeNotFoundDialog,
+                    title = { Text("Документ не найден") },
+                    text = { Text(notFoundMessage) },
+                    confirmButton = {
+                        TextButton(onClick = root::consumeNotFoundDialog) {
+                            Text("OK")
+                        }
+                    }
+                )
             }
         }
     }

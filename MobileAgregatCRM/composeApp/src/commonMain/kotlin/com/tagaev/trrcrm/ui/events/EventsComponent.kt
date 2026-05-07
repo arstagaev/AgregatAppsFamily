@@ -8,7 +8,9 @@ import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.RefineState
+import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.MessageDto
@@ -164,13 +166,15 @@ class EventsComponent(
                 docTitle = "Событие ${pickedEvent?.number} (${pickedEvent?.companyDepartment})",
                 authorName = appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "NO Name"),
                 recipientNames = users,
-                message = "${author}:\n${message}"
+                message = "${author}:\n${message}",
+                screen = "events",
+                rawMessage = message
             )
         }
 
         return when (res) {
             is Resource.Success -> null
-            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
     }
@@ -252,5 +256,58 @@ class EventsComponent(
             data = loadedEvents.toList(),
             additionalLoading = additionalLoading
         )
+    }
+
+    override fun findAndSelectByNotification(identifier: String, messageHint: String?): Boolean {
+        val normalizedIdentifier = normalizeIdentifier(identifier) ?: return false
+        val matches = loadedEvents.filter { event -> event.matchesNormalizedIdentifier(normalizedIdentifier) }
+        val picked = pickEventMatch(matches, messageHint) ?: return false
+        selectItemFromList(picked.guid ?: picked.number)
+        return true
+    }
+
+    override suspend fun resolveNotificationTarget(identifier: String, messageHint: String?): String? {
+        val normalizedIdentifier = normalizeIdentifier(identifier) ?: return null
+        val localPicked = pickEventMatch(
+            loadedEvents.filter { it.matchesNormalizedIdentifier(normalizedIdentifier) },
+            messageHint
+        )
+        if (localPicked != null) return localPicked.guid
+
+        val searchState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = Refiner.SearchQueryType.CODE
+        )
+        val remoteMatches = (repository.loadEvents(0, searchState) as? Resource.Success)?.data.orEmpty()
+            .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+        return pickEventMatch(remoteMatches, messageHint)?.guid
+    }
+
+    private fun pickEventMatch(candidates: List<EventItemDto>, messageHint: String?): EventItemDto? {
+        if (candidates.isEmpty()) return null
+        val stableCandidates = candidates.sortedWith(
+            compareBy<EventItemDto> { normalizeIdentifier(it.number).orEmpty() }
+                .thenBy { normalizeIdentifier(it.guid).orEmpty() }
+                .thenBy { it.date?.toString().orEmpty() }
+        )
+        if (stableCandidates.size == 1) return stableCandidates.first()
+        val hint = messageHint?.trim().orEmpty()
+        if (hint.isBlank()) return stableCandidates.first()
+        return stableCandidates.firstOrNull { event ->
+            event.messages.orEmpty().any { msg ->
+                msg.comment?.contains(hint, ignoreCase = true) == true
+            }
+        } ?: stableCandidates.first()
+    }
+
+    private fun EventItemDto.matchesNormalizedIdentifier(normalizedIdentifier: String): Boolean {
+        val guidNormalized = normalizeIdentifier(guid)
+        val numberNormalized = normalizeIdentifier(number)
+        return guidNormalized == normalizedIdentifier || numberNormalized == normalizedIdentifier
+    }
+
+    private fun normalizeIdentifier(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        return value.replace(Regex("\\s+"), "").trim().trimStart('0').ifBlank { "0" }
     }
 }

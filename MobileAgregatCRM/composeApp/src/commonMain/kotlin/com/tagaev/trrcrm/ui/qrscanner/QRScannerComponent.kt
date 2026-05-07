@@ -6,6 +6,7 @@ import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.utils.getTimestamp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -229,7 +230,7 @@ class DefaultQRScannerComponent(
                 }
 
                 is Resource.Error -> {
-                    val err = res.causes ?: res.exception?.message ?: "Ошибка запроса"
+                    val err = res.causes ?: friendlyError(res.exception, "Ошибка запроса")
                     _state.update { old ->
                         val updatedAttempts = old.attempts.map { a ->
                             if (a.id == attemptId) {

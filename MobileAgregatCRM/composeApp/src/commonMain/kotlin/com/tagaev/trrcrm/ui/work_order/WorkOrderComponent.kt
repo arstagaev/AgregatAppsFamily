@@ -1,6 +1,7 @@
 package com.tagaev.trrcrm.ui.work_order
 
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ import org.koin.core.component.inject
 
 interface IWorkOrdersComponent: IListMaster {
     val workOrders: StateFlow<Resource<List<WorkOrderDto>>>
+    var pickedOrder: WorkOrderDto?
     suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>>
 }
 
@@ -57,6 +59,7 @@ class WorkOrdersComponent(
 
     private val _selectedOrderGuid = MutableStateFlow<String?>(null)
     override val selectedItemGuid: StateFlow<String?> = _selectedOrderGuid
+    override var pickedOrder: WorkOrderDto? = null
 
     override fun selectItemFromList(guid: String?) {
         _selectedOrderGuid.value = guid
@@ -157,9 +160,23 @@ class WorkOrdersComponent(
             itemDate.substringBefore(' '),
             message
         )
+        val wo = pickedOrder
+        val users = buildWorkOrderRecipients(wo)
+        val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
+        if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+            repository.sendMessageEventPUSH(
+                docId = wo?.guid ?: wo?.number ?: itemNumber,
+                docTitle = "Заказ-Наряд ${wo?.number ?: itemNumber} (${wo?.branch.orEmpty()})",
+                authorName = author,
+                recipientNames = users,
+                message = "${author}:\n${message}",
+                screen = "work_orders",
+                rawMessage = message
+            )
+        }
         return when (res) {
             is Resource.Success -> null
-            is Resource.Error -> res.causes ?: res.exception?.message ?: "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
     }
@@ -176,6 +193,31 @@ class WorkOrdersComponent(
             searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
         )
         return repository.loadComplectations(0, searchState)
+    }
+
+    override fun findAndSelectByNotification(identifier: String, messageHint: String?): Boolean {
+        val normalizedIdentifier = normalizeIdentifier(identifier) ?: return false
+        val matches = loadedOrders.filter { order -> order.matchesNormalizedIdentifier(normalizedIdentifier) }
+        val picked = pickWorkOrderMatch(matches, messageHint) ?: return false
+        selectItemFromList(picked.guid ?: picked.number)
+        return true
+    }
+
+    override suspend fun resolveNotificationTarget(identifier: String, messageHint: String?): String? {
+        val normalizedIdentifier = normalizeIdentifier(identifier) ?: return null
+        val localPicked = pickWorkOrderMatch(
+            loadedOrders.filter { it.matchesNormalizedIdentifier(normalizedIdentifier) },
+            messageHint
+        )
+        if (localPicked != null) return localPicked.guid
+
+        val searchState = _refineState.value.copy(
+            searchQuery = identifier.trim(),
+            searchQueryType = Refiner.SearchQueryType.CODE
+        )
+        val remoteMatches = (repository.loadWorkOrders(0, searchState) as? Resource.Success)?.data.orEmpty()
+            .filter { it.matchesNormalizedIdentifier(normalizedIdentifier) }
+        return pickWorkOrderMatch(remoteMatches, messageHint)?.guid
     }
 
     /**
@@ -263,5 +305,49 @@ class WorkOrdersComponent(
     fun saveRefineState(state: RefineState) {
         val encoded = json.encodeToString(state)
         appSettings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE, encoded)
+    }
+
+    private fun buildWorkOrderRecipients(order: WorkOrderDto?): List<String> {
+        if (order == null) return emptyList()
+        val rawCandidates = buildList {
+            add(order.author)
+            add(order.manager)
+            add(order.dispatcher)
+            add(order.master)
+            order.messages.forEach { add(it.author) }
+        }
+        return uniqueNormalizedNames(rawCandidates)
+    }
+
+    private fun uniqueNormalizedNames(candidates: List<String?>): List<String> {
+        val result = LinkedHashSet<String>()
+        candidates.forEach { value ->
+            val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
+            if (normalized.isNotBlank()) result.add(normalized)
+        }
+        return result.toList()
+    }
+
+    private fun normalizeIdentifier(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        return value.replace(Regex("\\s+"), "").trim().trimStart('0').ifBlank { "0" }
+    }
+
+    private fun pickWorkOrderMatch(candidates: List<WorkOrderDto>, messageHint: String?): WorkOrderDto? {
+        if (candidates.isEmpty()) return null
+        if (candidates.size == 1) return candidates.first()
+        val hint = messageHint?.trim().orEmpty()
+        if (hint.isBlank()) return candidates.first()
+        return candidates.firstOrNull { order ->
+            order.messages.orEmpty().any { msg ->
+                msg.comment?.contains(hint, ignoreCase = true) == true
+            }
+        } ?: candidates.first()
+    }
+
+    private fun WorkOrderDto.matchesNormalizedIdentifier(normalizedIdentifier: String): Boolean {
+        val guidNormalized = normalizeIdentifier(guid)
+        val numberNormalized = normalizeIdentifier(number)
+        return guidNormalized == normalizedIdentifier || numberNormalized == normalizedIdentifier
     }
 }

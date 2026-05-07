@@ -14,9 +14,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
-            print("Push(iOS): Firebase configured")
+            print("PUSH_SERVICE: Push(iOS) Firebase configured")
         } else {
-            print("Push(iOS): Firebase already configured")
+            print("PUSH_SERVICE: Push(iOS) Firebase already configured")
         }
 
         NotificationManager.shared.configure()

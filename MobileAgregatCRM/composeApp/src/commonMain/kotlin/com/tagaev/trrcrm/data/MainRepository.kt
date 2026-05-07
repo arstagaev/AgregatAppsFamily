@@ -4,6 +4,7 @@ import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.UserPermissionEntryDto
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.DocumentTypes
@@ -35,6 +36,8 @@ import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.models.ThreadMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.utils.DefaultValuesConst
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.getValue
@@ -123,7 +126,7 @@ class MainRepository(
                 onFailure = {
                     Resource.Error(
                         exception = it as Exception?,
-                        causes = it.message ?: "Ошибка загрузки заказ-нарядов"
+                        causes = friendlyError(it, "Ошибка загрузки заказ-нарядов")
                     )
                 }
             )
@@ -135,7 +138,7 @@ class MainRepository(
                 onFailure = {
                     Resource.Error(
                         exception = it as Exception?,
-                        causes = it.message ?: "Ошибка загрузки комплектаций"
+                        causes = friendlyError(it, "Ошибка загрузки комплектаций")
                     )
                 }
             )
@@ -279,8 +282,14 @@ class MainRepository(
         docTitle: String,
         authorName: String,
         recipientNames: List<String>,
-        message: String
+        message: String,
+        screen: String,
+        rawMessage: String = message
     ): Resource<ThreadMessageResponse> {
+        val payload = buildJsonObject {
+            put("screen", screen)
+            put("message_text", rawMessage)
+        }
         val resolveOnlyIntent = CoreNotificationIntentRequest(
             source_system = "mobile_agregatcrm",
             event_type = "thread_message",
@@ -288,6 +297,7 @@ class MainRepository(
             body = message,
             recipient_names = recipientNames,
             actor_full_name = authorName,
+            payload = payload,
             send_now = false
         )
         val coreRequest = CoreNotificationIntentRequest(
@@ -297,6 +307,7 @@ class MainRepository(
             body = message,
             recipient_names = recipientNames,
             actor_full_name = authorName,
+            payload = payload,
             send_now = true
         )
         // Resolve-only pass keeps intent semantics explicit and helps diagnostics.

@@ -10,6 +10,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.MessageDto
 import com.tagaev.trrcrm.utils.TARGET_EVENT
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -82,7 +83,7 @@ class DefaultDetailsComponent(
                     _events.tryEmit(MessageEvent.Sent)
                 }
                 is Resource.Error -> {
-                    val msg = res.causes ?: res.exception?.message ?: "Ошибка отправки"
+                    val msg = res.causes ?: friendlyError(res.exception, "Ошибка отправки")
                     _sendState.value = SendMessageUiState.Error(msg)
                 }
                 Resource.Loading -> Unit

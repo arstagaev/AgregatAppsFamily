@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.domain.Refiner
@@ -162,8 +163,7 @@ fun ComplectationsScreen(
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: res.exception?.message
-                            ?: "Ошибка поиска комплектации"
+                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
                         )
                         is Resource.Loading -> Unit
                     }
@@ -290,6 +290,7 @@ fun ComplectationsScreen(
                     onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
                 )
             } else {
+                component.pickedComplectation = order
                 ComplectationDetailsSheet(
                     order = order,
                     onBack = onNestedBack,

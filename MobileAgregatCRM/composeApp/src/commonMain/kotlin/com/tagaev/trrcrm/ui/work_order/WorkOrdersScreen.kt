@@ -21,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
@@ -151,7 +152,7 @@ fun WorkOrdersScreen(
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: res.exception?.message ?: "Ошибка поиска комплектации"
+                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
                         )
                         is Resource.Loading -> Unit
                     }
@@ -238,6 +239,7 @@ fun WorkOrdersScreen(
                     onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
                 )
             } else {
+                component.pickedOrder = order
                 WorkOrderDetailsSheet(
                     order = order,
                     onBack = onNestedBack,

@@ -20,7 +20,7 @@ class TestNotificationReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "Test Notification"
         val body = intent.getStringExtra("body") ?: "Testing deep link to $screen${docId?.let { " (doc: $it)" } ?: ""}"
 
-        println("TestNotificationReceiver>>> INCOMING INTENT ${title}")
+        println("PUSH_SERVICE DEEPLINK: TestNotificationReceiver incoming intent title='$title'")
 
         val data = mutableMapOf<String, String>("screen" to screen)
         docId?.let { data["docId"] = it }

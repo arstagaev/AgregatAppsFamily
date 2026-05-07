@@ -21,15 +21,15 @@ class App : Application() {
         FirebaseMessaging.getInstance().token
             .addOnCompleteListener { task ->
                 if (!task.isSuccessful) {
-                    println("FCM(Android): proactive token fetch failed: ${task.exception?.message}")
+                    println("PUSH_SERVICE: FCM(Android) proactive token fetch failed: ${task.exception?.message}")
                     return@addOnCompleteListener
                 }
                 val token = task.result.orEmpty()
                 if (token.isBlank()) {
-                    println("FCM(Android): proactive token fetch returned blank token")
+                    println("PUSH_SERVICE: FCM(Android) proactive token fetch returned blank token")
                     return@addOnCompleteListener
                 }
-                println("FCM(Android): proactive token fetch success")
+                println("PUSH_SERVICE: FCM(Android) proactive token fetch success")
                 PushRegistrationCoordinator.onTokenReceived(
                     token = token,
                     preferredPlatform = "android"

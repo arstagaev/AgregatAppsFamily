@@ -28,6 +28,10 @@ interface IListMaster {
     suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> =
         Resource.Error(causes = "Переход по документу-основанию недоступен на этом экране")
 
+    suspend fun resolveNotificationTarget(identifier: String, messageHint: String?): String? = null
+
+    fun findAndSelectByNotification(identifier: String, messageHint: String?): Boolean = false
+
     fun selectItemFromList(guid: String?)
     fun changePanel(masterDetailPanel: MasterPanel)
 }

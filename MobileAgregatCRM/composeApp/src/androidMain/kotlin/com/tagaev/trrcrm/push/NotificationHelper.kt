@@ -34,15 +34,39 @@ object NotificationHelper {
 
         val resolvedScreen = resolveScreen(data = data, title = title, body = body)
         val resolvedDocId = resolveDocId(data)
+        val resolvedMessageText = resolveMessageText(data = data, body = body)
+        val resolvedTitle = resolveTitle(data = data, fallbackTitle = title)
+        val canonicalScreen = firstNonBlank(data, "screen", "Screen", "target", "docType", "doc_type")
+        val canonicalDocId = firstNonBlank(data, "docId", "doc_id", "docID", "docGuid", "doc_guid", "guid")
+        val canonicalTitle = firstNonBlank(data, "docTitle", "title", "notification_title")
+        val hasCanonicalPayload = !canonicalScreen.isNullOrBlank() &&
+                (!canonicalDocId.isNullOrBlank() || !canonicalTitle.isNullOrBlank())
+        println(
+            "PUSH_SERVICE DEEPLINK: Android NotificationHelper resolved " +
+                    "screen='$resolvedScreen', docId='${resolvedDocId ?: ""}', " +
+                    "title='$resolvedTitle', messageTextLen=${resolvedMessageText.length}, " +
+                    "dataKeys=${data.keys.sorted()}, hasCanonicalPayload=$hasCanonicalPayload"
+        )
+        if (!hasCanonicalPayload) {
+            println("PUSH_SERVICE DEEPLINK: missing_canonical_push_payload keys=${data.keys.sorted()}")
+        }
 
         val intent = Intent(context, MainActivity::class.java).apply {
             // Use SINGLE_TOP to handle clicks when app is already running
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             // Universal deep link parameters
-            putExtra("screen", resolvedScreen)
-            resolvedDocId?.let { putExtra("docId", it) }
+            if (hasCanonicalPayload) {
+                putExtra("screen", resolvedScreen)
+                resolvedDocId?.let { putExtra("docId", it) }
+            }
             // Optional diagnostics / future-proofing
-            putExtra("docTitle", data["docTitle"] ?: title)
+            putExtra("docTitle", resolvedTitle)
+            putExtra("title", resolvedTitle)
+            putExtra("body", resolvedMessageText)
+            putExtra("message_text", resolvedMessageText)
+            putExtra("screen_raw", canonicalScreen.orEmpty())
+            putExtra("doc_id_raw", canonicalDocId.orEmpty())
+            putExtra("has_canonical_payload", hasCanonicalPayload)
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -65,20 +89,11 @@ object NotificationHelper {
     }
 
     private fun resolveDocId(data: Map<String, String>): String? {
-        return data["docId"]
-            ?: data["doc_id"]
-            ?: data["docID"]
-            ?: data["docGuid"]
-            ?: data["doc_guid"]
-            ?: data["guid"]
+        return firstNonBlank(data, "docId", "doc_id", "docID", "docGuid", "doc_guid", "guid")
     }
 
     private fun resolveScreen(data: Map<String, String>, title: String?, body: String?): String {
-        val explicit = data["screen"]
-            ?: data["Screen"]
-            ?: data["target"]
-            ?: data["docType"]
-            ?: data["doc_type"]
+        val explicit = firstNonBlank(data, "screen", "Screen", "target", "docType", "doc_type")
         if (!explicit.isNullOrBlank()) {
             return normalizeScreen(explicit)
         }
@@ -92,6 +107,16 @@ object NotificationHelper {
         return inferScreenFromText(text) ?: "events"
     }
 
+    private fun resolveMessageText(data: Map<String, String>, body: String): String {
+        return firstNonBlank(data, "message_text", "messageText", "body", "text", "comment")
+            ?: body
+    }
+
+    private fun resolveTitle(data: Map<String, String>, fallbackTitle: String): String {
+        return firstNonBlank(data, "docTitle", "title", "notification_title")
+            ?: fallbackTitle
+    }
+
     private fun inferScreenFromText(text: String): String? {
         val t = text.lowercase()
 
@@ -102,6 +127,9 @@ object NotificationHelper {
             t.contains("заказ-нар") ||
             t.contains("заказнар")
         ) return "work_orders"
+
+        // Complectation
+        if (t.contains("complect") || t.contains("комплект")) return "complectation"
 
         // Complaints
         if (t.contains("complaint") || t.contains("рекламац")) return "complaints"
@@ -129,5 +157,13 @@ object NotificationHelper {
             .lowercase()
             .replace('-', '_')
             .replace(' ', '_')
+    }
+
+    private fun firstNonBlank(data: Map<String, String>, vararg keys: String): String? {
+        for (key in keys) {
+            val value = data[key]?.trim()
+            if (!value.isNullOrBlank()) return value
+        }
+        return null
     }
 }

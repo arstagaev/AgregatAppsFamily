@@ -62,14 +62,14 @@ object PushRegistration {
         token: String,
     ) {
         if (!::client.isInitialized) {
-            println("PushRegistration: client not configured, skipping register")
+            println("PUSH_SERVICE: PushRegistration client not configured, skipping register")
             return
         }
         if (fullName.isBlank() || token.isBlank()) return
 
         scope.launch {
             try {
-                println("PushRegistration: register_start(platform=$platform, token_len=${token.length})")
+                println("PUSH_SERVICE: PushRegistration register_start(platform=$platform, token_len=${token.length})")
                 val response: HttpResponse = client.post("$baseUrl/devices/register") {
                     contentType(ContentType.Application.Json)
                     header("X-API-Key", apiKey)
@@ -83,9 +83,9 @@ object PushRegistration {
                         )
                     )
                 }
-                println("PushRegistration: register_core_status(code=${response.status.value})")
+                println("PUSH_SERVICE: PushRegistration register_core_status(code=${response.status.value})")
             } catch (e: Exception) {
-                println("PushRegistration: core register failed, fallback legacy: $e")
+                println("PUSH_SERVICE: PushRegistration core register failed, fallback legacy: $e")
                 runCatching {
                     val fallbackResponse: HttpResponse = client.post("$baseUrl/users/register-device") {
                         contentType(ContentType.Application.Json)
@@ -98,9 +98,9 @@ object PushRegistration {
                             )
                         )
                     }
-                    println("PushRegistration: register_legacy_status(code=${fallbackResponse.status.value})")
+                    println("PUSH_SERVICE: PushRegistration register_legacy_status(code=${fallbackResponse.status.value})")
                 }.onFailure { fallbackError ->
-                    println("PushRegistration: legacy register failed: $fallbackError")
+                    println("PUSH_SERVICE: PushRegistration legacy register failed: $fallbackError")
                 }
             }
         }
@@ -112,7 +112,7 @@ object PushRegistration {
         fcmToken: String? = null,
     ) {
         if (!::client.isInitialized) {
-            println("PushRegistration: client not configured, skipping logout")
+            println("PUSH_SERVICE: PushRegistration client not configured, skipping logout")
             return
         }
         if (fullName.isBlank()) return
@@ -131,7 +131,7 @@ object PushRegistration {
                     )
                 }
             } catch (e: Exception) {
-                println("PushRegistration: logout failed: $e")
+                println("PUSH_SERVICE: PushRegistration logout failed: $e")
             }
         }
     }
@@ -145,7 +145,7 @@ object PushRegistrationCoordinator : KoinComponent {
         if (platform == "ios") {
             val apnsReady = appSettings.getBool(AppSettingsKeys.IOS_APNS_READY, false)
             if (!apnsReady) {
-                println("PushRegistrationCoordinator: register_skipped(missing_apns_ready)")
+                println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped(missing_apns_ready)")
                 return
             }
         }
@@ -159,23 +159,23 @@ object PushRegistrationCoordinator : KoinComponent {
                 token.isBlank() -> "missing_token"
                 else -> "missing_user"
             }
-            println("PushRegistrationCoordinator: register_skipped($reason)")
+            println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped($reason)")
             return
         }
 
-        println("PushRegistrationCoordinator: register_attempt(platform=$platform, token_len=${token.length}, user_len=${fullName.length})")
+        println("PUSH_SERVICE: PushRegistrationCoordinator register_attempt(platform=$platform, token_len=${token.length}, user_len=${fullName.length})")
         PushRegistration.registerCurrentUserToken(fullName = fullName, platform = platform, token = token)
     }
 
     fun onTokenReceived(token: String, preferredPlatform: String? = null) {
         if (token.isBlank()) {
-            println("PushRegistrationCoordinator: token_received(blank)")
+            println("PUSH_SERVICE: PushRegistrationCoordinator token_received(blank)")
             return
         }
         val platform = preferredPlatform ?: pushPlatformId()
-        println("PushRegistrationCoordinator: token_received(platform=$platform, token_len=${token.length})")
+        println("PUSH_SERVICE: PushRegistrationCoordinator token_received(platform=$platform, token_len=${token.length})")
         appSettings.setString(AppSettingsKeys.FCM_TOKEN, token)
-        println("PushRegistrationCoordinator: token_saved")
+        println("PUSH_SERVICE: PushRegistrationCoordinator token_saved")
         registerIfReady(preferredPlatform = preferredPlatform)
     }
 
