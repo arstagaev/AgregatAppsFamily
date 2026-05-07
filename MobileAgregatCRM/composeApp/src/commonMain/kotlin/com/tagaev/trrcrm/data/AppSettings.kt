@@ -51,6 +51,8 @@ object AppSettingsKeys {
     const val LAST_UPDATE = "LAST_UPDATE"
 
     const val PERSONAL_DATA = "PERSONAL_DATA"
+    const val CORE_SESSION_ID = "CORE_SESSION_ID"
+    const val IOS_APNS_READY = "IOS_APNS_READY"
 
     const val FCM_TOKEN = "NULL"
 

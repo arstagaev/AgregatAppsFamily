@@ -1,13 +1,16 @@
 import SwiftUI
+import ComposeApp
 
 @main
 struct iOSApp: App {
-    // init() {
-    //     _ = IosModuleKt.initKoinIos()
-    // }
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
-            NotificationManager.shared.configure()
-        }
+        // Start shared DI before any push token forwarding to avoid Koin/token race.
+        PushBridgeKt.ensureIosDependenciesReady()
+        // Reset APNs readiness at launch; it becomes true only after current APNs callback.
+        PushBridgeKt.setIosApnsReady(ready: false)
+    }
     
     var body: some Scene {
         WindowGroup {

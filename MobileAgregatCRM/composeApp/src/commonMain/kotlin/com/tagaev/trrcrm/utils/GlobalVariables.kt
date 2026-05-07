@@ -27,7 +27,10 @@ object DefaultValuesConst {
     const val FILTER_TYPE = "list" // Выполнено Выполняется
     const val MESSAGE_MAX_CHARS = 500
 
-    val GLOBAL_PUSH_URL = if (IS_PUBLISH.toBoolean()) Secrets.PUSH_BASE_URL else getPlatform().baseDebugFCMurl
+    val GLOBAL_PUSH_URL = Secrets.PUSH_BASE_URL//if (IS_PUBLISH.toBoolean()) Secrets.PUSH_BASE_URL else getPlatform().baseDebugFCMurl
+    // CoreService currently shares the same environment host strategy as Push service.
+    val GLOBAL_CORE_URL = Secrets.PUSH_BASE_URL// if (IS_PUBLISH.toBoolean()) Secrets.PUSH_BASE_URL else getPlatform().baseDebugFCMurl
+    val CORE_API_KEY = Secrets.PUSH_API_KEY
 
 //    var needBack
 }

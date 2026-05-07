@@ -1,0 +1,4 @@
+interface:
+  display_name: "MobileAgregatCRM Push"
+  short_description: "iOS/Android push flow + backend handoff context"
+  default_prompt: "Use $mobile-agregatcrm-push to apply the strict APNs-first iOS push pattern, verify registration ordering and logs, and prepare backend-ready incident context when delivery still fails."

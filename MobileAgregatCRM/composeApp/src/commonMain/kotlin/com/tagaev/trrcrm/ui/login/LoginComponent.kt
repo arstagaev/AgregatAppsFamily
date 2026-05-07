@@ -14,6 +14,8 @@ import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.utils.SessionPermissions
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +58,7 @@ class LoginComponent(
 ) : ILoginComponent, ComponentContext by componentContext, KoinComponent {
     companion object {
         private var startupCheckPassedThisSession = false
+        private var coreHeartbeatJob: Job? = null
     }
 
     private val appSettings: AppSettings by inject()
@@ -68,6 +71,7 @@ class LoginComponent(
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     override val uiState: StateFlow<LoginUiState> = _uiState
+    private var tokenRefreshAttemptedThisLogin = false
 
     init {
         appScope.launch {
@@ -109,15 +113,17 @@ class LoginComponent(
     }
 
     private suspend fun continueAsUsual() {
-        val hasSavedCredentials =
-            !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() &&
-                    !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
+        val savedToken = appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty()
+        val hasSavedCredentials = hasSavedCredentials()
 
         withContext(Dispatchers.Main.immediate) {
             _uiState.value = LoginUiState.Idle
         }
 
-        if (hasSavedCredentials) {
+        tokenRefreshAttemptedThisLogin = false
+        if (savedToken.isNotBlank()) {
+            onLoginWithToken(savedToken)
+        } else if (hasSavedCredentials) {
             onLoginWithCredentials(
                 user = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
                 pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
@@ -125,6 +131,19 @@ class LoginComponent(
         } else {
             println("Email or Token is empty")
         }
+    }
+
+    private fun hasSavedCredentials(): Boolean {
+        return !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() &&
+            !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
+    }
+
+    private fun isTokenAuthenticationError(message: String?): Boolean {
+        val raw = message?.trim().orEmpty()
+        if (raw.isBlank()) return false
+        val lower = raw.lowercase()
+        return lower.contains("token authentification error") ||
+            lower.contains("token authentication error")
     }
 
     private fun classifyStartupBlock(error: Resource.Error<*>): StartupBlockReason? {
@@ -233,6 +252,7 @@ class LoginComponent(
                     }
                     is Resource.Error -> {
                         val msg = res.causes ?: res.exception?.message ?: "Ошибка авторизации"
+                        tokenRefreshAttemptedThisLogin = false
                         withContext(Dispatchers.Main.immediate) {
                             _uiState.value = LoginUiState.Error(msg)
                         }
@@ -242,6 +262,7 @@ class LoginComponent(
                     }
                 }
             } catch (t: Throwable) {
+                tokenRefreshAttemptedThisLogin = false
                 withContext(Dispatchers.Main.immediate) {
                     _uiState.value = LoginUiState.Error(t.message ?: "Ошибка авторизации")
                 }
@@ -251,9 +272,64 @@ class LoginComponent(
 
     private fun completeLogin() {
         _uiState.value = LoginUiState.Idle
+        appScope.launch {
+            bootstrapCoreSessionAndStartHeartbeat()
+        }
         PushRegistrationCoordinator.registerIfReady(preferredPlatform = pushPlatformId())
 
         onLoginSuccess() // navigate (must be MAIN)
+    }
+
+    private suspend fun bootstrapCoreSessionAndStartHeartbeat() {
+        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
+        val fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN).orEmpty().trim()
+        if (fullName.isBlank() || fcmToken.isBlank()) {
+            println("CoreSession: bootstrap skipped (missing_user_or_fcm)")
+            return
+        }
+
+        val req = com.tagaev.trrcrm.models.CoreSessionBootstrapRequest(
+            full_name = fullName,
+            platform = pushPlatformId(),
+            device_id = com.tagaev.trrcrm.getPlatform().deviceSpecificInfo,
+            fcm_token = fcmToken,
+            login = appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
+            department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
+            device_name = com.tagaev.trrcrm.getPlatform().name,
+            app_version = Secrets.VERSION,
+        )
+
+        when (val res = repo.coreSessionBootstrap(req)) {
+            is Resource.Success -> {
+                appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
+                startCoreHeartbeatLoop()
+            }
+            is Resource.Error -> {
+                println("CoreSession: bootstrap failed ${res.causes ?: res.exception?.message}")
+            }
+            is Resource.Loading -> Unit
+        }
+    }
+
+    private fun startCoreHeartbeatLoop() {
+        if (coreHeartbeatJob?.isActive == true) return
+        coreHeartbeatJob = appScope.launch {
+            while (true) {
+                delay(5 * 60 * 1000L)
+                val sessionId = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty()
+                if (sessionId.isBlank()) continue
+                val heartbeatReq = com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest(
+                    sessionId = sessionId,
+                    fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN),
+                    appVersion = Secrets.VERSION
+                )
+                when (val hb = repo.coreSessionHeartbeat(heartbeatReq)) {
+                    is Resource.Success -> Unit
+                    is Resource.Error -> println("CoreSession: heartbeat failed ${hb.causes ?: hb.exception?.message}")
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
     override fun onLoginWithToken(token: String) {
@@ -270,6 +346,7 @@ class LoginComponent(
                 withContext(Dispatchers.Main.immediate) {
                     when (permissions) {
                         is Resource.Success -> {
+                            tokenRefreshAttemptedThisLogin = false
                             SessionPermissions.replaceAll(permissions.data)
                             completeLogin()
                         }
@@ -278,12 +355,26 @@ class LoginComponent(
                             val msg = permissions.causes
                                 ?: permissions.exception?.message
                                 ?: "Не удалось загрузить права доступа"
-                            _uiState.value = LoginUiState.Error(msg)
+                            val shouldFallbackToCredentials = !tokenRefreshAttemptedThisLogin &&
+                                isTokenAuthenticationError(msg) &&
+                                hasSavedCredentials()
+                            if (shouldFallbackToCredentials) {
+                                tokenRefreshAttemptedThisLogin = true
+                                val savedUser = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = "")
+                                val savedPassHash = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
+                                println("Saved token rejected, requesting fresh token by credentials")
+                                _uiState.value = LoginUiState.Idle
+                                onLoginWithCredentials(savedUser, savedPassHash)
+                            } else {
+                                tokenRefreshAttemptedThisLogin = false
+                                _uiState.value = LoginUiState.Error(msg)
+                            }
                         }
                     }
                 }
             } catch (t: Throwable) {
                 withContext(Dispatchers.Main.immediate) {
+                    tokenRefreshAttemptedThisLogin = false
                     _uiState.value = LoginUiState.Error(t.message ?: "Ошибка авторизации")
                 }
             }

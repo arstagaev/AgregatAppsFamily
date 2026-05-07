@@ -11,6 +11,18 @@ import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.ComplaintDto
+import com.tagaev.trrcrm.models.CoreDeviceRegisterRequest
+import com.tagaev.trrcrm.models.CoreDeviceRegisterResponse
+import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
+import com.tagaev.trrcrm.models.CoreNotificationIntentResponse
+import com.tagaev.trrcrm.models.CoreResolveRecipientsRequest
+import com.tagaev.trrcrm.models.CoreResolveRecipientsResponse
+import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
+import com.tagaev.trrcrm.models.CoreSessionBootstrapResponse
+import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
+import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
+import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
+import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -37,6 +49,8 @@ import com.tagaev.trrcrm.models.WorkOrderDto
 import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.plugins.timeout
 import com.tagaev.trrcrm.models.cleanJsonStart
+import com.tagaev.trrcrm.utils.DefaultValuesConst.CORE_API_KEY
+import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_CORE_URL
 import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_PUSH_URL
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -273,6 +287,66 @@ class EventsApi(
 
         val raw = response.bodyAsText()
         decodeOrWarning<ThreadMessageResponse>(json, raw)
+    }
+
+    suspend fun coreSessionBootstrap(request: CoreSessionBootstrapRequest): Resource<CoreSessionBootstrapResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/core/session/bootstrap") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreSessionBootstrapResponse>(json, raw)
+    }
+
+    suspend fun coreSessionHeartbeat(request: CoreSessionHeartbeatRequest): Resource<CoreSessionHeartbeatResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/core/session/heartbeat") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreSessionHeartbeatResponse>(json, raw)
+    }
+
+    suspend fun coreSessionLogout(request: CoreSessionLogoutRequest): Resource<CoreSessionLogoutResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/core/session/logout") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreSessionLogoutResponse>(json, raw)
+    }
+
+    suspend fun coreDeviceRegister(request: CoreDeviceRegisterRequest): Resource<CoreDeviceRegisterResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/devices/register") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreDeviceRegisterResponse>(json, raw)
+    }
+
+    suspend fun coreResolveRecipients(request: CoreResolveRecipientsRequest): Resource<CoreResolveRecipientsResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/resolve-recipients") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreResolveRecipientsResponse>(json, raw)
+    }
+
+    suspend fun coreNotificationIntent(request: CoreNotificationIntentRequest): Resource<CoreNotificationIntentResponse> = resourceify {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/intents") {
+            header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        decodeOrWarning<CoreNotificationIntentResponse>(json, raw)
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=

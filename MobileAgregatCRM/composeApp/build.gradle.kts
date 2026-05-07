@@ -372,8 +372,8 @@ buildkonfig {
         buildConfigField(STRING, "COUNTVERSION", countVersion)
         buildConfigField(STRING, "IS_PUBLISH", isPublish)
 
-        buildConfigField(STRING, "PUSH_BASE_URL", "http://10.0.2.2:8000/")
-        buildConfigField(STRING, "PUSH_API_KEY", "SUPERMAMIN_PUMPKIN_2004")
+        buildConfigField(STRING, "PUSH_BASE_URL", "http://trrservice.agregatka.ru:8444/")
+        buildConfigField(STRING, "PUSH_API_KEY", "BALAKOVO44")
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.
     defaultConfigs {

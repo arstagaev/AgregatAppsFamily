@@ -13,6 +13,18 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.ComplaintDto
+import com.tagaev.trrcrm.models.CoreDeviceRegisterRequest
+import com.tagaev.trrcrm.models.CoreDeviceRegisterResponse
+import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
+import com.tagaev.trrcrm.models.CoreNotificationIntentResponse
+import com.tagaev.trrcrm.models.CoreResolveRecipientsRequest
+import com.tagaev.trrcrm.models.CoreResolveRecipientsResponse
+import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
+import com.tagaev.trrcrm.models.CoreSessionBootstrapResponse
+import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
+import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
+import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
+import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.IncomingApplicationDto
 import com.tagaev.trrcrm.models.RepairTemplateCatalogItemDto
@@ -268,7 +280,89 @@ class MainRepository(
         authorName: String,
         recipientNames: List<String>,
         message: String
-    ): Resource<ThreadMessageResponse> = api.sendThreadMessage(api = cfg, docId = docId, docTitle = docTitle, authorName = authorName, recipientNames = recipientNames, messageText = message)
+    ): Resource<ThreadMessageResponse> {
+        val resolveOnlyIntent = CoreNotificationIntentRequest(
+            source_system = "mobile_agregatcrm",
+            event_type = "thread_message",
+            title = docTitle,
+            body = message,
+            recipient_names = recipientNames,
+            actor_full_name = authorName,
+            send_now = false
+        )
+        val coreRequest = CoreNotificationIntentRequest(
+            source_system = "mobile_agregatcrm",
+            event_type = "thread_message",
+            title = docTitle,
+            body = message,
+            recipient_names = recipientNames,
+            actor_full_name = authorName,
+            send_now = true
+        )
+        // Resolve-only pass keeps intent semantics explicit and helps diagnostics.
+        api.coreNotificationIntent(resolveOnlyIntent)
+        val coreRes = api.coreNotificationIntent(coreRequest)
+        return when (coreRes) {
+            is Resource.Success -> {
+                val status = coreRes.data.status ?: "sent"
+                val success = coreRes.data.success ?: recipientNames.size
+                val failure = coreRes.data.failure ?: 0
+                Resource.Success(
+                    ThreadMessageResponse(
+                        status = status,
+                        success = success,
+                        failure = failure,
+                        recipients = recipientNames.size
+                    )
+                )
+            }
+            is Resource.Error -> {
+                if (shouldFallbackToLegacyPush(coreRes.causes ?: coreRes.exception?.message)) {
+                    api.sendThreadMessage(
+                        api = cfg,
+                        docId = docId,
+                        docTitle = docTitle,
+                        authorName = authorName,
+                        recipientNames = recipientNames,
+                        messageText = message
+                    )
+                } else {
+                    Resource.Error(coreRes.exception, coreRes.causes)
+                }
+            }
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    suspend fun coreSessionBootstrap(request: CoreSessionBootstrapRequest): Resource<CoreSessionBootstrapResponse> =
+        api.coreSessionBootstrap(request)
+
+    suspend fun coreSessionHeartbeat(request: CoreSessionHeartbeatRequest): Resource<CoreSessionHeartbeatResponse> =
+        api.coreSessionHeartbeat(request)
+
+    suspend fun coreSessionLogout(request: CoreSessionLogoutRequest): Resource<CoreSessionLogoutResponse> =
+        api.coreSessionLogout(request)
+
+    suspend fun coreDeviceRegister(request: CoreDeviceRegisterRequest): Resource<CoreDeviceRegisterResponse> =
+        api.coreDeviceRegister(request)
+
+    suspend fun coreResolveRecipients(recipientNames: List<String>): Resource<CoreResolveRecipientsResponse> =
+        api.coreResolveRecipients(CoreResolveRecipientsRequest(recipient_names = recipientNames))
+
+    suspend fun coreNotificationIntent(request: CoreNotificationIntentRequest): Resource<CoreNotificationIntentResponse> =
+        api.coreNotificationIntent(request)
+
+    private fun shouldFallbackToLegacyPush(message: String?): Boolean {
+        val raw = message?.lowercase().orEmpty()
+        if (raw.isBlank()) return true
+        if ("client error 401" in raw || "client error 403" in raw || "client error 422" in raw) return false
+        return "server error" in raw ||
+            "timeout" in raw ||
+            "unresolvedaddress" in raw ||
+            "unknownhost" in raw ||
+            "network" in raw ||
+            "failed to connect" in raw
+    }
 
 
     //          api.sendMessage(api = cfg, number = number, date = date, message = message)
