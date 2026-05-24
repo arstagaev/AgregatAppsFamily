@@ -254,7 +254,9 @@ fun WorkOrderDetailsSheet(
                         SectionTitle("Причина обращения:")
 
                         Text(
-                            text = wo.reason.orEmpty(),
+                            text = wo.reason.orEmpty()
+                                .replace("\r\n", "\n")
+                                .replace('\r', '\n'),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

@@ -8,6 +8,7 @@ Use this checklist when coordinating with backend/infrastructure.
 Note:
 - Current app baseline uses strict APNs gate for iOS token registration.
 - If backend sees no early iOS register call before APNs-ready, this is expected behavior.
+- CoreService mute contract: mute affects push delivery eligibility only; inbox persistence remains enabled.
 
 ## 1) App-Side Facts Already Confirmed
 
@@ -43,6 +44,11 @@ If backend needs proof, request runtime logs from device using the expected chai
 - Check backend handling for invalid/expired iOS tokens.
 - Ensure token updates from repeated register calls replace old values correctly.
 
+6. Mute vs inbox consistency
+- If device or document type is muted, push send may be skipped for that device.
+- The same event must still be persisted for user inbox feed (`/notifications/feed`).
+- Do not diagnose "no push shown" as "no notification created" without checking inbox API.
+
 ## 3) Minimal Evidence Backend Should Return
 
 Ask backend for these artifacts per one failed iOS user attempt:
@@ -62,6 +68,8 @@ Ask backend for these artifacts per one failed iOS user attempt:
   - APNs/Firebase credential/env mismatch or token invalid.
 - If provider accepts but no device alert:
   - payload/notification presentation mismatch or iOS device notification settings.
+- If push is skipped but inbox item exists:
+  - mute policy is likely working as designed (delivery muted, inbox retained).
 
 ## 5) Suggested Message to Backend
 

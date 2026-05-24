@@ -137,6 +137,7 @@ fun TextCAnnotated(
     linkColor: Color = MaterialTheme.colorScheme.primary,
     allowLinkTap: Boolean = true,
     allowLongPressCopy: Boolean = true,
+    onTap: (() -> Unit)? = null,
 ) {
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -186,24 +187,31 @@ fun TextCAnnotated(
     val hasLinks = remember(linkAnnotatedText) {
         linkAnnotatedText.getStringAnnotations(tag = "URL", start = 0, end = linkAnnotatedText.length).isNotEmpty()
     }
-    val shouldHandleTap = allowLinkTap && hasLinks
+    val shouldHandleTap = (allowLinkTap && hasLinks) || onTap != null
     val shouldHandleLongPress = allowLongPressCopy
     val interactiveModifier = if (shouldHandleTap || shouldHandleLongPress) {
         Modifier.pointerInput(linkAnnotatedText, textLayoutResult, shouldHandleTap, shouldHandleLongPress) {
             detectTapGestures(
                 onTap = if (shouldHandleTap) { offsetPos ->
-                    val layout = textLayoutResult
-                    if (layout != null) {
-                        val offset = layout.getOffsetForPosition(offsetPos)
-                        val annotations = linkAnnotatedText.getStringAnnotations(
-                            tag = "URL",
-                            start = offset,
-                            end = offset
-                        )
-                        val url = annotations.firstOrNull()?.item
-                        if (url != null) {
-                            uriHandler.openUri(url)
+                    var handled = false
+                    if (allowLinkTap && hasLinks) {
+                        val layout = textLayoutResult
+                        if (layout != null) {
+                            val offset = layout.getOffsetForPosition(offsetPos)
+                            val annotations = linkAnnotatedText.getStringAnnotations(
+                                tag = "URL",
+                                start = offset,
+                                end = offset
+                            )
+                            val url = annotations.firstOrNull()?.item
+                            if (url != null) {
+                                uriHandler.openUri(url)
+                                handled = true
+                            }
                         }
+                    }
+                    if (!handled) {
+                        onTap?.invoke()
                     }
                 } else null,
                 onLongPress = if (shouldHandleLongPress) {
@@ -258,6 +266,7 @@ fun TextC(
     snackbarHostState: SnackbarHostState? = null,
     allowLinkTap: Boolean = true,
     allowLongPressCopy: Boolean = true,
+    onTap: (() -> Unit)? = null,
 ) {
     val formattedBlocks = remember(text) {
         parseFormattedBlocks(text.withEscapedNewlines())
@@ -278,6 +287,7 @@ fun TextC(
             snackbarHostState = snackbarHostState,
             allowLinkTap = allowLinkTap,
             allowLongPressCopy = allowLongPressCopy,
+            onTap = onTap,
         )
         return
     }
@@ -297,6 +307,7 @@ fun TextC(
                     snackbarHostState = snackbarHostState,
                     allowLinkTap = allowLinkTap,
                     allowLongPressCopy = allowLongPressCopy,
+                    onTap = onTap,
                 )
                 FormattedBlock.HorizontalRule -> HorizontalDivider(
                     modifier = Modifier
@@ -346,5 +357,4 @@ fun TextCLinkPreview(
 
 fun String.withEscapedNewlines(): String =
     replace("\\n", "\n")
-
 

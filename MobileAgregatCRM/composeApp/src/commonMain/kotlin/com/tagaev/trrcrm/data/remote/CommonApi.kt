@@ -17,6 +17,8 @@ import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
 import com.tagaev.trrcrm.models.CoreNotificationIntentResponse
 import com.tagaev.trrcrm.models.CoreNotificationsFeedRequest
 import com.tagaev.trrcrm.models.CoreNotificationsFeedResponse
+import com.tagaev.trrcrm.models.CoreNotificationsUnreadCountRequest
+import com.tagaev.trrcrm.models.CoreNotificationsUnreadCountResponse
 import com.tagaev.trrcrm.models.CoreNotificationsReadAllRequest
 import com.tagaev.trrcrm.models.CoreNotificationsReadAllResponse
 import com.tagaev.trrcrm.models.CoreResolveRecipientsRequest
@@ -27,8 +29,15 @@ import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
 import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
 import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
 import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
+import com.tagaev.trrcrm.models.HealthResponse
 import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateRequest
 import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateResponse
+import com.tagaev.trrcrm.models.CoreDeviceMuteStateRequest
+import com.tagaev.trrcrm.models.CoreDeviceMuteUpdateRequest
+import com.tagaev.trrcrm.models.CoreDeviceMuteStateResponse
+import com.tagaev.trrcrm.models.PushFeatureToggleGetResponse
+import com.tagaev.trrcrm.models.PushFeatureToggleSetRequest
+import com.tagaev.trrcrm.models.PushFeatureToggleSetResponse
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -80,6 +89,48 @@ sealed class Resource<out R> {
 class EventsApi(
     private val client: HttpClient
 ) {
+    private suspend inline fun <reified T> corePost(
+        path: String,
+        body: Any? = null,
+        includeApiKey: Boolean = true,
+    ): T {
+        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}$path") {
+            expectSuccess = false
+            if (includeApiKey) header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+            if (body != null) setBody(body)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        if (!response.status.isSuccess()) {
+            throw CoreApiException(
+                statusCode = response.status.value,
+                url = response.call.request.url.toString(),
+                responseBody = raw
+            )
+        }
+        return decodeOrWarning(json, raw)
+    }
+
+    private suspend inline fun <reified T> coreGet(
+        path: String,
+        includeApiKey: Boolean = false,
+    ): T {
+        val response = client.get("${GLOBAL_CORE_URL.trimEnd('/')}$path") {
+            expectSuccess = false
+            if (includeApiKey) header("X-API-Key", CORE_API_KEY)
+            contentType(ContentType.Application.Json)
+        }
+        val raw = response.bodyAsText().cleanJsonStart()
+        if (!response.status.isSuccess()) {
+            throw CoreApiException(
+                statusCode = response.status.value,
+                url = response.call.request.url.toString(),
+                responseBody = raw
+            )
+        }
+        return decodeOrWarning(json, raw)
+    }
+
     internal suspend inline fun <reified T> findDocumentsByNumber(
         apiConfig: ApiConfig,
         documentName: String,
@@ -296,93 +347,121 @@ class EventsApi(
     }
 
     suspend fun coreSessionBootstrap(request: CoreSessionBootstrapRequest): Resource<CoreSessionBootstrapResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/core/session/bootstrap") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreSessionBootstrapResponse>(json, raw)
+        corePost<CoreSessionBootstrapResponse>(
+            path = "/core/session/bootstrap",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreSessionHeartbeat(request: CoreSessionHeartbeatRequest): Resource<CoreSessionHeartbeatResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/core/session/heartbeat") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreSessionHeartbeatResponse>(json, raw)
+        corePost<CoreSessionHeartbeatResponse>(
+            path = "/core/session/heartbeat",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreSessionLogout(request: CoreSessionLogoutRequest): Resource<CoreSessionLogoutResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/core/session/logout") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreSessionLogoutResponse>(json, raw)
+        corePost<CoreSessionLogoutResponse>(
+            path = "/core/session/logout",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreDeviceRegister(request: CoreDeviceRegisterRequest): Resource<CoreDeviceRegisterResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/devices/register") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreDeviceRegisterResponse>(json, raw)
+        corePost<CoreDeviceRegisterResponse>(
+            path = "/devices/register",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreResolveRecipients(request: CoreResolveRecipientsRequest): Resource<CoreResolveRecipientsResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/resolve-recipients") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreResolveRecipientsResponse>(json, raw)
+        corePost<CoreResolveRecipientsResponse>(
+            path = "/notifications/resolve-recipients",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreNotificationIntent(request: CoreNotificationIntentRequest): Resource<CoreNotificationIntentResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/intents") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreNotificationIntentResponse>(json, raw)
+        corePost<CoreNotificationIntentResponse>(
+            path = "/notifications/intents",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreNotificationsFeed(request: CoreNotificationsFeedRequest): Resource<CoreNotificationsFeedResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/feed") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreNotificationsFeedResponse>(json, raw)
+        corePost<CoreNotificationsFeedResponse>(
+            path = "/notifications/feed",
+            body = request,
+            includeApiKey = true
+        )
+    }
+
+    suspend fun coreNotificationsUnreadCount(request: CoreNotificationsUnreadCountRequest): Resource<CoreNotificationsUnreadCountResponse> = resourceify {
+        corePost<CoreNotificationsUnreadCountResponse>(
+            path = "/notifications/unread-count",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreNotificationStatusUpdate(request: CoreNotificationStatusUpdateRequest): Resource<CoreNotificationStatusUpdateResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/status/update") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreNotificationStatusUpdateResponse>(json, raw)
+        corePost<CoreNotificationStatusUpdateResponse>(
+            path = "/notifications/status/update",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     suspend fun coreNotificationsReadAll(request: CoreNotificationsReadAllRequest): Resource<CoreNotificationsReadAllResponse> = resourceify {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}/notifications/status/read-all") {
-            header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            setBody(request)
-        }
-        val raw = response.bodyAsText().cleanJsonStart()
-        decodeOrWarning<CoreNotificationsReadAllResponse>(json, raw)
+        corePost<CoreNotificationsReadAllResponse>(
+            path = "/notifications/status/read-all",
+            body = request,
+            includeApiKey = true
+        )
+    }
+
+    suspend fun coreHealth(): Resource<HealthResponse> = resourceify {
+        coreGet<HealthResponse>(
+            path = "/health",
+            includeApiKey = false
+        )
+    }
+
+    suspend fun corePushFeatureToggleGet(): Resource<PushFeatureToggleGetResponse> = resourceify {
+        coreGet<PushFeatureToggleGetResponse>(
+            path = "/feature-toggles/push-notifications",
+            includeApiKey = true
+        )
+    }
+
+    suspend fun corePushFeatureToggleSet(request: PushFeatureToggleSetRequest): Resource<PushFeatureToggleSetResponse> = resourceify {
+        corePost<PushFeatureToggleSetResponse>(
+            path = "/feature-toggles/push-notifications",
+            body = request,
+            includeApiKey = true
+        )
+    }
+
+    suspend fun coreDeviceMuteState(request: CoreDeviceMuteStateRequest): Resource<CoreDeviceMuteStateResponse> = resourceify {
+        corePost<CoreDeviceMuteStateResponse>(
+            path = "/devices/mute/state",
+            body = request,
+            includeApiKey = true
+        )
+    }
+
+    suspend fun coreDeviceMuteUpdate(request: CoreDeviceMuteUpdateRequest): Resource<CoreDeviceMuteStateResponse> = resourceify {
+        corePost<CoreDeviceMuteStateResponse>(
+            path = "/devices/mute",
+            body = request,
+            includeApiKey = true
+        )
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=

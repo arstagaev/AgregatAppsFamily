@@ -1,3 +1,5 @@
 package com.tagaev.trrcrm.data.remote
 
-actual val isPublish: Boolean = true
+import com.tagaev.secrets.Secrets
+
+actual val isPublish: Boolean = Secrets.IS_PUBLISH.toBoolean()

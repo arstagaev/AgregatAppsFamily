@@ -10,10 +10,15 @@ import org.koin.core.component.inject
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.friendlyError
+import com.tagaev.trrcrm.data.remote.toCoreApiError
 import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
+import com.tagaev.trrcrm.push.UnreadCountSync
+import com.tagaev.trrcrm.push.triggerPostLoginPushPermissionCheck
 import com.tagaev.trrcrm.utils.SessionPermissions
+import com.tagaev.trrcrm.utils.DeviceIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -49,6 +54,7 @@ interface ILoginComponent {
     fun onLoginWithCredentials(user: String, pass: String)
     fun onLoginWithToken(token: String)
     fun retryStartup()
+    fun dismissError()
     fun back()
 }
 
@@ -73,6 +79,7 @@ class LoginComponent(
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     override val uiState: StateFlow<LoginUiState> = _uiState
     private var tokenRefreshAttemptedThisLogin = false
+    private val heartbeatRecoveryMutex = kotlinx.coroutines.sync.Mutex()
 
     init {
         appScope.launch {
@@ -88,6 +95,12 @@ class LoginComponent(
     override fun retryStartup() {
         appScope.launch {
             coldStartGateAndContinue()
+        }
+    }
+
+    override fun dismissError() {
+        if (_uiState.value is LoginUiState.Error) {
+            _uiState.value = LoginUiState.Idle
         }
     }
 
@@ -205,10 +218,6 @@ class LoginComponent(
                 } else {
                     pass.encodeUtf8().sha256().hex()
                 }
-                println("onLoginWithCredentials> pass${pass}")
-                appSettings.setString(AppSettingsKeys.EMAIL, user)
-                appSettings.setString(AppSettingsKeys.PASS, passHash)
-                println("onLoginWithCredentials> ${passHash}")
                 // Call network on IO
                 val res = withContext(Dispatchers.Default) {
                     repo.getToken(username = user, password = passHash)
@@ -220,6 +229,10 @@ class LoginComponent(
                         val data = res.data
                         withContext(Dispatchers.Main.immediate) {
                             if (!data.token.isNullOrBlank()) {
+                                // Persist credentials only after the server confirms them,
+                                // so a failed attempt does not poison auto-login.
+                                appSettings.setString(AppSettingsKeys.EMAIL, user)
+                                appSettings.setString(AppSettingsKeys.PASS, passHash)
                                 appSettings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
                                 appSettings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName}")
                                 appSettings.setString(AppSettingsKeys.DEPARTMENT, "${data.department}")
@@ -272,7 +285,10 @@ class LoginComponent(
 
     private fun completeLogin() {
         _uiState.value = LoginUiState.Idle
+        startCoreHeartbeatLoop()
+        triggerPostLoginPushPermissionCheck()
         appScope.launch {
+            repo.refreshPushFeatureToggleIfNeeded(force = true)
             bootstrapCoreSessionAndStartHeartbeat()
         }
         PushRegistrationCoordinator.registerIfReady(preferredPlatform = pushPlatformId())
@@ -282,16 +298,23 @@ class LoginComponent(
 
     private suspend fun bootstrapCoreSessionAndStartHeartbeat() {
         val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
-        val fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN).orEmpty().trim()
-        if (fullName.isBlank() || fcmToken.isBlank()) {
-            println("CoreSession: bootstrap skipped (missing_user_or_fcm)")
+        val fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN)?.trim()?.takeIf { it.isNotBlank() }
+        if (fullName.isBlank()) {
+            println("CoreSession: bootstrap skipped (missing_user)")
             return
         }
+        if (fcmToken == null) {
+            appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, true)
+            println("CoreSession: bootstrap deferred (missing_fcm_token); waiting token to retry")
+            return
+        }
+        val bootstrapMode = "with_fcm"
+        println("CoreSession: bootstrap attempt mode=$bootstrapMode")
 
         val req = com.tagaev.trrcrm.models.CoreSessionBootstrapRequest(
             full_name = fullName,
             platform = pushPlatformId(),
-            device_id = com.tagaev.trrcrm.getPlatform().deviceSpecificInfo,
+            device_id = DeviceIdentity.stableDeviceId(),
             fcm_token = fcmToken,
             login = appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
             department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
@@ -302,10 +325,17 @@ class LoginComponent(
         when (val res = repo.coreSessionBootstrap(req)) {
             is Resource.Success -> {
                 appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
+                appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
+                println("CoreSession: bootstrap success mode=$bootstrapMode")
+                UnreadCountSync.refreshAsync(reason = "bootstrap_success", force = true)
                 startCoreHeartbeatLoop()
             }
             is Resource.Error -> {
-                println("CoreSession: bootstrap failed ${res.causes ?: res.exception?.message}")
+                val mapped = res.exception.toCoreApiError(res.causes ?: "bootstrap failed")
+                if (mapped.kind == CoreApiErrorKind.Validation) {
+                    appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, true)
+                }
+                println("CoreSession: bootstrap failed mode=$bootstrapMode ${res.causes ?: res.exception?.message}")
             }
             is Resource.Loading -> Unit
         }
@@ -325,10 +355,27 @@ class LoginComponent(
                 )
                 when (val hb = repo.coreSessionHeartbeat(heartbeatReq)) {
                     is Resource.Success -> Unit
-                    is Resource.Error -> println("CoreSession: heartbeat failed ${hb.causes ?: hb.exception?.message}")
+                    is Resource.Error -> {
+                        val mapped = hb.exception.toCoreApiError(hb.causes ?: "Heartbeat failed")
+                        if (mapped.kind == CoreApiErrorKind.NotFound) {
+                            recoverCoreSessionAfterHeartbeat404()
+                        } else {
+                            println("CoreSession: heartbeat failed ${hb.causes ?: hb.exception?.message}")
+                        }
+                    }
                     is Resource.Loading -> Unit
                 }
             }
+        }
+    }
+
+    private suspend fun recoverCoreSessionAfterHeartbeat404() {
+        heartbeatRecoveryMutex.lock()
+        try {
+            println("CoreSession: heartbeat returned 404, attempting transparent re-bootstrap")
+            bootstrapCoreSessionAndStartHeartbeat()
+        } finally {
+            heartbeatRecoveryMutex.unlock()
         }
     }
 

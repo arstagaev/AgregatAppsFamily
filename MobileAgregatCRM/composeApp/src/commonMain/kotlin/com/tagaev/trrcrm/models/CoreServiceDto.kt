@@ -9,7 +9,7 @@ data class CoreSessionBootstrapRequest(
     val full_name: String,
     val platform: String,
     val device_id: String,
-    val fcm_token: String,
+    val fcm_token: String? = null,
     val login: String? = null,
     val email: String? = null,
     val department: String? = null,
@@ -112,12 +112,28 @@ data class CoreNotificationIntentResponse(
 data class CoreNotificationsFeedRequest(
     @SerialName("session_id")
     val sessionId: String,
-    val limit: Int = 30,
+    val limit: Int = 25,
+    val page: Int? = 1,
     val cursor: String? = null,
     @SerialName("search_query")
     val searchQuery: String? = null,
     @SerialName("status_filter")
     val statusFilter: String = "all",
+)
+
+@Serializable
+data class CoreNotificationsUnreadCountRequest(
+    @SerialName("session_id")
+    val sessionId: String,
+)
+
+@Serializable
+data class CoreNotificationsUnreadCountResponse(
+    val status: String? = null,
+    @SerialName("unread_count")
+    val unreadCount: Int = 0,
+    @SerialName("server_time")
+    val serverTime: String? = null,
 )
 
 @Serializable
@@ -150,6 +166,12 @@ data class CoreNotificationsFeedResponse(
     val items: List<CoreNotificationFeedItem> = emptyList(),
     @SerialName("next_cursor")
     val nextCursor: String? = null,
+    val page: Int? = null,
+    val limit: Int? = null,
+    @SerialName("total_count")
+    val totalCount: Int? = null,
+    @SerialName("has_next")
+    val hasNext: Boolean? = null,
     @SerialName("unread_count")
     val unreadCount: Int = 0,
 )
@@ -161,7 +183,7 @@ data class CoreNotificationStatusUpdateRequest(
     @SerialName("notification_id")
     val notificationId: Long,
     val status: String,
-    val source: String = "manual",
+    val source: String? = null,
 )
 
 @Serializable
@@ -185,4 +207,62 @@ data class CoreNotificationsReadAllRequest(
 data class CoreNotificationsReadAllResponse(
     val status: String? = null,
     val updated: Int = 0,
+)
+
+@Serializable
+data class HealthResponse(
+    val status: String? = null,
+    val service: String? = null,
+)
+
+@Serializable
+data class PushFeatureToggleGetResponse(
+    val status: String? = null,
+    val enabled: Boolean? = null,
+)
+
+@Serializable
+data class PushFeatureToggleSetRequest(
+    val enabled: Boolean,
+)
+
+@Serializable
+data class PushFeatureToggleSetResponse(
+    val status: String? = null,
+    val enabled: Boolean? = null,
+)
+
+@Serializable
+data class CoreDeviceMuteStateRequest(
+    @SerialName("session_id")
+    val sessionId: String,
+)
+
+@Serializable
+data class CoreDeviceMuteUpdateRequest(
+    @SerialName("session_id")
+    val sessionId: String,
+    @SerialName("mute_all")
+    val muteAll: Boolean? = null,
+    @SerialName("document_type")
+    val documentType: String? = null,
+    val muted: Boolean? = null,
+)
+
+@Serializable
+data class CoreDeviceMuteStateResponse(
+    val status: String? = null,
+    @SerialName("session_id")
+    val sessionId: String? = null,
+    @SerialName("device_token_id")
+    val deviceTokenId: Long? = null,
+    val platform: String? = null,
+    @SerialName("device_id")
+    val deviceId: String? = null,
+    @SerialName("mute_all")
+    val muteAll: Boolean = false,
+    @SerialName("muted_document_types")
+    val mutedDocumentTypes: List<String> = emptyList(),
+    @SerialName("updated_at")
+    val updatedAt: String? = null,
 )

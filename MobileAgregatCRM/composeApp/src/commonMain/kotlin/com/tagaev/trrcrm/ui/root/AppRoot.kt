@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -45,6 +46,8 @@ import com.tagaev.trrcrm.ui.style.AppTheme
 import com.tagaev.trrcrm.ui.style.ThemeController
 import compose.icons.FeatherIcons
 import org.koin.compose.koinInject
+import com.tagaev.trrcrm.data.AppSettings
+import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.ui.cargo.CargoScreen
 import com.tagaev.trrcrm.ui.buyer_order.BuyerOrdersScreen
 import com.tagaev.trrcrm.ui.complectation.ComplectationsScreen
@@ -74,6 +77,7 @@ import com.tagaev.trrcrm.utils.KnownPermission
 import com.tagaev.trrcrm.utils.SessionPermissions
 import compose.icons.feathericons.Home
 import compose.icons.feathericons.Inbox
+import com.tagaev.trrcrm.push.NotificationsUnreadState
 
 val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
     { _ -> }
@@ -86,6 +90,8 @@ fun AppRoot(root: IRootComponent) {
     val searchDiagnosticMessage by root.searchDiagnosticMessage.subscribeAsState()
     val activeChild = stack.active.instance
     val themeController = koinInject<ThemeController>()
+    val appSettings = koinInject<AppSettings>()
+    val unreadNotificationsCount by NotificationsUnreadState.count.collectAsState()
     AppTheme(controller = themeController) {
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
@@ -98,6 +104,10 @@ fun AppRoot(root: IRootComponent) {
                 )
                 root.consumeSearchDiagnostic()
             }
+        }
+        LaunchedEffect(Unit) {
+            val cachedUnread = appSettings.getInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
+            NotificationsUnreadState.setCount(cachedUnread)
         }
 
         CompositionLocalProvider(
@@ -119,6 +129,7 @@ fun AppRoot(root: IRootComponent) {
                     AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
                         AppBottomNavBar2(
                             activeChild = activeChild,
+                            mainHomeUnreadCount = unreadNotificationsCount,
                             onMainHome = { if (activeChild !is IRootComponent.Child.MainHome) root.openMainHome() },
                             onEvents = {
                                 val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
@@ -257,6 +268,7 @@ fun AppRoot(root: IRootComponent) {
 @Composable
 fun AppBottomNavBar2(
     activeChild: IRootComponent.Child,
+    mainHomeUnreadCount: Int,
     onMainHome: () -> Unit,
     onEvents: () -> Unit,
     onDetails: () -> Unit,
@@ -312,7 +324,8 @@ fun AppBottomNavBar2(
                 selected = activeChild is IRootComponent.Child.MainHome,
                 onClick = onMainHome,
                 icon = { Icon(FeatherIcons.Inbox, contentDescription = null) },
-                label = "Главная"
+                label = "Главная",
+                badgeCount = mainHomeUnreadCount
             )
 
             BottomNavChip(
@@ -426,7 +439,8 @@ private fun BottomNavChip(
     selected: Boolean,
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
-    label: String
+    label: String,
+    badgeCount: Int = 0
 ) {
 //    val colors = NavigationBarDefaults.itemColors()
 
@@ -454,7 +468,20 @@ private fun BottomNavChip(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            icon()
+            BadgedBox(
+                badge = {
+                    if (badgeCount > 0) {
+                        Badge {
+                            Text(
+                                text = if (badgeCount > 99) "99+" else badgeCount.toString(),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            ) {
+                icon()
+            }
             Spacer(Modifier.width(0.dp)) // keep spacer API but no extra width horizontally
             Text(
                 text = label,

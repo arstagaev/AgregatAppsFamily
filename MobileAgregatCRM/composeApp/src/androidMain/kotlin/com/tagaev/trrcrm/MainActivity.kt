@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.tagaev.trrcrm.push.NotificationContextParser
+import com.tagaev.trrcrm.push.onAppForegroundForUnreadCount
 import com.arkivanov.decompose.defaultComponentContext
 import com.tagaev.trrcrm.ui.root.AppRoot
 import com.tagaev.trrcrm.ui.root.DefaultRootComponent
@@ -46,6 +47,11 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent) // Important: update the intent so getIntent() returns the latest
         handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        onAppForegroundForUnreadCount()
     }
 
     private fun handleIntent(intent: Intent?) {

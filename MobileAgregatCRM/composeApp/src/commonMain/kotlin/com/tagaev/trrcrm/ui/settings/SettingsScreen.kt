@@ -20,6 +20,7 @@ import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.secrets.Secrets
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.LogOut
+import compose.icons.feathericons.RefreshCw
 
 /**
  * Minimal settings screen scaffold.
@@ -33,18 +34,13 @@ fun SettingsScreen(component: ISettingsComponent) {
     val appSettings = koinInject<AppSettings>()
     val themeController = koinInject<ThemeController>()
     val currentTheme by themeController.mode.collectAsState()
+    val muteAll by component.muteAll.collectAsState()
+    val mutedDocTypes by component.mutedDocTypes.collectAsState()
+    val muteLoading by component.muteLoading.collectAsState()
+    val muteError by component.muteErrorMessage.collectAsState()
 
     val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
     val departmentData = remember { appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED") }
-
-    // Simple future settings list; add real items later
-    val futureItems = remember {
-        listOf(
-            "Notifications (soon)",
-            "Sync over Wi‑Fi only (soon)",
-            "Auto-refresh on open (soon)"
-        )
-    }
 
     Scaffold(
         topBar = { }
@@ -96,6 +92,86 @@ fun SettingsScreen(component: ISettingsComponent) {
                         }
                     }
 
+                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text("Отключить все уведомления на этом устройстве") },
+                        supportingContent = { Text("Блокирует все push-уведомления для текущего устройства") },
+                        trailingContent = {
+                            Switch(
+                                checked = muteAll,
+                                onCheckedChange = { component.setMuteAll(it) },
+                                enabled = !muteLoading
+                            )
+                        }
+                    )
+                    Divider()
+                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text("Откл. Событие") },
+//                        supportingContent = { Text("Откл. уведомления только для") },
+                        trailingContent = {
+                            Switch(
+                                checked = DeviceMuteDocType.EVENT in mutedDocTypes,
+                                onCheckedChange = { component.setDocumentTypeMuted(DeviceMuteDocType.EVENT, it) },
+                                enabled = !muteLoading && !muteAll
+                            )
+                        }
+                    )
+                    Divider()
+                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text("Откл. Заказ-Наряд") },
+//                        supportingContent = { Text("Тип: work_order") },
+                        trailingContent = {
+                            Switch(
+                                checked = DeviceMuteDocType.WORK_ORDER in mutedDocTypes,
+                                onCheckedChange = { component.setDocumentTypeMuted(DeviceMuteDocType.WORK_ORDER, it) },
+                                enabled = !muteLoading && !muteAll
+                            )
+                        }
+                    )
+                    Divider()
+                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text("Откл. Комплектация") },
+//                        supportingContent = { Text("Тип: complectation") },
+                        trailingContent = {
+                            Switch(
+                                checked = DeviceMuteDocType.COMPLECTATION in mutedDocTypes,
+                                onCheckedChange = { component.setDocumentTypeMuted(DeviceMuteDocType.COMPLECTATION, it) },
+                                enabled = !muteLoading && !muteAll
+                            )
+                        }
+                    )
+                    Divider()
+                }
+
+                item {
+                    TextButton(
+                        onClick = component::refreshMuteState,
+                        enabled = !muteLoading
+                    ) {
+                        Icon(FeatherIcons.RefreshCw, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (muteLoading) "Обновляем..." else "Обновить настройки уведомлений")
+                    }
+                    if (!muteError.isNullOrBlank()) {
+                        Text(
+                            text = muteError.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
+                    Divider()
                 }
 
 //                item {

@@ -694,7 +694,8 @@ class DefaultRootComponent(
     private fun maybeRestoreDeepLinkStateBeforeNavigation(nextConfig: IRootComponent.Config?) {
         val ownedConfig = deepLinkOwnedConfig ?: return
         if (nextConfig == ownedConfig) return
-        deepLinkOwnedComponent?.restoreAfterDeepLinkIfNeeded()
+        // Keep deeplink-opened state when user switches tabs/screens.
+        // We only clear ownership marker so future navigations are not coupled to old deeplink context.
         deepLinkOwnedComponent = null
         deepLinkOwnedConfig = null
     }

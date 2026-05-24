@@ -85,6 +85,7 @@ fun LoginScreen(component: ILoginComponent) {
     var keepSplash by rememberSaveable { mutableStateOf(true) }
     val startupBlocked = uiState as? LoginUiState.StartupBlocked
     var errorDialogTitle by remember { mutableStateOf("Ошибка входа") }
+    var dialogIsStartupBlocked by remember { mutableStateOf(false) }
 
     // Keep the loading splash on screen a bit longer when leaving Login,
     // so the forms never flash during navigation to MainList.
@@ -95,14 +96,16 @@ fun LoginScreen(component: ILoginComponent) {
                 keepSplash = false
                 val e = uiState as LoginUiState.Error
                 showErrorDialog = true
+                dialogIsStartupBlocked = false
                 errorDialogTitle = "Ошибка входа"
                 currentError = e.message
             }
             is LoginUiState.StartupBlocked -> {
                 keepSplash = false
                 showErrorDialog = true
+                dialogIsStartupBlocked = true
                 errorDialogTitle = "Ошибка соединения"
-                currentError = "Connection timeout or server unavailable"
+                currentError = "Сервер недоступен или превышено время ожидания"
             }
             else -> {
                 // Navigation / success / idle — hold splash briefly
@@ -129,7 +132,9 @@ fun LoginScreen(component: ILoginComponent) {
 //    var user by rememberSaveable { mutableStateOf("tagaev.a.i@my.agregatka.ru") }
 //    var pass by rememberSaveable { mutableStateOf("eVpfmkGAHWr%") }
 
-    var user by rememberSaveable { mutableStateOf("") }
+    var user by rememberSaveable {
+        mutableStateOf(appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""))
+    }
     var pass by rememberSaveable { mutableStateOf("") }
 
     //tagaev.r
@@ -313,17 +318,32 @@ fun LoginScreen(component: ILoginComponent) {
                 }
 
                 if (showErrorDialog) {
-                    AlertDialog(
-                        onDismissRequest = { },
-                        confirmButton = {
-                            TextButton(
-                                onClick = { component.retryStartup() },
-                                enabled = uiState !is LoginUiState.Loading
-                            ) { Text("Refresh") }
-                        },
-                        title = { Text(errorDialogTitle) },
-                        text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
-                    )
+                    if (dialogIsStartupBlocked) {
+                        AlertDialog(
+                            onDismissRequest = { },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = { component.retryStartup() },
+                                    enabled = uiState !is LoginUiState.Loading
+                                ) { Text("Повторить") }
+                            },
+                            title = { Text(errorDialogTitle) },
+                            text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
+                        )
+                    } else {
+                        val onDismiss: () -> Unit = {
+                            showErrorDialog = false
+                            component.dismissError()
+                        }
+                        AlertDialog(
+                            onDismissRequest = onDismiss,
+                            confirmButton = {
+                                TextButton(onClick = onDismiss) { Text("ОК") }
+                            },
+                            title = { Text(errorDialogTitle) },
+                            text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
+                        )
+                    }
                 }
             }
         }

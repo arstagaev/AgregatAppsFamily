@@ -24,6 +24,9 @@ suspend inline fun <T> resourceify(
                 is ClientRequestException -> {
                     Resource.Error(t, friendlyError(t, "Ошибка запроса"))
                 }
+                is CoreApiException -> {
+                    Resource.Error(t, friendlyError(t, "Ошибка запроса"))
+                }
                 is ServerResponseException -> {
                     Resource.Error(t, friendlyError(t, "Сервер временно недоступен"))
                 }

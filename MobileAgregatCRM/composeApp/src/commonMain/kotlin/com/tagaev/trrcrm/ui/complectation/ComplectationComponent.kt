@@ -14,6 +14,7 @@ import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.messages.normalizedPushRecipients
 import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -302,6 +303,7 @@ class ComplectationComponent(
                 val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)?.trim()
                 val users = buildComplectationRecipients(co, currentUser = author)
                 if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+                    println("PUSH_SERVICE: recipients_resolved doc_type=complectation recipient_count=${users.size} recipients=$users")
                     when (val pushRes = repository.sendMessageEventPUSH(
                         docId = co?.guid ?: co?.number ?: itemNumber,
                         docTitle = "Комплектация ${co?.complectationCharacteristic ?: itemNumber} (${co?.branch.orEmpty()})",
@@ -495,7 +497,6 @@ class ComplectationComponent(
     }
 
     override fun enterDeepLinkMode() {
-        if (deepLinkSnapshot != null) return
         deepLinkSnapshot = DeepLinkSnapshot(
             orders = loadedOrders.toList(),
             keys = loadedKeys.toSet(),
@@ -619,19 +620,7 @@ class ComplectationComponent(
             order.executors.forEach { add(it.executor) }
             order.messages.forEach { add(it.author) }
         }
-        return uniqueNormalizedNames(rawCandidates, currentUser = currentUser)
-    }
-
-    private fun uniqueNormalizedNames(candidates: List<String?>, currentUser: String?): List<String> {
-        val result = LinkedHashSet<String>()
-        val normalizedCurrentUser = currentUser?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
-        candidates.forEach { value ->
-            val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
-            if (normalized.isNotBlank() && !normalized.equals(normalizedCurrentUser, ignoreCase = true)) {
-                result.add(normalized)
-            }
-        }
-        return result.toList()
+        return normalizedPushRecipients(rawCandidates, currentUser = currentUser)
     }
 
     private fun normalizeIdentifier(value: String?): String? {

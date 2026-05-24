@@ -52,7 +52,16 @@ object AppSettingsKeys {
 
     const val PERSONAL_DATA = "PERSONAL_DATA"
     const val CORE_SESSION_ID = "CORE_SESSION_ID"
+    const val CORE_BOOTSTRAP_RETRY_ON_TOKEN = "CORE_BOOTSTRAP_RETRY_ON_TOKEN"
     const val IOS_APNS_READY = "IOS_APNS_READY"
+    const val STABLE_DEVICE_ID = "STABLE_DEVICE_ID"
+    const val PUSH_REGISTER_LAST_FINGERPRINT = "PUSH_REGISTER_LAST_FINGERPRINT"
+    const val PUSH_FEATURE_TOGGLE_ENABLED = "PUSH_FEATURE_TOGGLE_ENABLED"
+    const val PUSH_FEATURE_TOGGLE_UPDATED_AT_MS = "PUSH_FEATURE_TOGGLE_UPDATED_AT_MS"
+    const val DEVICE_MUTE_ALL = "DEVICE_MUTE_ALL"
+    const val DEVICE_MUTE_EVENT = "DEVICE_MUTE_EVENT"
+    const val DEVICE_MUTE_WORK_ORDER = "DEVICE_MUTE_WORK_ORDER"
+    const val DEVICE_MUTE_COMPLECTATION = "DEVICE_MUTE_COMPLECTATION"
 
     const val FCM_TOKEN = "NULL"
 
@@ -71,6 +80,7 @@ object AppSettingsKeys {
     const val REPAIR_TEMPLATE_CATALOG_REFINE_STATE = "REPAIR_TEMPLATE_CATALOG_REFINE_STATE_"+VERSION_CODE
     const val NOTIFICATIONS_SEARCH_QUERY = "NOTIFICATIONS_SEARCH_QUERY_"+VERSION_CODE
     const val NOTIFICATIONS_STATUS_FILTER = "NOTIFICATIONS_STATUS_FILTER_"+VERSION_CODE
+    const val NOTIFICATIONS_UNREAD_COUNT = "NOTIFICATIONS_UNREAD_COUNT_"+VERSION_CODE
 
 //    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
 //    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
@@ -146,6 +156,10 @@ class AppSettings(
 
     fun getBool(key: String, defaultValue: Boolean) = settings.getBoolean(key = key, defaultValue = defaultValue)
     fun setBool(key: String, newValue: Boolean) = settings.putBoolean(key = key, value = newValue)
+    fun getLong(key: String, defaultValue: Long) = settings.getLong(key = key, defaultValue = defaultValue)
+    fun setLong(key: String, newValue: Long) = settings.putLong(key = key, value = newValue)
+    fun getInt(key: String, defaultValue: Int) = settings.getInt(key = key, defaultValue = defaultValue)
+    fun setInt(key: String, newValue: Int) = settings.putInt(key = key, value = newValue)
 
     fun getStringOrNull(key: String) = settings.getStringOrNull(key = key)
     fun getString(key: String, defaultValue: String) = settings.getString(key = key, defaultValue = defaultValue)
@@ -194,5 +208,27 @@ class AppSettings(
 
     fun clearAll() {
         settings.clear()
+    }
+
+    /**
+     * Clears user/session-scoped state while preserving install-level push identity.
+     * This keeps rebind reliability across account switches on the same device install.
+     */
+    fun clearForLogoutPreservingInstallIdentity() {
+        val preservedFcmToken = getStringOrNull(AppSettingsKeys.FCM_TOKEN)
+        val preservedStableDeviceId = getStringOrNull(AppSettingsKeys.STABLE_DEVICE_ID)
+        val preservedIosApnsReady = getBool(AppSettingsKeys.IOS_APNS_READY, false)
+        val preservedPushToggleEnabled = getBool(AppSettingsKeys.PUSH_FEATURE_TOGGLE_ENABLED, true)
+        val preservedPushToggleUpdatedAt = getLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, 0L)
+
+        clearAll()
+
+        preservedFcmToken?.let { setString(AppSettingsKeys.FCM_TOKEN, it) }
+        preservedStableDeviceId?.let { setString(AppSettingsKeys.STABLE_DEVICE_ID, it) }
+        setBool(AppSettingsKeys.IOS_APNS_READY, preservedIosApnsReady)
+        setBool(AppSettingsKeys.PUSH_FEATURE_TOGGLE_ENABLED, preservedPushToggleEnabled)
+        if (preservedPushToggleUpdatedAt > 0L) {
+            setLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, preservedPushToggleUpdatedAt)
+        }
     }
 }

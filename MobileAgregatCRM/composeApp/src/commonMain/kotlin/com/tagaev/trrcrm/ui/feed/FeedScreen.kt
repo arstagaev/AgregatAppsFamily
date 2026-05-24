@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CardDefaults
@@ -27,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.models.CoreNotificationFeedItem
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
+import com.tagaev.trrcrm.utils.formatFeedTimestamp
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,17 +58,21 @@ import kotlinx.coroutines.delay
 fun FeedScreen(component: IFeedComponent) {
     val snackbar = LocalAppSnackbar.current
     val items by component.items.collectAsState()
-    val isLoading by component.isLoading.collectAsState()
+    val isLoadingFirstPage by component.isLoadingFirstPage.collectAsState()
     val isRefreshing by component.isRefreshing.collectAsState()
-    val isLoadingMore by component.isLoadingMore.collectAsState()
-    val error by component.error.collectAsState()
-    val nextCursor by component.nextCursor.collectAsState()
+    val isLoadingNextPage by component.isLoadingNextPage.collectAsState()
+    val firstPageError by component.firstPageError.collectAsState()
+    val nextPageError by component.nextPageError.collectAsState()
+    val hasNext by component.hasNext.collectAsState()
     val unreadCount by component.unreadCount.collectAsState()
     val searchQuery by component.searchQuery.collectAsState()
     val selectedFilter by component.statusFilter.collectAsState()
     val transientMessage by component.transientMessage.collectAsState()
 
     var searchInput by rememberSaveable { mutableStateOf(searchQuery) }
+    val listState = rememberLazyListState()
+    var pendingScrollToTopAfterPullRefresh by rememberSaveable { mutableStateOf(false) }
+    var topItemIdBeforePullRefresh by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(searchQuery) {
         if (searchInput != searchQuery) {
@@ -85,6 +93,17 @@ fun FeedScreen(component: IFeedComponent) {
             snackbar(text)
             component.consumeTransientMessage()
         }
+    }
+
+    LaunchedEffect(isRefreshing, items) {
+        if (!pendingScrollToTopAfterPullRefresh || isRefreshing) return@LaunchedEffect
+        val currentTopItemId = items.firstOrNull()?.id
+        val hasNewItemsOnTop = !currentTopItemId.isNullOrBlank() && currentTopItemId != topItemIdBeforePullRefresh
+        if (hasNewItemsOnTop) {
+            listState.animateScrollToItem(0)
+        }
+        pendingScrollToTopAfterPullRefresh = false
+        topItemIdBeforePullRefresh = null
     }
 
     Column(
@@ -148,55 +167,114 @@ fun FeedScreen(component: IFeedComponent) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = {
-                if (!isLoadingMore) component.refresh()
+                if (!isLoadingNextPage) {
+                    topItemIdBeforePullRefresh = items.firstOrNull()?.id
+                    pendingScrollToTopAfterPullRefresh = true
+                    component.refresh()
+                }
             },
             modifier = Modifier.fillMaxSize()
         ) {
-            if (isLoading && items.isEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 32.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
+            when {
+                isLoadingFirstPage && items.isEmpty() -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 32.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
-            } else {
-                if (!error.isNullOrBlank() && items.isEmpty()) {
-                    Text(
-                        text = error.orEmpty(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
-                        FeedRow(
-                            item = item,
-                            onOpen = { component.openNotification(item) },
-                            onToggleRead = { component.toggleRead(item) }
+                items.isEmpty() && !firstPageError.isNullOrBlank() -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = firstPageError.orEmpty(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
                         )
-
-                        if (index >= items.lastIndex - 4 && !nextCursor.isNullOrBlank() && !isLoadingMore && !isRefreshing) {
-                            LaunchedEffect(item.id, nextCursor, isLoadingMore, isRefreshing) {
-                                component.loadMore()
-                            }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(onClick = component::retryFirstPage) {
+                            Text("Повторить")
                         }
                     }
+                }
+                items.isEmpty() && !isLoadingFirstPage -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (searchQuery.isBlank()) "Нет уведомлений" else "Ничего не найдено",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+                            FeedRow(
+                                item = item,
+                                onOpen = { component.openNotification(item) },
+                                onToggleRead = { component.toggleRead(item) }
+                            )
 
-                    if (isLoadingMore) {
-                        item("loading_more") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator()
+                            if (index >= items.lastIndex - 4 && hasNext && !isLoadingNextPage && !isRefreshing && nextPageError == null) {
+                                LaunchedEffect(item.id, hasNext, isLoadingNextPage, isRefreshing) {
+                                    component.loadMore()
+                                }
+                            }
+                        }
+
+                        when {
+                            isLoadingNextPage -> {
+                                item("loading_more") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator()
+                                    }
+                                }
+                            }
+                            nextPageError != null -> {
+                                item("next_page_error") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            modifier = Modifier.weight(1f),
+                                            text = nextPageError.orEmpty(),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        TextButton(onClick = component::retryNextPage) {
+                                            Text("Повторить")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -225,7 +303,7 @@ private fun FeedRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = containerColor),
         border = BorderStroke(borderWidth, borderColor),
     ) {
@@ -236,25 +314,25 @@ private fun FeedRow(
         ) {
             Box(
                 modifier = Modifier
-                    .width(4.dp)
+                    .width(3.dp)
                     .fillMaxHeight()
                     .background(if (isRead) scheme.outlineVariant else scheme.primary)
             )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (!isRead) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(6.dp)
                                 .clip(CircleShape)
                                 .background(scheme.primary)
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                     }
                     Text(
                         modifier = Modifier.weight(1f),
@@ -271,7 +349,7 @@ private fun FeedRow(
                         text = item.messageText,
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurface,
-                        maxLines = 3,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -280,20 +358,22 @@ private fun FeedRow(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val meta = buildString {
-                        append(item.createdAt)
-                        if (!item.screen.isNullOrBlank()) {
-                            append(" • ")
-                            append(item.screen)
-                        }
-                    }
                     Text(
-                        text = meta,
+                        text = formatFeedTimestamp(item.createdAt),
                         style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurfaceVariant
+                        color = scheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    TextButton(onClick = onToggleRead) {
-                        Text(if (isRead) "Непрочитано" else "Прочитано")
+                    TextButton(
+                        onClick = onToggleRead,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text(
+                            text = if (isRead) "Непрочитано" else "Прочитано",
+                            style = MaterialTheme.typography.labelSmall
+                        )
                     }
                 }
             }

@@ -2,6 +2,7 @@
 //  NotificationManager.swift
 
 import SwiftUI
+import UIKit
 import FirebaseMessaging
 import UserNotifications
 import ComposeApp
@@ -10,6 +11,8 @@ class NotificationManager: NSObject, ObservableObject {
 
     static let shared = NotificationManager()
     private var isConfigured = false
+    private var didRegisterObserver = false
+    private var hasShownSettingsPromptThisLaunch = false
     private var hasApnsToken = false
     private var latestFcmToken: String?
     private var lastForwardedFcmToken: String?
@@ -20,19 +23,114 @@ class NotificationManager: NSObject, ObservableObject {
 
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
+        registerPostLoginPermissionObserverIfNeeded()
+        print("PUSH_SERVICE: Push(iOS) configured (startup permission prompt disabled)")
+        // APNs registration does not require alert permission; request it early.
+        registerForRemoteNotificationsOnMain()
+    }
 
-        let options: UNAuthorizationOptions = [.alert, .badge, .sound]
-        UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
-            if let error = error {
-                print("PUSH_SERVICE: Push(iOS) permission request failed: \(error.localizedDescription)")
-            } else {
-                print("PUSH_SERVICE: Push(iOS) permission granted=\(granted)")
-            }
-            DispatchQueue.main.async {
-                UIApplication.shared.registerForRemoteNotifications()
-                print("PUSH_SERVICE: Push(iOS) registerForRemoteNotifications requested")
+    private func registerPostLoginPermissionObserverIfNeeded() {
+        guard !didRegisterObserver else { return }
+        didRegisterObserver = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePostLoginPermissionCheck(_:)),
+            name: .trrcrmPostLoginPushPermissionCheck,
+            object: nil
+        )
+    }
+
+    @objc private func handlePostLoginPermissionCheck(_ notification: Notification) {
+        print("PUSH_SERVICE: Push(iOS) post-login permission check received")
+        checkNotificationPermissionAfterLogin()
+    }
+
+    private func checkNotificationPermissionAfterLogin() {
+        // Keep APNs registration hot even before/without alert permission.
+        registerForRemoteNotificationsOnMain()
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            guard let self else { return }
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                print("PUSH_SERVICE: Push(iOS) permission status=\(settings.authorizationStatus.rawValue), requesting APNs register")
+                self.registerForRemoteNotificationsOnMain()
+                self.requestFcmTokenProactively(reason: "post_login_authorized")
+            case .notDetermined:
+                print("PUSH_SERVICE: Push(iOS) permission status=not_determined, requesting")
+                self.requestPermissionAndRegister()
+            case .denied:
+                print("PUSH_SERVICE: Push(iOS) permission status=denied")
+                self.showNotificationSettingsPromptIfNeeded()
+            @unknown default:
+                print("PUSH_SERVICE: Push(iOS) permission status=unknown(\(settings.authorizationStatus.rawValue))")
             }
         }
+    }
+
+    private func requestPermissionAndRegister() {
+        let options: UNAuthorizationOptions = [.alert, .badge, .sound]
+        UNUserNotificationCenter.current().requestAuthorization(options: options) { [weak self] granted, error in
+            if let error = error {
+                print("PUSH_SERVICE: Push(iOS) permission request failed: \(error.localizedDescription)")
+                return
+            }
+            print("PUSH_SERVICE: Push(iOS) permission granted=\(granted)")
+            if granted {
+                self?.registerForRemoteNotificationsOnMain()
+            } else {
+                self?.showNotificationSettingsPromptIfNeeded()
+            }
+        }
+    }
+
+    private func registerForRemoteNotificationsOnMain() {
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+            print("PUSH_SERVICE: Push(iOS) registerForRemoteNotifications requested")
+        }
+    }
+
+    private func showNotificationSettingsPromptIfNeeded() {
+        DispatchQueue.main.async {
+            guard !self.hasShownSettingsPromptThisLaunch else { return }
+            guard let topController = Self.topViewController() else {
+                print("PUSH_SERVICE: Push(iOS) settings prompt skipped(no_top_controller)")
+                return
+            }
+
+            self.hasShownSettingsPromptThisLaunch = true
+
+            let alert = UIAlertController(
+                title: "Уведомления отключены",
+                message: "Чтобы получать уведомления, разрешите их в настройках iOS.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Не сейчас", style: .cancel, handler: nil))
+            alert.addAction(UIAlertAction(title: "Открыть настройки", style: .default) { _ in
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            })
+            topController.present(alert, animated: true)
+        }
+    }
+
+    private static func topViewController(
+        from root: UIViewController? = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .rootViewController
+    ) -> UIViewController? {
+        if let nav = root as? UINavigationController {
+            return topViewController(from: nav.visibleViewController)
+        }
+        if let tab = root as? UITabBarController, let selected = tab.selectedViewController {
+            return topViewController(from: selected)
+        }
+        if let presented = root?.presentedViewController {
+            return topViewController(from: presented)
+        }
+        return root
     }
 
     func didRegisterForRemoteNotifications(deviceToken: Data) {
@@ -40,8 +138,8 @@ class NotificationManager: NSObject, ObservableObject {
         let apnsTokenHex = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         print("PUSH_SERVICE: Push(iOS) APNs token=\(apnsTokenHex)")
 
-        Messaging.messaging().apnsToken = deviceToken
-        print("PUSH_SERVICE: Push(iOS) APNs token received and mapped to Firebase (\(deviceToken.count) bytes)")
+        Messaging.messaging().setAPNSToken(deviceToken, type: .unknown)
+        print("PUSH_SERVICE: Push(iOS) APNs token received and mapped to Firebase via setAPNSToken (\(deviceToken.count) bytes)")
         PushBridgeKt.setIosApnsReady(ready: true)
 
         if let cachedToken = latestFcmToken, !cachedToken.isEmpty {
@@ -50,6 +148,7 @@ class NotificationManager: NSObject, ObservableObject {
         }
 
         fetchFreshFcmTokenAfterApns()
+        requestFcmTokenProactively(reason: "apns_ready")
     }
 
     func didFailToRegisterForRemoteNotifications(error: Error) {
@@ -71,6 +170,26 @@ class NotificationManager: NSObject, ObservableObject {
             print("PUSH_SERVICE: Push(iOS) FCM token after APNs=\(token)")
             self?.latestFcmToken = token
             self?.forwardFcmTokenToShared(token: token, source: "post_apns_refresh")
+        }
+    }
+
+    func requestFcmTokenProactively(reason: String) {
+        guard hasApnsToken else {
+            print("PUSH_SERVICE: Push(iOS) proactive token fetch skipped reason=\(reason) apns_missing")
+            return
+        }
+        Messaging.messaging().token { [weak self] token, error in
+            if let error = error {
+                print("PUSH_SERVICE: Push(iOS) proactive token fetch failed reason=\(reason) error=\(error.localizedDescription)")
+                return
+            }
+            guard let token = token, !token.isEmpty else {
+                print("PUSH_SERVICE: Push(iOS) proactive token fetch empty reason=\(reason)")
+                return
+            }
+            print("PUSH_SERVICE: Push(iOS) proactive token fetch success reason=\(reason)")
+            self?.latestFcmToken = token
+            self?.forwardFcmTokenToShared(token: token, source: "proactive_\(reason)")
         }
     }
 
@@ -150,10 +269,15 @@ extension NotificationManager: MessagingDelegate {
 
         latestFcmToken = token
         if !hasApnsToken {
-            print("PUSH_SERVICE: Push(iOS) FCM token received before APNs, saving temporarily")
-            return
+            print("PUSH_SERVICE: Push(iOS) FCM token received before APNs, saving and forwarding to shared")
+            forwardFcmTokenToShared(token: token, source: "messaging_delegate_pre_apns")
+        } else {
+            forwardFcmTokenToShared(token: token, source: "messaging_delegate")
         }
-
-        forwardFcmTokenToShared(token: token, source: "messaging_delegate")
     }
+}
+
+private extension Notification.Name {
+    static let trrcrmPostLoginPushPermissionCheck =
+        Notification.Name("TRRCRM_POST_LOGIN_PUSH_PERMISSION_CHECK")
 }

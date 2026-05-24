@@ -12,6 +12,7 @@ import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.messages.normalizedPushRecipients
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.MessageDto
 import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
@@ -170,22 +171,30 @@ class EventsComponent(
             message
         )
 
-        val users = pickedEvent?.users?.mapNotNull { it.user }
-        val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)
-        if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
-            repository.sendMessageEventPUSH(
-                docId = "${pickedEvent?.number}",
-                docTitle = "Событие ${pickedEvent?.number} (${pickedEvent?.companyDepartment})",
-                authorName = appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "NO Name"),
-                recipientNames = users,
-                message = "${author}:\n${message}",
-                screen = "events",
-                rawMessage = message
-            )
-        }
-
         return when (res) {
-            is Resource.Success -> null
+            is Resource.Success -> {
+                val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)?.trim()
+                val users = buildEventRecipients(pickedEvent, currentUser = author)
+                if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+                    println("PUSH_SERVICE: recipients_resolved doc_type=events recipient_count=${users.size} recipients=$users")
+                    when (val pushRes = repository.sendMessageEventPUSH(
+                        docId = pickedEvent?.guid ?: pickedEvent?.number ?: itemNumber,
+                        docTitle = "Событие ${pickedEvent?.number} (${pickedEvent?.companyDepartment})",
+                        authorName = author,
+                        recipientNames = users,
+                        message = "${author}:\n${message}",
+                        screen = "events",
+                        rawMessage = message
+                    )) {
+                        is Resource.Error -> {
+                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, "Не удалось отправить уведомление")
+                            println("PUSH_SERVICE: Events push intent failed after message save: $reason")
+                        }
+                        else -> Unit
+                    }
+                }
+                null
+            }
             is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
             else -> "Ошибка отправки сообщения"
         }
@@ -215,6 +224,16 @@ class EventsComponent(
         val encoded = json.encodeToString(state)
         appSettings.setString(AppSettingsKeys.EVENTS_REFINE_STATE, encoded)
     }
+
+    private fun buildEventRecipients(event: EventItemDto?, currentUser: String?): List<String> {
+        if (event == null) return emptyList()
+        val rawCandidates = buildList {
+            event.users.forEach { add(it.user) }
+            event.messages.forEach { add(it.author) }
+        }
+        return normalizedPushRecipients(rawCandidates, currentUser = currentUser)
+    }
+
     /**
      * Convenience helper: applies a local "add message" operation to a WorkOrder
      * identified by [orderGuid], using a simple MessageModel from the UI.
@@ -296,7 +315,6 @@ class EventsComponent(
     }
 
     override fun enterDeepLinkMode() {
-        if (deepLinkSnapshot != null) return
         deepLinkSnapshot = DeepLinkSnapshot(
             events = loadedEvents.toList(),
             keys = loadedKeys.toSet(),

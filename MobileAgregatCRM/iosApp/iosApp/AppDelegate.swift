@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
+        print("PUSH_SERVICE: AppDelegate didRegisterForRemoteNotificationsWithDeviceToken")
         NotificationManager.shared.didRegisterForRemoteNotifications(deviceToken: deviceToken)
     }
 
@@ -34,6 +35,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
+        print("PUSH_SERVICE: AppDelegate didFailToRegisterForRemoteNotificationsWithError=\(error.localizedDescription)")
         NotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error)
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        UnreadCountSyncBridgeKt.onAppForegroundForUnreadCount()
     }
 }

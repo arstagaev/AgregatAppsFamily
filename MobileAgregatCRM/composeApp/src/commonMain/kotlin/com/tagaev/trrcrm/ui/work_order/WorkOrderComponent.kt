@@ -13,6 +13,7 @@ import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.domain.messages.normalizedPushRecipients
 import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -180,6 +181,7 @@ class WorkOrdersComponent(
                 val author = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA)?.trim()
                 val users = buildWorkOrderRecipients(wo, currentUser = author)
                 if (!users.isNullOrEmpty() && !author.isNullOrBlank()) {
+                    println("PUSH_SERVICE: recipients_resolved doc_type=work_orders recipient_count=${users.size} recipients=$users")
                     when (val pushRes = repository.sendMessageEventPUSH(
                         docId = wo?.guid ?: wo?.number ?: itemNumber,
                         docTitle = "Заказ-Наряд ${wo?.number ?: itemNumber} (${wo?.branch.orEmpty()})",
@@ -248,7 +250,6 @@ class WorkOrdersComponent(
     }
 
     override fun enterDeepLinkMode() {
-        if (deepLinkSnapshot != null) return
         deepLinkSnapshot = DeepLinkSnapshot(
             orders = loadedOrders.toList(),
             keys = loadedKeys.toSet(),
@@ -425,25 +426,14 @@ class WorkOrdersComponent(
     private fun buildWorkOrderRecipients(order: WorkOrderDto?, currentUser: String?): List<String> {
         if (order == null) return emptyList()
         val rawCandidates = buildList {
+            add(order.customer)
             add(order.author)
             add(order.manager)
             add(order.dispatcher)
             add(order.master)
             order.messages.forEach { add(it.author) }
         }
-        return uniqueNormalizedNames(rawCandidates, currentUser = currentUser)
-    }
-
-    private fun uniqueNormalizedNames(candidates: List<String?>, currentUser: String?): List<String> {
-        val result = LinkedHashSet<String>()
-        val normalizedCurrentUser = currentUser?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
-        candidates.forEach { value ->
-            val normalized = value?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
-            if (normalized.isNotBlank() && !normalized.equals(normalizedCurrentUser, ignoreCase = true)) {
-                result.add(normalized)
-            }
-        }
-        return result.toList()
+        return normalizedPushRecipients(rawCandidates, currentUser = currentUser)
     }
 
     private fun normalizeIdentifier(value: String?): String? {

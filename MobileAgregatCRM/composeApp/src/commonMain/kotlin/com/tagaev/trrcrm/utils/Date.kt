@@ -1,15 +1,71 @@
 package com.tagaev.trrcrm.utils
 
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format.FormatStringsInDatetimeFormats
 import kotlinx.datetime.format.byUnicodePattern
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.ExperimentalTime
 
 @OptIn(FormatStringsInDatetimeFormats::class)
 val formatDDMMYYYY = LocalDateTime.Format {
     byUnicodePattern("dd.MM.yyyy")
+}
+
+/**
+ * Formats a server timestamp into "yyyy.MM.dd HH:mm:ss".
+ * Accepts:
+ *  - "dd.MM.yyyy HH:mm:ss"
+ *  - ISO-8601 with offset/Z (e.g. "2026-05-07T15:18:04Z", "2026-05-07T15:18:04+03:00")
+ *  - "yyyy-MM-dd HH:mm:ss" / "yyyy-MM-ddTHH:mm:ss"
+ * Returns the original string if none matches.
+ */
+@OptIn(ExperimentalTime::class)
+fun formatFeedTimestamp(raw: String?): String {
+    if (raw.isNullOrBlank()) return ""
+    val trimmed = raw.trim()
+
+    runCatching {
+        val parts = trimmed.split(" ")
+        if (parts.size == 2) {
+            val date = parts[0].split(".")
+            val time = parts[1].split(":")
+            if (date.size == 3 && time.size in 2..3) {
+                val day = date[0].toInt()
+                val month = date[1].toInt()
+                val year = date[2].toInt()
+                val hour = time[0].toInt()
+                val minute = time[1].toInt()
+                val second = time.getOrNull(2)?.toInt() ?: 0
+                return formatYmdHms(year, month, day, hour, minute, second)
+            }
+        }
+    }
+
+    runCatching {
+        val instant = Instant.parse(trimmed)
+        val ldt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        return formatYmdHms(ldt.year, ldt.monthNumber, ldt.dayOfMonth, ldt.hour, ldt.minute, ldt.second)
+    }
+
+    runCatching {
+        val ldt = LocalDateTime.parse(trimmed.replace(' ', 'T'))
+        return formatYmdHms(ldt.year, ldt.monthNumber, ldt.dayOfMonth, ldt.hour, ldt.minute, ldt.second)
+    }
+
+    return trimmed
+}
+
+private fun formatYmdHms(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int): String {
+    val y = year.toString().padStart(4, '0')
+    val mo = month.toString().padStart(2, '0')
+    val d = day.toString().padStart(2, '0')
+    val h = hour.toString().padStart(2, '0')
+    val mi = minute.toString().padStart(2, '0')
+    val s = second.toString().padStart(2, '0')
+    return "$y.$mo.$d $h:$mi:$s"
 }
 
 @OptIn(ExperimentalTime::class)

@@ -545,6 +545,7 @@ private fun WorkOrderCard(
                         overflow = TextOverflow.Clip,
                         allowLinkTap = false,
                         allowLongPressCopy = true,
+                        onTap = onClick,
                     )
                     order.branch?.takeIf { it.isNotBlank() }?.let { branch ->
                         Spacer(Modifier.height(2.dp))

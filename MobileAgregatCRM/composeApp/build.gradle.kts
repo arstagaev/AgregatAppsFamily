@@ -6,8 +6,9 @@ import com.android.build.api.artifact.SingleArtifact
 import java.util.Locale
 //import com.codingfeline.buildkonfig.compiler.FieldSpec.Type.STRING
 import org.gradle.api.file.DuplicatesStrategy
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
+// wasmJs target temporarily disabled — see commented block below.
+// import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+// import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -40,6 +41,11 @@ kotlin {
             binaryOption("bundleId", "com.tagaev.trrcrm.shared")
         }
     }
+    // wasmJs target disabled to save build time / LLM tokens.
+    // Sources under src/wasmJsMain/ are ignored while no wasmJs target is declared.
+    // To re-enable: restore the imports above and uncomment this block + the
+    // wasmJsMain.dependencies { ... } source set entry below.
+    /*
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser {
@@ -59,6 +65,7 @@ kotlin {
         }
         binaries.executable()
     }
+    */
 
     jvm("desktop") {
         compilerOptions {
@@ -152,9 +159,12 @@ kotlin {
 //            implementation("com.squareup.sqldelight:native-driver:1.5.5")
             implementation("io.ktor:ktor-client-darwin:$ktor")  // <— REQUIRED
         }
+        // wasmJs target disabled — keep this block commented out alongside the target above.
+        /*
         wasmJsMain.dependencies {
             implementation("io.ktor:ktor-client-js:$ktor")
         }
+        */
         val desktopMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)

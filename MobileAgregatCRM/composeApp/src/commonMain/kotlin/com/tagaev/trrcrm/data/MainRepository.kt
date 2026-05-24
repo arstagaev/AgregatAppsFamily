@@ -2,8 +2,10 @@ package com.tagaev.trrcrm.data
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.ApiConfig
+import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.toCoreApiError
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.UserPermissionEntryDto
 import com.tagaev.trrcrm.domain.RefineState
@@ -20,6 +22,8 @@ import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
 import com.tagaev.trrcrm.models.CoreNotificationIntentResponse
 import com.tagaev.trrcrm.models.CoreNotificationsFeedRequest
 import com.tagaev.trrcrm.models.CoreNotificationsFeedResponse
+import com.tagaev.trrcrm.models.CoreNotificationsUnreadCountRequest
+import com.tagaev.trrcrm.models.CoreNotificationsUnreadCountResponse
 import com.tagaev.trrcrm.models.CoreNotificationsReadAllRequest
 import com.tagaev.trrcrm.models.CoreNotificationsReadAllResponse
 import com.tagaev.trrcrm.models.CoreResolveRecipientsRequest
@@ -30,8 +34,15 @@ import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
 import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
 import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
 import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
+import com.tagaev.trrcrm.models.HealthResponse
 import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateRequest
 import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateResponse
+import com.tagaev.trrcrm.models.CoreDeviceMuteStateRequest
+import com.tagaev.trrcrm.models.CoreDeviceMuteUpdateRequest
+import com.tagaev.trrcrm.models.CoreDeviceMuteStateResponse
+import com.tagaev.trrcrm.models.PushFeatureToggleGetResponse
+import com.tagaev.trrcrm.models.PushFeatureToggleSetRequest
+import com.tagaev.trrcrm.models.PushFeatureToggleSetResponse
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.IncomingApplicationDto
 import com.tagaev.trrcrm.models.RepairTemplateCatalogItemDto
@@ -47,6 +58,8 @@ import kotlinx.serialization.json.put
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.getValue
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 //import org.agregatcrm.utils.requestEventsList
 
@@ -59,6 +72,7 @@ class MainRepository(
         private const val INTENT_TITLE_MAX = 40
         private const val INTENT_SUBTITLE_MAX = 50
         private const val INTENT_BODY_MAX = 120
+        private const val PUSH_TOGGLE_CACHE_TTL_MS = 5 * 60 * 1000L
     }
 
     private val settings: AppSettings by inject()
@@ -299,6 +313,18 @@ class MainRepository(
         subtitle: String? = null,
         rawMessage: String = message
     ): Resource<ThreadMessageResponse> {
+        if (!isPushFeatureEnabled()) {
+            println("PUSH_SERVICE: push feature disabled, skipping intent send")
+            return Resource.Success(
+                ThreadMessageResponse(
+                    status = "skipped",
+                    success = 0,
+                    failure = 0,
+                    recipients = recipientNames.size
+                )
+            )
+        }
+
         val normalizedScreen = screen.trim().lowercase().replace('-', '_').replace(' ', '_')
         val boundedTitle = clampIntentText(docTitle, INTENT_TITLE_MAX)
         val boundedSubtitle = subtitle?.let { clampIntentText(it, INTENT_SUBTITLE_MAX) }?.ifBlank { null }
@@ -328,6 +354,18 @@ class MainRepository(
             payload = payload,
             send_now = true
         )
+
+        // Optional preflight: keep sending flow unchanged unless backend explicitly rejects recipient count.
+        val resolveRes = api.coreResolveRecipients(CoreResolveRecipientsRequest(recipient_names = recipientNames))
+        if (resolveRes is Resource.Error) {
+            val mapped = resolveRes.exception.toCoreApiError("Не удалось проверить получателей")
+            val rawMessage = resolveRes.causes.orEmpty().lowercase()
+            if (mapped.kind == CoreApiErrorKind.Validation && "too many recipients" in rawMessage) {
+                return Resource.Error(causes = "Слишком много получателей для уведомления")
+            }
+            println("PUSH_SERVICE: resolve recipients preflight failed, continue intent send: ${resolveRes.causes ?: resolveRes.exception?.message}")
+        }
+
         val coreRes = api.coreNotificationIntent(coreRequest)
         return when (coreRes) {
             is Resource.Success -> {
@@ -381,7 +419,8 @@ class MainRepository(
 
     suspend fun coreNotificationsFeed(
         sessionId: String,
-        limit: Int = 30,
+        limit: Int = 25,
+        page: Int = 1,
         cursor: String? = null,
         searchQuery: String? = null,
         statusFilter: String = "all",
@@ -389,17 +428,21 @@ class MainRepository(
         CoreNotificationsFeedRequest(
             sessionId = sessionId,
             limit = limit,
+            page = page,
             cursor = cursor,
             searchQuery = searchQuery,
             statusFilter = statusFilter
         )
     )
 
+    suspend fun coreNotificationsUnreadCount(sessionId: String): Resource<CoreNotificationsUnreadCountResponse> =
+        api.coreNotificationsUnreadCount(CoreNotificationsUnreadCountRequest(sessionId = sessionId))
+
     suspend fun coreNotificationStatusUpdate(
         sessionId: String,
         notificationId: Long,
         status: String,
-        source: String,
+        source: String? = null,
     ): Resource<CoreNotificationStatusUpdateResponse> = api.coreNotificationStatusUpdate(
         CoreNotificationStatusUpdateRequest(
             sessionId = sessionId,
@@ -411,6 +454,62 @@ class MainRepository(
 
     suspend fun coreNotificationsReadAll(sessionId: String): Resource<CoreNotificationsReadAllResponse> =
         api.coreNotificationsReadAll(CoreNotificationsReadAllRequest(sessionId = sessionId))
+
+    suspend fun coreHealth(): Resource<HealthResponse> = api.coreHealth()
+
+    suspend fun corePushFeatureToggleGet(): Resource<PushFeatureToggleGetResponse> = api.corePushFeatureToggleGet()
+
+    suspend fun corePushFeatureToggleSet(enabled: Boolean): Resource<PushFeatureToggleSetResponse> =
+        api.corePushFeatureToggleSet(PushFeatureToggleSetRequest(enabled = enabled))
+
+    suspend fun coreDeviceMuteState(sessionId: String): Resource<CoreDeviceMuteStateResponse> =
+        api.coreDeviceMuteState(CoreDeviceMuteStateRequest(sessionId = sessionId))
+
+    suspend fun coreDeviceMuteSetAll(sessionId: String, muteAll: Boolean): Resource<CoreDeviceMuteStateResponse> =
+        api.coreDeviceMuteUpdate(
+            CoreDeviceMuteUpdateRequest(
+                sessionId = sessionId,
+                muteAll = muteAll
+            )
+        )
+
+    suspend fun coreDeviceMuteSetType(
+        sessionId: String,
+        documentType: String,
+        muted: Boolean,
+    ): Resource<CoreDeviceMuteStateResponse> = api.coreDeviceMuteUpdate(
+        CoreDeviceMuteUpdateRequest(
+            sessionId = sessionId,
+            documentType = documentType,
+            muted = muted
+        )
+    )
+
+    suspend fun refreshPushFeatureToggleIfNeeded(force: Boolean = false): Boolean {
+        val now = currentTimeMillis()
+        val lastSync = settings.getLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, 0L)
+        val cached = settings.getBool(AppSettingsKeys.PUSH_FEATURE_TOGGLE_ENABLED, true)
+
+        if (!force && now - lastSync < PUSH_TOGGLE_CACHE_TTL_MS) {
+            return cached
+        }
+
+        return when (val res = corePushFeatureToggleGet()) {
+            is Resource.Success -> {
+                val enabled = res.data.enabled ?: true
+                settings.setBool(AppSettingsKeys.PUSH_FEATURE_TOGGLE_ENABLED, enabled)
+                settings.setLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, now)
+                enabled
+            }
+            is Resource.Error -> {
+                println("PUSH_SERVICE: push feature toggle fetch failed, fallback cached=$cached reason=${res.causes ?: res.exception?.message}")
+                cached
+            }
+            is Resource.Loading -> cached
+        }
+    }
+
+    suspend fun isPushFeatureEnabled(): Boolean = refreshPushFeatureToggleIfNeeded(force = false)
 
     private fun shouldFallbackToLegacyPush(message: String?): Boolean {
         val raw = message?.lowercase().orEmpty()
@@ -429,6 +528,9 @@ class MainRepository(
         if (normalized.length <= maxLen) return normalized
         return normalized.take(maxLen)
     }
+
+    @OptIn(ExperimentalTime::class)
+    private fun currentTimeMillis(): Long = Clock.System.now().toEpochMilliseconds()
 
 
     //          api.sendMessage(api = cfg, number = number, date = date, message = message)
