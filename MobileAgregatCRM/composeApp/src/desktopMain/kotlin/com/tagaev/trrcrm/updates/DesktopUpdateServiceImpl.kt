@@ -168,6 +168,37 @@ class DesktopUpdateServiceImpl(
                         canCancel = false
                     )
                     logEvent("update_download_completed", "file=${file.name}")
+
+                    if (!isPackagedLaunch()) {
+                        val started = runCatching {
+                            ProcessBuilder(file.absolutePath).start()
+                        }.isSuccess
+                        if (started) {
+                            emitPhase(
+                                phase = UpdaterPhase.AVAILABLE,
+                                isBusy = false,
+                                status = "Установщик запущен. После установки перезапустите приложение из ярлыка TRR CRM (не через desktopRun).",
+                                error = null,
+                                available = release,
+                                progress = null,
+                                canCancel = false
+                            )
+                            logEvent("update_install_started", "mode=dev_run installer=${file.absolutePath}")
+                        } else {
+                            emitPhase(
+                                phase = UpdaterPhase.ERROR,
+                                isBusy = false,
+                                status = "",
+                                error = "Не удалось запустить установщик в режиме desktopRun. Запустите файл вручную: ${file.absolutePath}",
+                                available = release,
+                                progress = null,
+                                canCancel = false
+                            )
+                            logEvent("update_install_failed", "mode=dev_run reason=installer_start_failed")
+                        }
+                        return
+                    }
+
                     emitPhase(
                         phase = UpdaterPhase.INSTALLING,
                         isBusy = true,
@@ -305,26 +336,52 @@ class DesktopUpdateServiceImpl(
     }
 
     private fun launchInstallerAndExit(installerFile: File) {
-        val javaBin = ProcessHandle.current().info().command().orElse("java")
-        val classPath = System.getProperty("java.class.path").orEmpty()
+        val tempDir = File(System.getProperty("java.io.tmpdir"), "trrcrm-updates").apply { mkdirs() }
+        val scriptFile = File(tempDir, "run-update-${System.currentTimeMillis()}.cmd")
         val parentPid = ProcessHandle.current().pid().toString()
-        val restartCmd = ProcessHandle.current().info().command().orElse("")
-        val command = listOf(
-            javaBin,
-            "-cp",
-            classPath,
-            "com.tagaev.trrcrm.updates.DesktopUpdaterLauncher",
-            installerFile.absolutePath,
-            parentPid,
-            restartCmd
+        val restartExe = System.getProperty("jpackage.app-path").orEmpty()
+        val script = buildInstallScript(
+            parentPid = parentPid,
+            installerPath = installerFile.absolutePath,
+            restartExe = restartExe
         )
+
         runCatching {
-            ProcessBuilder(command).start()
+            scriptFile.writeText(script)
+            ProcessBuilder("cmd", "/c", "start", "", "/min", scriptFile.absolutePath).start()
             exitProcess(0)
         }.onFailure {
             emitPhase(UpdaterPhase.ERROR, false, "", "Не удалось запустить установщик: ${it.safeMessage()}")
             logEvent("update_install_failed", "reason=${it.safeMessage()}")
         }
+    }
+
+    private fun buildInstallScript(
+        parentPid: String,
+        installerPath: String,
+        restartExe: String
+    ): String {
+        fun esc(value: String): String = value.replace("\"", "\"\"")
+        return """
+            @echo off
+            setlocal
+            set "PARENT_PID=${esc(parentPid)}"
+            set "INSTALLER=${esc(installerPath)}"
+            set "RESTART_EXE=${esc(restartExe)}"
+            :wait_parent
+            tasklist /FI "PID eq %PARENT_PID%" 2>NUL | find /I "%PARENT_PID%" >NUL
+            if "%ERRORLEVEL%"=="0" (
+              timeout /t 1 /nobreak >NUL
+              goto wait_parent
+            )
+            start "" /wait "%INSTALLER%"
+            set "EXIT_CODE=%ERRORLEVEL%"
+            if "%EXIT_CODE%"=="0" (
+              if not "%RESTART_EXE%"=="" start "" "%RESTART_EXE%"
+            )
+            del "%~f0"
+            endlocal
+        """.trimIndent()
     }
 
     private suspend fun <T> withRetry(label: String, block: suspend () -> T): Result<T> {
@@ -435,6 +492,11 @@ class DesktopUpdateServiceImpl(
 
     private fun isWindowsDesktop(): Boolean =
         System.getProperty("os.name").orEmpty().lowercase().contains("windows")
+
+    private fun isPackagedLaunch(): Boolean {
+        val jpackagePath = System.getProperty("jpackage.app-path").orEmpty().trim()
+        return jpackagePath.isNotBlank()
+    }
 
     private companion object {
         const val AUTO_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1_000L

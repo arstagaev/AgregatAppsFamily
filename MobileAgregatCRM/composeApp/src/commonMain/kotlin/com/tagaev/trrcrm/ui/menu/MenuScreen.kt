@@ -25,6 +25,7 @@ import compose.icons.feathericons.Download
 import compose.icons.feathericons.RefreshCw
 import compose.icons.lineawesomeicons.AlignJustifySolid
 import compose.icons.lineawesomeicons.ToolboxSolid
+import com.tagaev.trrcrm.updates.SemVerParser
 import com.tagaev.trrcrm.updates.DesktopUpdateUiState
 
 /**
@@ -149,12 +150,38 @@ private fun DesktopUpdatePanel(
     onDismiss: () -> Unit,
     onClearError: () -> Unit
 ) {
+    val isUpToDate = remember(state.currentVersion, state.latestVersion, state.availableRelease) {
+        val current = SemVerParser.parseOrNull(state.currentVersion.orEmpty())
+        val latest = SemVerParser.parseOrNull(state.latestVersion.orEmpty())
+        val release = SemVerParser.parseOrNull(state.availableRelease?.version.orEmpty())
+        when {
+            current == null -> false
+            latest != null -> current >= latest
+            release != null -> current >= release
+            else -> state.availableRelease == null
+        }
+    }
+    val canOfferInstall = state.availableRelease != null && !isUpToDate
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Обновления Desktop", style = MaterialTheme.typography.titleMedium)
+            state.currentVersion?.takeIf { it.isNotBlank() }?.let {
+                Text("Текущая версия: $it", style = MaterialTheme.typography.bodySmall)
+            }
+            state.latestVersion?.takeIf { it.isNotBlank() }?.let {
+                Text("Последняя версия: $it", style = MaterialTheme.typography.bodySmall)
+            }
+            if (isUpToDate && state.errorMessage == null && !state.isBusy) {
+                Text(
+                    "Установлена актуальная версия. Обновление не требуется.",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             if (state.statusMessage.isNotBlank()) {
                 Text(state.statusMessage, style = MaterialTheme.typography.bodyMedium)
             }
@@ -186,7 +213,7 @@ private fun DesktopUpdatePanel(
                     Spacer(Modifier.width(6.dp))
                     Text("Проверить")
                 }
-                if (state.availableRelease != null) {
+                if (canOfferInstall) {
                     Button(onClick = onInstall, enabled = !state.isBusy) {
                         Icon(FeatherIcons.Download, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
