@@ -101,6 +101,7 @@ fun MenuScreen(
                 state = updateState,
                 onCheck = component::checkForDesktopUpdate,
                 onInstall = component::installDesktopUpdate,
+                onCancelDownload = component::cancelDesktopUpdateDownload,
                 onDismiss = component::dismissDesktopUpdate,
                 onClearError = component::clearDesktopUpdateError
             )
@@ -144,6 +145,7 @@ private fun DesktopUpdatePanel(
     state: DesktopUpdateUiState,
     onCheck: () -> Unit,
     onInstall: () -> Unit,
+    onCancelDownload: () -> Unit,
     onDismiss: () -> Unit,
     onClearError: () -> Unit
 ) {
@@ -166,6 +168,11 @@ private fun DesktopUpdatePanel(
                     color = color,
                     style = MaterialTheme.typography.bodyMedium
                 )
+                release.fileSize?.takeIf { it > 0 }?.let { size ->
+                    val sizeMb = size / (1024.0 * 1024.0)
+                    val roundedSizeMb = (sizeMb * 10.0).toInt() / 10.0
+                    Text("Размер: ${roundedSizeMb} МБ", style = MaterialTheme.typography.bodySmall)
+                }
                 if (release.changelog.isNotBlank()) {
                     Text(release.changelog, style = MaterialTheme.typography.bodySmall, maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
@@ -185,6 +192,9 @@ private fun DesktopUpdatePanel(
                         Spacer(Modifier.width(6.dp))
                         Text("Установить")
                     }
+                }
+                if (state.canCancelDownload && state.isBusy) {
+                    TextButton(onClick = onCancelDownload) { Text("Отменить") }
                 }
                 if (state.errorMessage != null) {
                     TextButton(onClick = onClearError, enabled = !state.isBusy) { Text("Скрыть") }

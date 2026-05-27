@@ -79,6 +79,7 @@ import com.tagaev.trrcrm.utils.SessionPermissions
 import compose.icons.feathericons.Home
 import compose.icons.feathericons.Inbox
 import com.tagaev.trrcrm.push.NotificationsUnreadState
+import com.tagaev.trrcrm.updates.DesktopUpdateService
 
 val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
     { _ -> }
@@ -92,7 +93,9 @@ fun AppRoot(root: IRootComponent) {
     val activeChild = stack.active.instance
     val themeController = koinInject<ThemeController>()
     val appSettings = koinInject<AppSettings>()
+    val desktopUpdateService = koinInject<DesktopUpdateService>()
     val unreadNotificationsCount by NotificationsUnreadState.count.collectAsState()
+    val desktopUpdateState by desktopUpdateService.state.collectAsState()
     AppTheme(controller = themeController) {
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
@@ -114,6 +117,11 @@ fun AppRoot(root: IRootComponent) {
             } else {
                 appSettings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
                 NotificationsUnreadState.setCount(0)
+            }
+        }
+        LaunchedEffect(desktopUpdateState.supported) {
+            if (desktopUpdateState.supported) {
+                desktopUpdateService.checkForUpdates(manual = false)
             }
         }
 
@@ -268,6 +276,30 @@ fun AppRoot(root: IRootComponent) {
                     confirmButton = {
                         TextButton(onClick = root::consumeNotFoundDialog) {
                             Text("OK")
+                        }
+                    }
+                )
+            }
+
+            val mandatoryRelease = desktopUpdateState.availableRelease?.takeIf { it.isMandatory }
+            if (desktopUpdateState.supported && mandatoryRelease != null) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text("Требуется обновление") },
+                    text = {
+                        Text(
+                            "Доступна обязательная версия ${mandatoryRelease.version}. " +
+                                "Для продолжения работы установите обновление."
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                scope.launch { desktopUpdateService.installAvailableUpdate() }
+                            },
+                            enabled = !desktopUpdateState.isBusy
+                        ) {
+                            Text(if (desktopUpdateState.isBusy) "Подождите..." else "Установить")
                         }
                     }
                 )

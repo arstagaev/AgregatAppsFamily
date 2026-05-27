@@ -18,6 +18,7 @@ interface IMenuComponent {
     fun openSettings()
     fun checkForDesktopUpdate()
     fun installDesktopUpdate()
+    fun cancelDesktopUpdateDownload()
     fun dismissDesktopUpdate()
     fun clearDesktopUpdateError()
 }
@@ -54,6 +55,10 @@ class MenuComponent(
 
     override fun installDesktopUpdate() {
         appScope.launch { desktopUpdateService.installAvailableUpdate() }
+    }
+
+    override fun cancelDesktopUpdateDownload() {
+        desktopUpdateService.cancelDownload()
     }
 
     override fun dismissDesktopUpdate() {

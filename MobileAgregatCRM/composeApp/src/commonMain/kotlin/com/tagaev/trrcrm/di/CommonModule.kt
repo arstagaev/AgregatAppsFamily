@@ -82,5 +82,5 @@ val commonModule = module {
 
     // --- Theme ---
     single { ThemeController(get()) }
-    single<DesktopUpdateService> { createDesktopUpdateService(get()) }
+    single<DesktopUpdateService> { createDesktopUpdateService(get(), get()) }
 }
