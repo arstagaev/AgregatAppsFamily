@@ -17,6 +17,11 @@ class NotificationManager: NSObject, ObservableObject {
     private var latestFcmToken: String?
     private var lastForwardedFcmToken: String?
 
+    private func isCrmLoggedIn() -> Bool {
+        let token = UserDefaults.standard.string(forKey: "TOKEN_KEY")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !token.isEmpty
+    }
+
     func configure() {
         guard !isConfigured else { return }
         isConfigured = true
@@ -24,6 +29,9 @@ class NotificationManager: NSObject, ObservableObject {
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
         registerPostLoginPermissionObserverIfNeeded()
+        if !isCrmLoggedIn() {
+            clearBadgeAndDeliveredNotificationsOnMain()
+        }
         print("PUSH_SERVICE: Push(iOS) configured (startup permission prompt disabled)")
         // APNs registration does not require alert permission; request it early.
         registerForRemoteNotificationsOnMain()
@@ -209,6 +217,19 @@ class NotificationManager: NSObject, ObservableObject {
         print("PUSH_SERVICE: Push(iOS) forwarding FCM token from \(source), length=\(safeToken.count)")
         PushBridgeKt.onIosFcmTokenReceived(token: safeToken)
     }
+
+    func onAppDidBecomeActive() {
+        if !isCrmLoggedIn() {
+            clearBadgeAndDeliveredNotificationsOnMain()
+        }
+    }
+
+    private func clearBadgeAndDeliveredNotificationsOnMain() {
+        DispatchQueue.main.async {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        }
+    }
 }
 
 extension NotificationManager: UNUserNotificationCenterDelegate {
@@ -218,6 +239,13 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        guard isCrmLoggedIn() else {
+            DispatchQueue.main.async {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+            }
+            completionHandler([])
+            return
+        }
         completionHandler([.banner, .sound, .badge])
     }
 
@@ -226,6 +254,13 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        guard isCrmLoggedIn() else {
+            DispatchQueue.main.async {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+            }
+            completionHandler()
+            return
+        }
         let content = response.notification.request.content
         let userInfo = content.userInfo
         let screen = firstNonBlank(userInfo, keys: ["screen", "Screen", "target", "docType", "doc_type"])

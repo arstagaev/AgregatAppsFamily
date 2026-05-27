@@ -32,6 +32,8 @@ import com.tagaev.trrcrm.ui.menu.IMenuComponent
 import com.tagaev.trrcrm.ui.menu.MenuComponent
 import com.tagaev.trrcrm.ui.feed.IFeedComponent
 import com.tagaev.trrcrm.ui.feed.FeedComponent
+import com.tagaev.trrcrm.ui.product_demo.IProductDemoComponent
+import com.tagaev.trrcrm.ui.product_demo.ProductDemoComponent
 import com.tagaev.trrcrm.ui.qrscanner.DefaultQRScannerComponent
 import com.tagaev.trrcrm.ui.qrscanner.IQRScannerComponent
 import com.tagaev.trrcrm.ui.settings.ISettingsComponent
@@ -66,6 +68,7 @@ interface IRootComponent {
     fun openMenu()
     fun openSettings()
     fun openLogin()
+    fun openProductDemo()
     fun onPushLaunchIntent()
     fun back()
     /**
@@ -97,6 +100,7 @@ interface IRootComponent {
         data object Favorites : Config
         data object Menu : Config
         data object Settings : Config
+        data object ProductDemo : Config
         data object QRScanner : Config
         data object Login : Config
     }
@@ -116,6 +120,7 @@ interface IRootComponent {
         data class IncomingApplications(val component: IncomingApplicationsComponent) : Child
         data class RepairTemplateCatalog(val component: RepairTemplateCatalogComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
+        data class ProductDemo(val component: IProductDemoComponent) : Child
         data class Menu(val component: IMenuComponent) : Child
         data class QRScanner(val component: IQRScannerComponent) : Child
         data class Login(val component: ILoginComponent) : Child
@@ -179,7 +184,7 @@ class DefaultRootComponent(
     override val childStack = childStack(
             source = nav,
             serializer = null,
-            initialConfiguration = IRootComponent.Config.Login,
+            initialConfiguration = resolveInitialConfig(),
             handleBackButton = true,
             childFactory = ::createChild,
         )
@@ -234,6 +239,9 @@ class DefaultRootComponent(
                     onCargo = {
 //                        openCargo()
                     },
+                    onCatalog = {
+                        openProductDemo()
+                    },
                     onSettings = {
                         openSettings()
                     },
@@ -261,17 +269,31 @@ class DefaultRootComponent(
                     onLogoutAction = {
                         appSettings.setString(AppSettingsKeys.EMAIL, "")
                         appSettings.setString(AppSettingsKeys.TOKEN_KEY, "")
-                        openLogin()
-                        replaceAllWithRestore(IRootComponent.Config.Login)
+                        openProductDemo()
+                        replaceAllWithRestore(IRootComponent.Config.ProductDemo)
                     },
                     onBack = {
                         nav.pop()
                     }
                 ))
 
+            is IRootComponent.Config.ProductDemo ->
+                IRootComponent.Child.ProductDemo(
+                    ProductDemoComponent(
+                        componentContext = ctx,
+                        onOpenCrmRequested = {
+                            bringToFrontWithRestore(IRootComponent.Config.Events)
+                        }
+                    )
+                )
+
             is IRootComponent.Config.Login ->
                 IRootComponent.Child.Login(LoginComponent(
                     componentContext = ctx,
+                    onNoSavedAuth = {
+                        println("PUSH_SERVICE DEEPLINK: Login has no saved auth, opening ProductDemo")
+                        replaceAllWithRestore(IRootComponent.Config.ProductDemo)
+                    },
                     onLoginSuccess = { 
                         println("PUSH_SERVICE DEEPLINK: Login success callback pendingDeepLink=$pendingDeepLink")
                         // Check if there's a pending deep link to process
@@ -286,8 +308,12 @@ class DefaultRootComponent(
                             println("PUSH_SERVICE DEEPLINK: Login success processing pending deep link screen=$screen, docId=$docId")
                             // Process the deep link after login
                             appScope.launch(Dispatchers.Main.immediate) {
-                                delay(50) // let Login settle, then navigate on Main
-                                onDeepLink(screen, docId, messageHint, title)
+                                runCatching {
+                                    delay(50) // let Login settle, then navigate on Main
+                                    onDeepLink(screen, docId, messageHint, title)
+                                }.onFailure {
+                                    println("PUSH_SERVICE DEEPLINK: Login success pending deep link dispatch failed: ${it.message}")
+                                }
                             }
                         } else if (pendingOpenMainHome) {
                             pendingOpenMainHome = false
@@ -452,6 +478,7 @@ class DefaultRootComponent(
 
     override fun openSettings() = bringToFrontWithRestore(IRootComponent.Config.Settings)
     override fun openLogin() = bringToFrontWithRestore(IRootComponent.Config.Login)
+    override fun openProductDemo() = bringToFrontWithRestore(IRootComponent.Config.ProductDemo)
     override fun onPushLaunchIntent() {
         val currentConfig = childStack.value.active.configuration
         if (currentConfig is IRootComponent.Config.Login) {
@@ -513,29 +540,34 @@ class DefaultRootComponent(
 
         // Always navigate on Main (Decompose navigation is not thread-safe)
         appScope.launch(Dispatchers.Main.immediate) {
-            if (requestId != activeDeepLinkRequestId) return@launch
-            val active = childStack.value.active.configuration
-            println("PUSH_SERVICE DEEPLINK: onDeepLink mapped to config $config; active=$active")
+            runCatching {
+                if (requestId != activeDeepLinkRequestId) return@launch
+                val active = childStack.value.active.configuration
+                println("PUSH_SERVICE DEEPLINK: onDeepLink mapped to config $config; active=$active")
 
-            // If we're coming from Login, replace stack to avoid Login staying in back stack
-            if (active is IRootComponent.Config.Login) {
-                replaceAllWithRestore(config)
-            } else {
-                bringToFrontWithRestore(config)
+                // If we're coming from Login, replace stack to avoid Login staying in back stack
+                if (active is IRootComponent.Config.Login) {
+                    replaceAllWithRestore(config)
+                } else {
+                    bringToFrontWithRestore(config)
+                }
+
+                // Wait until target child exists (navigation is async relative to composition)
+                val masterComponent = awaitMasterComponent(config)
+                if (masterComponent == null) {
+                    println("PUSH_SERVICE DEEPLINK: onDeepLink component not found for config $config")
+                    return@launch
+                }
+                if (requestId != activeDeepLinkRequestId) return@launch
+
+                println("PUSH_SERVICE DEEPLINK: onDeepLink found component; resolveAndOpen docId=$normalizedDocId")
+                masterComponent.enterDeepLinkMode()
+
+                processDeepLinkResolution(masterComponent, resolutionContext)
+            }.onFailure {
+                println("PUSH_SERVICE DEEPLINK: onDeepLink failed requestId=$requestId reason=${it.message}")
+                _notFoundDialogMessage.value = "Не удалось открыть документ из уведомления"
             }
-
-            // Wait until target child exists (navigation is async relative to composition)
-            val masterComponent = awaitMasterComponent(config)
-            if (masterComponent == null) {
-                println("PUSH_SERVICE DEEPLINK: onDeepLink component not found for config $config")
-                return@launch
-            }
-            if (requestId != activeDeepLinkRequestId) return@launch
-
-            println("PUSH_SERVICE DEEPLINK: onDeepLink found component; resolveAndOpen docId=$normalizedDocId")
-            masterComponent.enterDeepLinkMode()
-
-            processDeepLinkResolution(masterComponent, resolutionContext)
         }
     }
 
@@ -712,5 +744,16 @@ class DefaultRootComponent(
 
     private companion object {
         private val GUID_REGEX = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+    }
+
+    private fun resolveInitialConfig(): IRootComponent.Config {
+        val hasSavedCredentials = !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrBlank() &&
+            !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrBlank()
+        val hasSavedToken = !appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
+        return if (hasSavedCredentials || hasSavedToken) {
+            IRootComponent.Config.Login
+        } else {
+            IRootComponent.Config.ProductDemo
+        }
     }
 }

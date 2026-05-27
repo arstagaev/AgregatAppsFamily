@@ -41,7 +41,11 @@ object UnreadCountSync : KoinComponent {
 
             val sessionId = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
             if (sessionId.isBlank()) {
-                return@withLock cached
+                if (cached != 0) {
+                    appSettings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
+                }
+                NotificationsUnreadState.setCount(0)
+                return@withLock 0
             }
 
             when (val result = repository.coreNotificationsUnreadCount(sessionId)) {

@@ -8,12 +8,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -23,13 +19,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tagaev.trrcrm.ui.custom.snowflakeBackground
-import compose.icons.FeatherIcons
 import compose.icons.LineAwesomeIcons
-import compose.icons.feathericons.Settings
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.Download
+import compose.icons.feathericons.RefreshCw
+import compose.icons.lineawesomeicons.AlignJustifySolid
 import compose.icons.lineawesomeicons.ToolboxSolid
-import compose.icons.lineawesomeicons.TruckSolid
-import org.jetbrains.compose.resources.painterResource
+import com.tagaev.trrcrm.updates.DesktopUpdateUiState
 
 /**
  * Decompose component for this screen.
@@ -48,6 +44,7 @@ fun MenuScreen(
     component: IMenuComponent,
     modifier: Modifier = Modifier
 ) {
+    val updateState by component.desktopUpdateState.collectAsState()
     Column(
         modifier = modifier
             .fillMaxSize()//.snowflakeBackground()
@@ -59,23 +56,38 @@ fun MenuScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
         MenuGridScreen(
-            items = remember {
-                listOf(
-//                    MenuCardData(
-//                        id = "cargo",
-//                        title = "Груз",
-//                        iconRes = LineAwesomeIcons.TruckSolid // TODO: replace with actual resource
-//                    ),
-                    MenuCardData(
-                        id = "settings",
-                        title = "Настройки",
-                        iconRes = LineAwesomeIcons.ToolboxSolid// TODO: replace with actual resource
+            items = remember(updateState.supported) {
+                buildList {
+                    if (updateState.supported) {
+                        add(
+                            MenuCardData(
+                                id = "check_update",
+                                title = "Обновить",
+                                iconRes = FeatherIcons.RefreshCw
+                            )
+                        )
+                    }
+                    add(
+                        MenuCardData(
+                            id = "catalog",
+                            title = "Каталог",
+                            iconRes = LineAwesomeIcons.AlignJustifySolid
+                        )
                     )
-                )
+                    add(
+                        MenuCardData(
+                            id = "settings",
+                            title = "Настройки",
+                            iconRes = LineAwesomeIcons.ToolboxSolid
+                        )
+                    )
+                }
             },
             onItemClick = { item ->
                 when (item.id) {
-                    "cargo" -> component.openCargo()
+//                    "cargo" -> component.openCargo()
+                    "check_update" -> component.checkForDesktopUpdate()
+                    "catalog" -> component.openCatalog()
                     "settings" -> component.openSettings()
                     // add other when branches for new cards
                 }
@@ -84,6 +96,15 @@ fun MenuScreen(
                 .weight(1f)
                 .fillMaxWidth()
         )
+        if (updateState.supported) {
+            DesktopUpdatePanel(
+                state = updateState,
+                onCheck = component::checkForDesktopUpdate,
+                onInstall = component::installDesktopUpdate,
+                onDismiss = component::dismissDesktopUpdate,
+                onClearError = component::clearDesktopUpdateError
+            )
+        }
     }
 }
 
@@ -114,6 +135,63 @@ private fun MenuGridScreen(
                 item = item,
                 onClick = { onItemClick(item) }
             )
+        }
+    }
+}
+
+@Composable
+private fun DesktopUpdatePanel(
+    state: DesktopUpdateUiState,
+    onCheck: () -> Unit,
+    onInstall: () -> Unit,
+    onDismiss: () -> Unit,
+    onClearError: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Обновления Desktop", style = MaterialTheme.typography.titleMedium)
+            if (state.statusMessage.isNotBlank()) {
+                Text(state.statusMessage, style = MaterialTheme.typography.bodyMedium)
+            }
+            state.progress?.let { progress ->
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            }
+            state.availableRelease?.let { release ->
+                val color = if (release.isMandatory) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                Text(
+                    text = "Доступна версия ${release.version}" + if (release.isMandatory) " (обязательное)" else "",
+                    color = color,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (release.changelog.isNotBlank()) {
+                    Text(release.changelog, style = MaterialTheme.typography.bodySmall, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            state.errorMessage?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onCheck, enabled = !state.isBusy) {
+                    Icon(FeatherIcons.RefreshCw, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Проверить")
+                }
+                if (state.availableRelease != null) {
+                    Button(onClick = onInstall, enabled = !state.isBusy) {
+                        Icon(FeatherIcons.Download, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Установить")
+                    }
+                }
+                if (state.errorMessage != null) {
+                    TextButton(onClick = onClearError, enabled = !state.isBusy) { Text("Скрыть") }
+                } else if (state.availableRelease?.isMandatory == false) {
+                    TextButton(onClick = onDismiss, enabled = !state.isBusy) { Text("Позже") }
+                }
+            }
         }
     }
 }

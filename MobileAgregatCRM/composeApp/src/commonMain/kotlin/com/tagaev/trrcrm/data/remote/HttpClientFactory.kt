@@ -2,6 +2,8 @@ package com.tagaev.trrcrm.data.remote
 
 import io.ktor.client.statement.request
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpTimeout
@@ -15,6 +17,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import com.tagaev.trrcrm.utils.HumanLogger
 import com.tagaev.trrcrm.utils.Log
+import io.ktor.http.HttpStatusCode
 
 /**
  * Make a client with:
@@ -30,27 +33,35 @@ expect val isPublish: Boolean
 object HttpClientFactory {
 
     fun create(
+        engine: HttpClientEngine? = null,
         json: Json = defaultJson,
         loggingEnabled: Boolean = !isPublish,
         logBodies: Boolean = false,
-    ): HttpClient = HttpClient {
+    ): HttpClient {
+        val config: HttpClientConfig<*>.() -> Unit = {
         // JSON
         install(ContentNegotiation) { json(json) }
+
+        // Retries: idempotent requests (non-POST) for transient failures.
+        install(HttpRequestRetry) {
+            maxRetries = 2
+            retryIf { request, response ->
+                request.method != HttpMethod.Post &&
+                    (response.status.value >= 500 ||
+                        response.status == HttpStatusCode.RequestTimeout ||
+                        response.status == HttpStatusCode.TooManyRequests)
+            }
+            retryOnExceptionIf { request, cause ->
+                request.method != HttpMethod.Post && isTransientNetworkFailure(cause)
+            }
+            exponentialDelay()
+        }
 
         // Timeouts
         install(HttpTimeout) {
             requestTimeoutMillis = 60_000
             connectTimeoutMillis = 30_000
             socketTimeoutMillis  = 60_000
-        }
-
-        // Retries: only idempotent requests (not POST) on 5xx
-        install(HttpRequestRetry) {
-            maxRetries = 2
-            retryIf { request, response ->
-                request.method != HttpMethod.Post && response.status.value >= 500
-            }
-            exponentialDelay()
         }
 
         // Default headers
@@ -77,12 +88,34 @@ object HttpClientFactory {
 //            install(BodyLoggerPlugin)
 //        }
     }
+        return if (engine != null) {
+            HttpClient(engine, config)
+        } else {
+            HttpClient(config)
+        }
+    }
 
     fun createNoLogs(json: Json = defaultJson): HttpClient =
         create(json = json, loggingEnabled = false, logBodies = false)
 
     private fun HttpClient.sanitizeHeader(function: Any) {
         TODO("Not yet implemented")
+    }
+
+    private fun isTransientNetworkFailure(cause: Throwable): Boolean {
+        val lower = cause.message.orEmpty().lowercase()
+        val name = cause::class.simpleName.orEmpty().lowercase()
+        return "timeout" in lower ||
+            "timed out" in lower ||
+            "connection reset" in lower ||
+            "connection aborted" in lower ||
+            "connection refused" in lower ||
+            "network is unreachable" in lower ||
+            "unresolvedaddress" in lower ||
+            "unknownhost" in lower ||
+            "connectexception" in lower ||
+            "connecttimeoutexception" in name ||
+            "sockettimeoutexception" in name
     }
 
     val defaultJson = Json {

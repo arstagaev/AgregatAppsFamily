@@ -177,6 +177,8 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation("io.ktor:ktor-client-mock:$ktor")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
         }
 //        jvmMain.dependencies {
 //            implementation(compose.desktop.currentOs)
@@ -219,6 +221,10 @@ val isPublish: String = providers.gradleProperty("IS_PUBLISH").orNull
     ?: providers.environmentVariable("IS_PUBLISH").orNull
     ?: localProps.getProperty("IS_PUBLISH")
     ?: ""
+val catalogBaseUrl: String = providers.gradleProperty("CATALOG_BASE_URL").orNull
+    ?: providers.environmentVariable("CATALOG_BASE_URL").orNull
+    ?: localProps.getProperty("CATALOG_BASE_URL")
+    ?: "http://trrservice.agregatka.ru:8666/"
 
 // figure out which env we are building based on the Gradle tasks
 val requestedTasks = gradle.startParameter.taskNames
@@ -383,6 +389,7 @@ buildkonfig {
         buildConfigField(STRING, "IS_PUBLISH", isPublish)
 
         buildConfigField(STRING, "PUSH_BASE_URL", "http://trrservice.agregatka.ru:8444/")
+        buildConfigField(STRING, "CATALOG_BASE_URL", catalogBaseUrl)
         buildConfigField(STRING, "PUSH_API_KEY", "BALAKOVO44")
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.

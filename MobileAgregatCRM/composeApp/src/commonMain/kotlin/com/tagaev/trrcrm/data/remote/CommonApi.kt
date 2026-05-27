@@ -38,6 +38,11 @@ import com.tagaev.trrcrm.models.CoreDeviceMuteStateResponse
 import com.tagaev.trrcrm.models.PushFeatureToggleGetResponse
 import com.tagaev.trrcrm.models.PushFeatureToggleSetRequest
 import com.tagaev.trrcrm.models.PushFeatureToggleSetResponse
+import com.tagaev.trrcrm.models.CatalogProductRequest
+import com.tagaev.trrcrm.models.CatalogProductRequestResponse
+import com.tagaev.trrcrm.models.CatalogProductsResponse
+import com.tagaev.trrcrm.models.CatalogSignupRequest
+import com.tagaev.trrcrm.models.CatalogSignupResponse
 import io.ktor.client.*
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
@@ -48,9 +53,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.JsonElement
 import com.tagaev.trrcrm.models.EventItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
 import com.tagaev.trrcrm.models.IncomingApplicationDto
@@ -65,10 +72,14 @@ import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.plugins.timeout
 import com.tagaev.trrcrm.models.cleanJsonStart
 import com.tagaev.trrcrm.utils.DefaultValuesConst.CORE_API_KEY
+import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_CATALOG_URL
 import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_CORE_URL
 import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_PUSH_URL
 import io.ktor.http.ContentType
+import io.ktor.http.HeadersBuilder
 import io.ktor.http.contentType
+import kotlin.random.Random
+import kotlin.time.TimeSource
 
 // https://api.aaaaaaaaa.ru/app/getdata.php?token=111111111&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
 // https://api.agregatka.ru/app/getdata.php?token=234234234&task=getitemslist&type=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82&name=%D0%A1%D0%BE%D0%B1%D1%8B%D1%82%D0%B8%D0%B5&count=5&ncount=50&orderby=%D0%94%D0%B0%D1%82%D0%B0&orderdir=asc
@@ -90,45 +101,95 @@ class EventsApi(
     private val client: HttpClient
 ) {
     private suspend inline fun <reified T> corePost(
+        baseUrl: String = GLOBAL_CORE_URL,
         path: String,
         body: Any? = null,
         includeApiKey: Boolean = true,
+        operationName: String = "core_post:$path",
+        extraHeaders: Map<String, String> = emptyMap(),
     ): T {
-        val response = client.post("${GLOBAL_CORE_URL.trimEnd('/')}$path") {
-            expectSuccess = false
-            if (includeApiKey) header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
-            if (body != null) setBody(body)
+        val marker = TimeSource.Monotonic.markNow()
+        println("CATALOG_CORE_API: request_start op=$operationName method=POST path=$path")
+        try {
+            val response = client.post("${baseUrl.trimEnd('/')}$path") {
+                expectSuccess = false
+                if (includeApiKey) header("X-API-Key", CORE_API_KEY)
+                extraHeaders.forEach { (key, value) -> header(key, value) }
+                contentType(ContentType.Application.Json)
+                if (body != null) setBody(body)
+            }
+            val raw = response.bodyAsText().cleanJsonStart()
+            val latencyMs = marker.elapsedNow().inWholeMilliseconds
+            println("CATALOG_CORE_API: request_end op=$operationName status=${response.status.value} latency_ms=$latencyMs")
+            if (!response.status.isSuccess()) {
+                val parsed = parseCoreErrorPayload(raw)
+                throw CoreApiException(
+                    statusCode = response.status.value,
+                    url = response.call.request.url.toString(),
+                    responseBody = raw,
+                    errorCode = parsed?.code,
+                    errorMessage = parsed?.message,
+                    fields = parsed?.fields.orEmpty()
+                )
+            }
+            return decodeOrWarning(json, raw)
+        } catch (t: Throwable) {
+            val latencyMs = marker.elapsedNow().inWholeMilliseconds
+            val normalized = when (t) {
+                is CoreApiException -> t.normalizedErrorCode()
+                else -> "transport_error"
+            }
+            println("CATALOG_CORE_API: request_fail op=$operationName latency_ms=$latencyMs error_code=$normalized reason=${t.message}")
+            throw t
         }
-        val raw = response.bodyAsText().cleanJsonStart()
-        if (!response.status.isSuccess()) {
-            throw CoreApiException(
-                statusCode = response.status.value,
-                url = response.call.request.url.toString(),
-                responseBody = raw
-            )
-        }
-        return decodeOrWarning(json, raw)
     }
 
     private suspend inline fun <reified T> coreGet(
+        baseUrl: String = GLOBAL_CORE_URL,
         path: String,
         includeApiKey: Boolean = false,
+        operationName: String = "core_get:$path",
+        queryParams: Map<String, String?> = emptyMap(),
     ): T {
-        val response = client.get("${GLOBAL_CORE_URL.trimEnd('/')}$path") {
-            expectSuccess = false
-            if (includeApiKey) header("X-API-Key", CORE_API_KEY)
-            contentType(ContentType.Application.Json)
+        val marker = TimeSource.Monotonic.markNow()
+        println("CATALOG_CORE_API: request_start op=$operationName method=GET path=$path")
+        try {
+            val response = client.get("${baseUrl.trimEnd('/')}$path") {
+                expectSuccess = false
+                if (includeApiKey) header("X-API-Key", CORE_API_KEY)
+                contentType(ContentType.Application.Json)
+                if (queryParams.isNotEmpty()) {
+                    url {
+                        queryParams.forEach { (key, value) ->
+                            if (!value.isNullOrBlank()) parameters.append(key, value)
+                        }
+                    }
+                }
+            }
+            val raw = response.bodyAsText().cleanJsonStart()
+            val latencyMs = marker.elapsedNow().inWholeMilliseconds
+            println("CATALOG_CORE_API: request_end op=$operationName status=${response.status.value} latency_ms=$latencyMs")
+            if (!response.status.isSuccess()) {
+                val parsed = parseCoreErrorPayload(raw)
+                throw CoreApiException(
+                    statusCode = response.status.value,
+                    url = response.call.request.url.toString(),
+                    responseBody = raw,
+                    errorCode = parsed?.code,
+                    errorMessage = parsed?.message,
+                    fields = parsed?.fields.orEmpty()
+                )
+            }
+            return decodeOrWarning(json, raw)
+        } catch (t: Throwable) {
+            val latencyMs = marker.elapsedNow().inWholeMilliseconds
+            val normalized = when (t) {
+                is CoreApiException -> t.normalizedErrorCode()
+                else -> "transport_error"
+            }
+            println("CATALOG_CORE_API: request_fail op=$operationName latency_ms=$latencyMs error_code=$normalized reason=${t.message}")
+            throw t
         }
-        val raw = response.bodyAsText().cleanJsonStart()
-        if (!response.status.isSuccess()) {
-            throw CoreApiException(
-                statusCode = response.status.value,
-                url = response.call.request.url.toString(),
-                responseBody = raw
-            )
-        }
-        return decodeOrWarning(json, raw)
     }
 
     internal suspend inline fun <reified T> findDocumentsByNumber(
@@ -462,6 +523,70 @@ class EventsApi(
             body = request,
             includeApiKey = true
         )
+    }
+
+    suspend fun catalogProducts(
+        search: String? = null,
+        brand: String? = null,
+        model: String? = null,
+        categoryId: String? = null,
+        page: Int = 1,
+        limit: Int = 20,
+    ): Resource<CatalogProductsResponse> = resourceify {
+        coreGet<CatalogProductsResponse>(
+            baseUrl = GLOBAL_CATALOG_URL,
+            path = "/catalog/products",
+            includeApiKey = false,
+            operationName = "catalog_products?q=${search.orEmpty()}&brand=${brand.orEmpty()}&model=${model.orEmpty()}&category=${categoryId.orEmpty()}&page=$page&limit=$limit",
+            queryParams = mapOf(
+                "search" to search?.trim(),
+                "brand" to brand?.trim(),
+                "model" to model?.trim(),
+                "category_id" to categoryId?.trim(),
+                "page" to page.toString(),
+                "limit" to limit.toString(),
+            )
+        )
+    }
+
+    suspend fun catalogSignupRequest(request: CatalogSignupRequest): Resource<CatalogSignupResponse> = resourceify {
+        corePost<CatalogSignupResponse>(
+            baseUrl = GLOBAL_CATALOG_URL,
+            path = "/catalog/signup-request",
+            body = request,
+            includeApiKey = true,
+            operationName = "catalog_signup_request",
+            extraHeaders = mapOf("Idempotency-Key" to generateIdempotencyKey())
+        )
+    }
+
+    suspend fun catalogProductRequest(request: CatalogProductRequest): Resource<CatalogProductRequestResponse> = resourceify {
+        corePost<CatalogProductRequestResponse>(
+            baseUrl = GLOBAL_CATALOG_URL,
+            path = "/catalog/product-request",
+            body = request,
+            includeApiKey = true,
+            operationName = "catalog_product_request",
+            extraHeaders = mapOf("Idempotency-Key" to generateIdempotencyKey())
+        )
+    }
+
+    private fun generateIdempotencyKey(): String {
+        val bytes = Random.Default.nextBytes(16)
+        val hex = bytes.joinToString(separator = "") { b ->
+            (b.toInt() and 0xFF).toString(16).padStart(2, '0')
+        }
+        return buildString {
+            append(hex.substring(0, 8))
+            append('-')
+            append(hex.substring(8, 12))
+            append('-')
+            append(hex.substring(12, 16))
+            append('-')
+            append(hex.substring(16, 20))
+            append('-')
+            append(hex.substring(20, 32))
+        }
     }
 
     // https://agrapp.agregatka.ru/?task=gettoken&user=kolosov.a.a@my.agregatka.ru&pass=
@@ -957,6 +1082,71 @@ class EventsApi(
             isLenient = true
             explicitNulls = false
         }
+    }
+}
+
+private data class ParsedCoreErrorPayload(
+    val code: String? = null,
+    val message: String? = null,
+    val fields: List<CoreApiFieldError> = emptyList(),
+)
+
+private fun parseCoreErrorPayload(raw: String): ParsedCoreErrorPayload? {
+    val text = raw.cleanJsonStart()
+    if (text.isBlank()) return null
+    return runCatching {
+        val root = EventsApi.json.parseToJsonElement(text).jsonObject
+        val unified = root["error"]?.jsonObject
+        if (unified != null) {
+            val fields = parseCoreFieldErrors(unified["fields"])
+            val message = unified["message"]?.jsonPrimitive?.contentOrNull
+                ?: fields.firstNotNullOfOrNull { it.message }
+            ParsedCoreErrorPayload(
+                code = unified["code"]?.jsonPrimitive?.contentOrNull,
+                message = message,
+                fields = fields
+            )
+        } else {
+            val fields = parseCoreFieldErrors(root["detail"])
+            val detailMessage = root["detail"]?.let { detail ->
+                runCatching { detail.jsonPrimitive.contentOrNull }.getOrNull()
+            }
+            val message = root["message"]?.jsonPrimitive?.contentOrNull
+                ?: detailMessage
+                ?: fields.firstNotNullOfOrNull { it.message }
+            ParsedCoreErrorPayload(
+                code = root["code"]?.jsonPrimitive?.contentOrNull,
+                message = message,
+                fields = fields
+            )
+        }
+    }.getOrNull()
+}
+
+private fun parseCoreFieldErrors(source: JsonElement?): List<CoreApiFieldError> {
+    val array = runCatching { source?.jsonArray }.getOrNull() ?: return emptyList()
+    return array.mapNotNull { element ->
+        val obj = runCatching { element.jsonObject }.getOrNull()
+            ?: return@mapNotNull CoreApiFieldError(
+                message = element.jsonPrimitive.contentOrNull
+            )
+        if (obj.isEmpty()) return@mapNotNull null
+
+        val locField = obj["loc"]?.jsonArray
+            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            ?.lastOrNull()
+
+        val field = obj["field"]?.jsonPrimitive?.contentOrNull
+            ?: obj["name"]?.jsonPrimitive?.contentOrNull
+            ?: locField
+        val message = obj["message"]?.jsonPrimitive?.contentOrNull
+            ?: obj["msg"]?.jsonPrimitive?.contentOrNull
+            ?: obj["error"]?.jsonPrimitive?.contentOrNull
+        val code = obj["code"]?.jsonPrimitive?.contentOrNull
+            ?: obj["type"]?.jsonPrimitive?.contentOrNull
+
+        if (field == null && message == null && code == null) null
+        else CoreApiFieldError(field = field, message = message, code = code)
     }
 }
 

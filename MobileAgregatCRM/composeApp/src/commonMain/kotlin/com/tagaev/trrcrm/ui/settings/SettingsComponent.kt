@@ -10,6 +10,7 @@ import com.tagaev.trrcrm.data.remote.toCoreApiError
 import com.tagaev.trrcrm.push.NotificationsUnreadState
 import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
+import com.tagaev.trrcrm.push.disablePushDeliveryForLoggedOutUser
 import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.utils.SessionPermissions
 import kotlinx.coroutines.CoroutineScope
@@ -283,7 +284,7 @@ class SettingsComponent(
                 repository.coreSessionLogout(
                     com.tagaev.trrcrm.models.CoreSessionLogoutRequest(
                         sessionId = coreSessionId,
-                        deactivateDeviceToken = false
+                        deactivateDeviceToken = true
                     )
                 )
             }
@@ -300,8 +301,10 @@ class SettingsComponent(
         eventsCacheStore.clearAll()
 
         SessionPermissions.clear()
+        settings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
         settings.clearForLogoutPreservingInstallIdentity()
         NotificationsUnreadState.setCount(0)
+        disablePushDeliveryForLoggedOutUser()
 //        settings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE,"")
 //        settings.setString(AppSettingsKeys.EVENTS_REFINE_STATE,"")
 

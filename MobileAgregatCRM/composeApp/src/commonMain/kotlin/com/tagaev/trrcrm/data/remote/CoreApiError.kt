@@ -16,6 +16,12 @@ enum class CoreApiErrorKind {
     Unknown,
 }
 
+data class CoreApiFieldError(
+    val field: String? = null,
+    val message: String? = null,
+    val code: String? = null,
+)
+
 data class CoreApiError(
     val statusCode: Int? = null,
     val kind: CoreApiErrorKind = CoreApiErrorKind.Unknown,
@@ -26,7 +32,23 @@ class CoreApiException(
     val statusCode: Int,
     val url: String,
     val responseBody: String,
+    val errorCode: String? = null,
+    val errorMessage: String? = null,
+    val fields: List<CoreApiFieldError> = emptyList(),
 ) : Exception("HTTP $statusCode $url | ${responseBody.take(500)}")
+
+fun CoreApiException.normalizedErrorCode(): String {
+    return errorCode
+        ?: when (statusCode) {
+            401 -> "unauthorized"
+            403 -> "forbidden"
+            404 -> "not_found"
+            408 -> "timeout"
+            422 -> "validation_error"
+            in 500..599 -> "server_error"
+            else -> "http_$statusCode"
+        }
+}
 
 fun Throwable?.toCoreApiError(fallback: String): CoreApiError {
     if (this == null) return CoreApiError(message = fallback)
@@ -36,7 +58,7 @@ fun Throwable?.toCoreApiError(fallback: String): CoreApiError {
         is CoreApiException -> CoreApiError(
             statusCode = statusCode,
             kind = statusToKind(statusCode),
-            message = message
+            message = errorMessage?.ifBlank { message } ?: message
         )
         is RedirectResponseException -> CoreApiError(
             statusCode = this.response.status.value,

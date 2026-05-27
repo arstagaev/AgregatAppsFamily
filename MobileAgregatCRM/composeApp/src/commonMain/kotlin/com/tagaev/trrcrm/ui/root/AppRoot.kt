@@ -58,6 +58,7 @@ import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
 import com.tagaev.trrcrm.ui.menu.MenuScreen
 import com.tagaev.trrcrm.ui.feed.FeedScreen
+import com.tagaev.trrcrm.ui.product_demo.ProductDemoScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
 import com.tagaev.trrcrm.ui.supplier_order.SupplierOrdersScreen
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
@@ -106,8 +107,14 @@ fun AppRoot(root: IRootComponent) {
             }
         }
         LaunchedEffect(Unit) {
-            val cachedUnread = appSettings.getInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
-            NotificationsUnreadState.setCount(cachedUnread)
+            val hasAuth = !appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
+            if (hasAuth) {
+                val cachedUnread = appSettings.getInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
+                NotificationsUnreadState.setCount(cachedUnread)
+            } else {
+                appSettings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
+                NotificationsUnreadState.setCount(0)
+            }
         }
 
         CompositionLocalProvider(
@@ -126,7 +133,10 @@ fun AppRoot(root: IRootComponent) {
                     SnackbarHost(hostState = snackbarHostState)
                 },
                 bottomBar = {
-                    AnimatedVisibility(visible = activeChild !is IRootComponent.Child.Login) {
+                    AnimatedVisibility(
+                        visible = activeChild !is IRootComponent.Child.Login &&
+                            activeChild !is IRootComponent.Child.ProductDemo
+                    ) {
                         AppBottomNavBar2(
                             activeChild = activeChild,
                             mainHomeUnreadCount = unreadNotificationsCount,
@@ -242,6 +252,7 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.RepairTemplateCatalog -> RepairTemplateCatalogScreen(c.component)
                         is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
                         is IRootComponent.Child.Settings -> SettingsScreen(c.component)
+                        is IRootComponent.Child.ProductDemo -> ProductDemoScreen(c.component)
                         is IRootComponent.Child.Menu -> MenuScreen(c.component)
                         is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
                         is IRootComponent.Child.Login -> LoginScreen(c.component)

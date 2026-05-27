@@ -22,7 +22,8 @@ private object IosPushBridgeSettings : KoinComponent {
 private var lastTapSignature: String? = null
 
 fun ensureIosDependenciesReady() {
-    initKoinIos()
+    runCatching { initKoinIos() }
+        .onFailure { println("PUSH_SERVICE: PushBridge(iOS) initKoinIos failed: ${it.message}") }
 }
 
 fun setIosApnsReady(ready: Boolean) {
@@ -42,8 +43,12 @@ fun onIosFcmTokenReceived(token: String?) {
         return
     }
 
-    ensureIosDependenciesReady()
-    forwardTokenWithRetry(token = safeToken, attempt = 1)
+    runCatching {
+        ensureIosDependenciesReady()
+        forwardTokenWithRetry(token = safeToken, attempt = 1)
+    }.onFailure {
+        println("PUSH_SERVICE: PushBridge(iOS) onIosFcmTokenReceived failed: ${it.message}")
+    }
 }
 
 private fun forwardTokenWithRetry(token: String, attempt: Int) {
@@ -71,26 +76,30 @@ private fun forwardTokenWithRetry(token: String, attempt: Int) {
 }
 
 fun onIosNotificationTap(title: String?, screen: String?, docId: String?, messageText: String?) {
-    val normalizedScreen = screen?.trim()?.takeIf { it.isNotBlank() }
-    val normalizedDocId = docId?.trim()?.takeIf { it.isNotBlank() }
-    val normalizedMessage = messageText?.trim().orEmpty()
-    val signature = listOf(normalizedScreen.orEmpty(), normalizedDocId.orEmpty(), title.orEmpty(), normalizedMessage).joinToString("|")
-    if (signature == lastTapSignature) {
-        println("PUSH_SERVICE DEEPLINK: PushBridge(iOS) duplicate tap signature, skip")
-        return
-    }
-    lastTapSignature = signature
+    runCatching {
+        val normalizedScreen = screen?.trim()?.takeIf { it.isNotBlank() }
+        val normalizedDocId = docId?.trim()?.takeIf { it.isNotBlank() }
+        val normalizedMessage = messageText?.trim().orEmpty()
+        val signature = listOf(normalizedScreen.orEmpty(), normalizedDocId.orEmpty(), title.orEmpty(), normalizedMessage).joinToString("|")
+        if (signature == lastTapSignature) {
+            println("PUSH_SERVICE DEEPLINK: PushBridge(iOS) duplicate tap signature, skip")
+            return
+        }
+        lastTapSignature = signature
 
-    if (normalizedScreen == null && normalizedDocId == null) {
-        println("PUSH_SERVICE DEEPLINK: PushBridge(iOS) missing_canonical_push_payload, skip deeplink routing")
-        return
+        if (normalizedScreen == null && normalizedDocId == null) {
+            println("PUSH_SERVICE DEEPLINK: PushBridge(iOS) missing_canonical_push_payload, skip deeplink routing")
+            return
+        }
+        val resolvedScreen = normalizedScreen ?: inferScreenFromTitle(title) ?: "events"
+        println(
+            "PUSH_SERVICE DEEPLINK: PushBridge(iOS) tap resolved " +
+                    "screen='$resolvedScreen', docId='${normalizedDocId ?: ""}', title='${title.orEmpty()}'"
+        )
+        DeepLinkBridge.handle(screen = resolvedScreen, docId = normalizedDocId, messageText = messageText, title = title)
+    }.onFailure {
+        println("PUSH_SERVICE DEEPLINK: PushBridge(iOS) onIosNotificationTap failed: ${it.message}")
     }
-    val resolvedScreen = normalizedScreen ?: inferScreenFromTitle(title) ?: "events"
-    println(
-        "PUSH_SERVICE DEEPLINK: PushBridge(iOS) tap resolved " +
-                "screen='$resolvedScreen', docId='${normalizedDocId ?: ""}', title='${title.orEmpty()}'"
-    )
-    DeepLinkBridge.handle(screen = resolvedScreen, docId = normalizedDocId, messageText = messageText, title = title)
 }
 
 private fun inferScreenFromTitle(title: String?): String? {

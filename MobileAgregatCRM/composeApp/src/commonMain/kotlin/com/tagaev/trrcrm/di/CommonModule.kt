@@ -15,6 +15,8 @@ import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.HttpClientFactory
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.push.PushRegistration
+import com.tagaev.trrcrm.updates.createDesktopUpdateService
+import com.tagaev.trrcrm.updates.DesktopUpdateService
 import com.tagaev.trrcrm.ui.style.ThemeController
 import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_PUSH_URL
 import io.ktor.client.HttpClient
@@ -80,4 +82,5 @@ val commonModule = module {
 
     // --- Theme ---
     single { ThemeController(get()) }
+    single<DesktopUpdateService> { createDesktopUpdateService(get()) }
 }

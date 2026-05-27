@@ -296,11 +296,11 @@ private fun RepairTemplateSearchModeRow(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
-            selected = selected == RepairTemplateSearchMode.MODEL,
-            onClick = { onSelected(RepairTemplateSearchMode.MODEL) },
-            label = { Text("Модель", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        )
+//        FilterChip(
+//            selected = selected == RepairTemplateSearchMode.MODEL,
+//            onClick = { onSelected(RepairTemplateSearchMode.MODEL) },
+//            label = { Text("Модель", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+//        )
         FilterChip(
             selected = selected == RepairTemplateSearchMode.YEAR_FROM,
             onClick = { onSelected(RepairTemplateSearchMode.YEAR_FROM) },

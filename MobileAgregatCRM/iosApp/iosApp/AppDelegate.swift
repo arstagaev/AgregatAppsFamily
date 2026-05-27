@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
+        NotificationManager.shared.onAppDidBecomeActive()
         UnreadCountSyncBridgeKt.onAppForegroundForUnreadCount()
     }
 }

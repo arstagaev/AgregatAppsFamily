@@ -13,14 +13,7 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.data.remote.toCoreApiError
-import com.tagaev.trrcrm.pushPlatformId
-import com.tagaev.trrcrm.push.PushRegistrationCoordinator
-import com.tagaev.trrcrm.push.UnreadCountSync
-import com.tagaev.trrcrm.push.triggerPostLoginPushPermissionCheck
-import com.tagaev.trrcrm.utils.SessionPermissions
-import com.tagaev.trrcrm.utils.DeviceIdentity
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,11 +54,11 @@ interface ILoginComponent {
 class LoginComponent(
     componentContext: ComponentContext,
     private val onLoginSuccess: () -> Unit,
+    private val onNoSavedAuth: () -> Unit = {},
     private val onBack: () -> Unit,
 ) : ILoginComponent, ComponentContext by componentContext, KoinComponent {
     companion object {
         private var startupCheckPassedThisSession = false
-        private var coreHeartbeatJob: Job? = null
     }
 
     private val appSettings: AppSettings by inject()
@@ -143,7 +136,8 @@ class LoginComponent(
         } else if (savedToken.isNotBlank()) {
             onLoginWithToken(savedToken)
         } else {
-            println("Email or Token is empty")
+            println("Login: no saved auth context, opening demo zone")
+            onNoSavedAuth()
         }
     }
 
@@ -218,49 +212,15 @@ class LoginComponent(
                 } else {
                     pass.encodeUtf8().sha256().hex()
                 }
-                // Call network on IO
                 val res = withContext(Dispatchers.Default) {
-                    repo.getToken(username = user, password = passHash)
+                    CrmAuthUseCase.loginWithCredentials(user = user, pass = passHash)
                 }
 
                 when (res) {
                     is Resource.Success -> {
                         println("Success! We can LOGIN!")
-                        val data = res.data
                         withContext(Dispatchers.Main.immediate) {
-                            if (!data.token.isNullOrBlank()) {
-                                // Persist credentials only after the server confirms them,
-                                // so a failed attempt does not poison auto-login.
-                                appSettings.setString(AppSettingsKeys.EMAIL, user)
-                                appSettings.setString(AppSettingsKeys.PASS, passHash)
-                                appSettings.setString(AppSettingsKeys.TOKEN_KEY, data.token)
-                                appSettings.setString(AppSettingsKeys.PERSONAL_DATA, "${data.fullName}")
-                                appSettings.setString(AppSettingsKeys.DEPARTMENT, "${data.department}")
-//                                settings.setString(AppSettingsKeys.FILTER_VAL, data.department)
-                                runCatching { apiConfig.token = data.token }
-
-                                SessionPermissions.clear()
-                                val permissions = withContext(Dispatchers.Default) {
-                                    repo.getPermission()
-                                }
-
-                                when (permissions) {
-                                    is Resource.Success -> {
-                                        SessionPermissions.replaceAll(permissions.data)
-                                        completeLogin()
-                                    }
-                                    is Resource.Loading -> Unit
-                                    is Resource.Error -> {
-                                        val msg = permissions.causes
-                                            ?: friendlyError(permissions.exception, "Не удалось загрузить права доступа")
-                                        _uiState.value = LoginUiState.Error(msg)
-                                    }
-                                }
-
-
-                            } else {
-                                _uiState.value = LoginUiState.Error("Пустой токен от сервера")
-                            }
+                            completeLogin()
                         }
                     }
                     is Resource.Error -> {
@@ -285,98 +245,7 @@ class LoginComponent(
 
     private fun completeLogin() {
         _uiState.value = LoginUiState.Idle
-        startCoreHeartbeatLoop()
-        triggerPostLoginPushPermissionCheck()
-        appScope.launch {
-            repo.refreshPushFeatureToggleIfNeeded(force = true)
-            bootstrapCoreSessionAndStartHeartbeat()
-        }
-        PushRegistrationCoordinator.registerIfReady(preferredPlatform = pushPlatformId())
-
         onLoginSuccess() // navigate (must be MAIN)
-    }
-
-    private suspend fun bootstrapCoreSessionAndStartHeartbeat() {
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
-        val fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN)?.trim()?.takeIf { it.isNotBlank() }
-        if (fullName.isBlank()) {
-            println("CoreSession: bootstrap skipped (missing_user)")
-            return
-        }
-        if (fcmToken == null) {
-            appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, true)
-            println("CoreSession: bootstrap deferred (missing_fcm_token); waiting token to retry")
-            return
-        }
-        val bootstrapMode = "with_fcm"
-        println("CoreSession: bootstrap attempt mode=$bootstrapMode")
-
-        val req = com.tagaev.trrcrm.models.CoreSessionBootstrapRequest(
-            full_name = fullName,
-            platform = pushPlatformId(),
-            device_id = DeviceIdentity.stableDeviceId(),
-            fcm_token = fcmToken,
-            login = appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
-            department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
-            device_name = com.tagaev.trrcrm.getPlatform().name,
-            app_version = Secrets.VERSION,
-        )
-
-        when (val res = repo.coreSessionBootstrap(req)) {
-            is Resource.Success -> {
-                appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
-                appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
-                println("CoreSession: bootstrap success mode=$bootstrapMode")
-                UnreadCountSync.refreshAsync(reason = "bootstrap_success", force = true)
-                startCoreHeartbeatLoop()
-            }
-            is Resource.Error -> {
-                val mapped = res.exception.toCoreApiError(res.causes ?: "bootstrap failed")
-                if (mapped.kind == CoreApiErrorKind.Validation) {
-                    appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, true)
-                }
-                println("CoreSession: bootstrap failed mode=$bootstrapMode ${res.causes ?: res.exception?.message}")
-            }
-            is Resource.Loading -> Unit
-        }
-    }
-
-    private fun startCoreHeartbeatLoop() {
-        if (coreHeartbeatJob?.isActive == true) return
-        coreHeartbeatJob = appScope.launch {
-            while (true) {
-                delay(5 * 60 * 1000L)
-                val sessionId = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty()
-                if (sessionId.isBlank()) continue
-                val heartbeatReq = com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest(
-                    sessionId = sessionId,
-                    fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN),
-                    appVersion = Secrets.VERSION
-                )
-                when (val hb = repo.coreSessionHeartbeat(heartbeatReq)) {
-                    is Resource.Success -> Unit
-                    is Resource.Error -> {
-                        val mapped = hb.exception.toCoreApiError(hb.causes ?: "Heartbeat failed")
-                        if (mapped.kind == CoreApiErrorKind.NotFound) {
-                            recoverCoreSessionAfterHeartbeat404()
-                        } else {
-                            println("CoreSession: heartbeat failed ${hb.causes ?: hb.exception?.message}")
-                        }
-                    }
-                    is Resource.Loading -> Unit
-                }
-            }
-        }
-    }
-
-    private suspend fun recoverCoreSessionAfterHeartbeat404() {
-        heartbeatRecoveryMutex.lock()
-        try {
-            println("CoreSession: heartbeat returned 404, attempting transparent re-bootstrap")
-            bootstrapCoreSessionAndStartHeartbeat()
-        } finally {
-            heartbeatRecoveryMutex.unlock()
-        }
     }
 
     override fun onLoginWithToken(token: String) {
@@ -388,13 +257,11 @@ class LoginComponent(
             try {
                 appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
                 runCatching { apiConfig.token = token }
-                SessionPermissions.clear()
-                val permissions = withContext(Dispatchers.Default) { repo.getPermission() }
+                val permissions = withContext(Dispatchers.Default) { CrmAuthUseCase.loginWithToken(token) }
                 withContext(Dispatchers.Main.immediate) {
                     when (permissions) {
                         is Resource.Success -> {
                             tokenRefreshAttemptedThisLogin = false
-                            SessionPermissions.replaceAll(permissions.data)
                             completeLogin()
                         }
                         is Resource.Loading -> Unit

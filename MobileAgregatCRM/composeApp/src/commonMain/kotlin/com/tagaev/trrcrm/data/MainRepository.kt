@@ -16,6 +16,13 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.ComplaintDto
+import com.tagaev.trrcrm.models.CatalogProductRequest
+import com.tagaev.trrcrm.models.CatalogProductRequestContact
+import com.tagaev.trrcrm.models.CatalogProductRequestItem
+import com.tagaev.trrcrm.models.CatalogProductRequestResponse
+import com.tagaev.trrcrm.models.CatalogProductsResponse
+import com.tagaev.trrcrm.models.CatalogSignupRequest
+import com.tagaev.trrcrm.models.CatalogSignupResponse
 import com.tagaev.trrcrm.models.CoreDeviceRegisterRequest
 import com.tagaev.trrcrm.models.CoreDeviceRegisterResponse
 import com.tagaev.trrcrm.models.CoreNotificationIntentRequest
@@ -510,6 +517,61 @@ class MainRepository(
     }
 
     suspend fun isPushFeatureEnabled(): Boolean = refreshPushFeatureToggleIfNeeded(force = false)
+
+    suspend fun catalogProducts(
+        search: String? = null,
+        brand: String? = null,
+        model: String? = null,
+        categoryId: String? = null,
+        page: Int = 1,
+        limit: Int = 20,
+    ): Resource<CatalogProductsResponse> = api.catalogProducts(
+        search = search,
+        brand = brand,
+        model = model,
+        categoryId = categoryId,
+        page = page,
+        limit = limit,
+    )
+
+    suspend fun catalogSignupRequest(
+        name: String,
+        phone: String?,
+        email: String,
+    ): Resource<CatalogSignupResponse> = api.catalogSignupRequest(
+        CatalogSignupRequest(
+            name = name.trim(),
+            phone = phone?.trim().takeUnless { it.isNullOrBlank() },
+            email = email.trim(),
+            source = "mobile_app",
+            crmSessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID),
+            crmLogin = settings.getStringOrNull(AppSettingsKeys.EMAIL),
+        )
+    )
+
+    suspend fun catalogProductRequest(
+        contactName: String,
+        contactEmail: String,
+        contactPhone: String?,
+        contactCompany: String?,
+        contactAddress: String?,
+        items: List<CatalogProductRequestItem>,
+    ): Resource<CatalogProductRequestResponse> = api.catalogProductRequest(
+        CatalogProductRequest(
+            contact = CatalogProductRequestContact(
+                name = contactName.trim(),
+                email = contactEmail.trim(),
+                phone = contactPhone?.trim().takeUnless { it.isNullOrBlank() },
+                company = contactCompany?.trim().takeUnless { it.isNullOrBlank() },
+                address = contactAddress?.trim().takeUnless { it.isNullOrBlank() },
+            ),
+            items = items,
+            source = "mobile_app",
+            crmSessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID),
+            crmLogin = settings.getStringOrNull(AppSettingsKeys.EMAIL),
+            crmFullName = settings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA),
+        )
+    )
 
     private fun shouldFallbackToLegacyPush(message: String?): Boolean {
         val raw = message?.lowercase().orEmpty()

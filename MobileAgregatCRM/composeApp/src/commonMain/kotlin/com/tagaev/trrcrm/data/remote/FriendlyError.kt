@@ -81,7 +81,11 @@ fun friendlyError(throwable: Throwable?, fallback: String): String {
 
     when (throwable) {
         is RedirectResponseException -> return MSG_SERVER_DOWN
-        is CoreApiException -> return mapHttpStatus(throwable.statusCode, fallback)
+        is CoreApiException -> {
+            val backendMessage = sanitizeMessage(throwable.errorMessage)
+            if (backendMessage.isNotBlank()) return backendMessage
+            return mapHttpStatus(throwable.statusCode, fallback)
+        }
         is ClientRequestException -> return mapHttpStatus(throwable.response.status.value, fallback)
         is ServerResponseException -> return mapHttpStatus(throwable.response.status.value, fallback)
     }
