@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -91,16 +92,15 @@ fun EventsHeader(
         }
 
         val fields = buildList {
-            add("Тема" to (e.subject ?: ""))
             add("Ссылка" to (e.link ?: ""))
-            add("Дата" to (e.date?.format(formatDDMMYYYY) ?: ""))
-            add("Дата изменения" to (e.modifiedDate ?: ""))
-            add("Состояние" to (e.state ?: ""))
-            add("ВидСобытия" to (e.eventType ?: ""))
-            add("ДатаНачала" to (e.startDate ?: ""))
-            add("ДатаОкончания" to (e.endDate ?: ""))
             add("Организация" to (e.organization ?: ""))
             add("Подразделение" to (e.companyDepartment ?: ""))
+            add("Вид события" to (e.eventType ?: ""))
+            add("Состояние" to (e.state ?: ""))
+            add("Дата создания" to (e.date?.format(formatDDMMYYYY) ?: ""))
+            add("Дата начала" to (e.startDate ?: ""))
+            add("Дата изменения" to (e.modifiedDate ?: ""))
+            add("Дата окончания" to (e.endDate ?: ""))
         }.filter { it.second.isNotBlank() }
 
         Column(
@@ -115,13 +115,15 @@ fun EventsHeader(
                     text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: "Событие не выбрано"),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f).basicMarquee()
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
 //                    TextButton(onClick = onRequestRefresh) { Text("Обновить") }
             }
             Spacer(Modifier.height(8.dp))
             Card {
-                FieldsTwoColumn(
+                EventMainInfoCard(
                     fields = fields,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,6 +259,40 @@ private fun FieldCell(label: String, value: String, modifier: Modifier = Modifie
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.basicMarquee()
         )
+    }
+}
+
+@Composable
+private fun EventMainInfoCard(
+    fields: List<Pair<String, String>>,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        fields.forEachIndexed { idx, (label, value) ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(0.42f)
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.End,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(0.58f)
+                )
+            }
+            if (idx != fields.lastIndex) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+            }
+        }
     }
 }
 

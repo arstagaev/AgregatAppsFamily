@@ -247,6 +247,9 @@ compose.desktop {
             modules("java.sql")
             windows {
                 iconFile.set(layout.projectDirectory.file("desktop-icons/app.ico"))
+                // Keep constant upgrade identity so newer MSI/EXE replaces previous versions
+                // instead of appearing as a separate product in Windows "Installed apps".
+                upgradeUuid = "a3c4fd68-d19b-4a90-bd3a-6f53e3f5e4c1"
             }
         }
     }
