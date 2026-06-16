@@ -4,6 +4,7 @@ import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.ComplaintDto
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.models.ExpenseRequestDto
 import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.models.WorkOrderDto
@@ -17,6 +18,7 @@ enum class TreeRootDocumentKind {
     BUYER_ORDER,
     SUPPLIER_ORDER,
     CARGO,
+    EXPENSE_REQUEST,
 }
 
 fun TreeRootDocumentKind.displayNameRu(): String = when (this) {
@@ -28,6 +30,7 @@ fun TreeRootDocumentKind.displayNameRu(): String = when (this) {
     TreeRootDocumentKind.BUYER_ORDER -> "Заказ покупателя"
     TreeRootDocumentKind.SUPPLIER_ORDER -> "Заказ поставщику"
     TreeRootDocumentKind.CARGO -> "Груз"
+    TreeRootDocumentKind.EXPENSE_REQUEST -> "Заявка на расход"
 }
 
 data class TreeRootDocumentRef(
@@ -80,6 +83,11 @@ sealed class TreeRootResolvedDocument {
         override val kind: TreeRootDocumentKind = TreeRootDocumentKind.CARGO
         override val guid: String? = value.guid
     }
+
+    data class ExpenseRequest(val value: ExpenseRequestDto) : TreeRootResolvedDocument() {
+        override val kind: TreeRootDocumentKind = TreeRootDocumentKind.EXPENSE_REQUEST
+        override val guid: String? = value.guid
+    }
 }
 
 /**
@@ -97,6 +105,7 @@ fun TreeRootResolvedDocument.stableStateKey(): String {
         is TreeRootResolvedDocument.BuyerOrder -> "${kind.name}:n:${value.number}"
         is TreeRootResolvedDocument.SupplierOrder -> "${kind.name}:n:${value.number}"
         is TreeRootResolvedDocument.Cargo -> "${kind.name}:n:${value.number}"
+        is TreeRootResolvedDocument.ExpenseRequest -> "${kind.name}:n:${value.number}"
     }
 }
 
@@ -113,6 +122,7 @@ fun TreeRootResolvedDocument.linkTabLabel(): String {
         is TreeRootResolvedDocument.BuyerOrder -> value.link
         is TreeRootResolvedDocument.SupplierOrder -> value.link
         is TreeRootResolvedDocument.Cargo -> value.link
+        is TreeRootResolvedDocument.ExpenseRequest -> value.link
     }?.trim().orEmpty()
     if (linkText.isNotBlank()) return linkText
     val number = when (this) {
@@ -124,6 +134,7 @@ fun TreeRootResolvedDocument.linkTabLabel(): String {
         is TreeRootResolvedDocument.BuyerOrder -> value.number
         is TreeRootResolvedDocument.SupplierOrder -> value.number
         is TreeRootResolvedDocument.Cargo -> value.number
+        is TreeRootResolvedDocument.ExpenseRequest -> value.number
     }?.trim().orEmpty()
     return if (number.isNotBlank()) "${kind.displayNameRu()} № $number" else kind.displayNameRu()
 }
@@ -199,6 +210,7 @@ object TreeRootDocument {
             "заказ покупателя", "заказ покупат", "покупательский заказ" -> TypeMapping("ЗаказПокупателя", TreeRootDocumentKind.BUYER_ORDER)
             "заказ поставщику", "заказ поставщика" -> TypeMapping("ЗаказПоставщику", TreeRootDocumentKind.SUPPLIER_ORDER)
             "груз" -> TypeMapping("Груз", TreeRootDocumentKind.CARGO)
+            "заявка на расход" -> TypeMapping("ЗаявкаНаРасход", TreeRootDocumentKind.EXPENSE_REQUEST)
             else -> null
         }
     }

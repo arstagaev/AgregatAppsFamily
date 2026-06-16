@@ -51,6 +51,7 @@ import com.tagaev.trrcrm.models.PushFeatureToggleGetResponse
 import com.tagaev.trrcrm.models.PushFeatureToggleSetRequest
 import com.tagaev.trrcrm.models.PushFeatureToggleSetResponse
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.models.ExpenseRequestDto
 import com.tagaev.trrcrm.models.IncomingApplicationDto
 import com.tagaev.trrcrm.models.RepairTemplateCatalogItemDto
 import com.tagaev.trrcrm.models.GetTokenResponse
@@ -148,6 +149,9 @@ class MainRepository(
 
     suspend fun loadIncomingApplications(ncount: Int, currentRefine: RefineState): Resource<List<IncomingApplicationDto>> =
         api.getIncomingApplications(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+
+    suspend fun loadExpenseRequests(ncount: Int, currentRefine: RefineState): Resource<List<ExpenseRequestDto>> =
+        api.getExpenseRequests(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadRepairTemplateCatalog(ncount: Int, currentRefine: RefineState): Resource<List<RepairTemplateCatalogItemDto>> =
         api.getRepairTemplateCatalog(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
@@ -265,6 +269,17 @@ class MainRepository(
                         val item = result.data.firstOrNull()
                         if (item == null) Resource.Error(causes = "Документ-основание не найден")
                         else Resource.Success(TreeRootResolvedDocument.Cargo(item))
+                    }
+                    is Resource.Error -> Resource.Error(result.exception, result.causes)
+                    is Resource.Loading -> Resource.Loading
+                }
+            }
+            TreeRootDocumentKind.EXPENSE_REQUEST -> {
+                when (val result = api.findDocumentsByNumber<ExpenseRequestDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
+                    is Resource.Success -> {
+                        val item = result.data.firstOrNull()
+                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        else Resource.Success(TreeRootResolvedDocument.ExpenseRequest(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
                     is Resource.Loading -> Resource.Loading

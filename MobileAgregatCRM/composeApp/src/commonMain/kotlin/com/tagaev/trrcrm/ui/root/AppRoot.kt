@@ -54,6 +54,7 @@ import com.tagaev.trrcrm.ui.complectation.ComplectationsScreen
 import com.tagaev.trrcrm.ui.complaints.ComplaintsScreen
 import com.tagaev.trrcrm.ui.events.EventsScreen
 import com.tagaev.trrcrm.ui.incoming_applications.IncomingApplicationsScreen
+import com.tagaev.trrcrm.ui.expense_requests.ExpenseRequestsScreen
 import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
 import com.tagaev.trrcrm.ui.menu.MenuScreen
@@ -69,6 +70,7 @@ import compose.icons.feathericons.Phone
 import compose.icons.feathericons.Truck
 import compose.icons.feathericons.Zap
 import compose.icons.feathericons.Cpu
+import compose.icons.feathericons.DollarSign
 import compose.icons.lineawesomeicons.CarSideSolid
 import compose.icons.lineawesomeicons.CheckCircle
 import compose.icons.lineawesomeicons.QrcodeSolid
@@ -232,6 +234,14 @@ fun AppRoot(root: IRootComponent) {
                                 }
                                 root.openRepairTemplateCatalog(needBackToList)
                             },
+                            onExpenseRequests = {
+                                val needBackToList = if (activeChild !is IRootComponent.Child.ExpenseRequests) {
+                                    false
+                                } else {
+                                    true
+                                }
+                                root.openExpenseRequests(needBackToList)
+                            },
                             onMenu = { if (activeChild !is IRootComponent.Child.Menu) root.openMenu() },
                             onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
                         )
@@ -258,6 +268,7 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.InnerOrder -> InnerOrdersScreen(c.component)
                         is IRootComponent.Child.IncomingApplications -> IncomingApplicationsScreen(c.component)
                         is IRootComponent.Child.RepairTemplateCatalog -> RepairTemplateCatalogScreen(c.component)
+                        is IRootComponent.Child.ExpenseRequests -> ExpenseRequestsScreen(c.component)
                         is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
                         is IRootComponent.Child.Settings -> SettingsScreen(c.component)
                         is IRootComponent.Child.ProductDemo -> ProductDemoScreen(c.component)
@@ -328,6 +339,7 @@ fun AppBottomNavBar2(
     onInnerOrder: () -> Unit,
     onIncomingApplications: () -> Unit,
     onRepairTemplateCatalog: () -> Unit,
+    onExpenseRequests: () -> Unit,
 ) {
     val permissionMap by SessionPermissions.state
     val showWorkOrderTab = remember(permissionMap) {
@@ -451,6 +463,13 @@ fun AppBottomNavBar2(
                 onClick = onRepairTemplateCatalog,
                 icon = { Icon(FeatherIcons.Cpu, contentDescription = null) },
                 label = "Калькуляция"
+            )
+
+            BottomNavChip(
+                selected = activeChild is IRootComponent.Child.ExpenseRequests,
+                onClick = onExpenseRequests,
+                icon = { Icon(FeatherIcons.DollarSign, contentDescription = null) },
+                label = "Заявки расход"
             )
 
             BottomNavChip(

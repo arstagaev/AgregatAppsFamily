@@ -21,6 +21,7 @@ import com.tagaev.trrcrm.ui.details.DetailsComponent
 import com.tagaev.trrcrm.ui.events.EventsComponent
 import com.tagaev.trrcrm.ui.favorites.FavoritesComponent
 import com.tagaev.trrcrm.ui.incoming_applications.IncomingApplicationsComponent
+import com.tagaev.trrcrm.ui.expense_requests.ExpenseRequestsComponent
 import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogComponent
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersComponent
 import com.tagaev.trrcrm.ui.login.ILoginComponent
@@ -61,6 +62,7 @@ interface IRootComponent {
     fun openInnerOrder(needBackToList: Boolean)
     fun openIncomingApplications(needBackToList: Boolean)
     fun openRepairTemplateCatalog(needBackToList: Boolean)
+    fun openExpenseRequests(needBackToList: Boolean)
     fun openComplectation(needBackToList: Boolean)
     fun openWorkOrders(needBackToList: Boolean)
     fun openQRScanner()
@@ -97,6 +99,7 @@ interface IRootComponent {
         data object InnerOrder : Config
         data object IncomingApplications : Config
         data object RepairTemplateCatalog : Config
+        data object ExpenseRequests : Config
         data object Favorites : Config
         data object Menu : Config
         data object Settings : Config
@@ -119,6 +122,7 @@ interface IRootComponent {
         data class InnerOrder(val component: InnerOrdersComponent) : Child
         data class IncomingApplications(val component: IncomingApplicationsComponent) : Child
         data class RepairTemplateCatalog(val component: RepairTemplateCatalogComponent) : Child
+        data class ExpenseRequests(val component: ExpenseRequestsComponent) : Child
         data class Settings(val component: ISettingsComponent) : Child
         data class ProductDemo(val component: IProductDemoComponent) : Child
         data class Menu(val component: IMenuComponent) : Child
@@ -233,6 +237,9 @@ class DefaultRootComponent(
 
             is IRootComponent.Config.RepairTemplateCatalog ->
                 IRootComponent.Child.RepairTemplateCatalog(RepairTemplateCatalogComponent(ctx) { nav.pop() })
+
+            is IRootComponent.Config.ExpenseRequests ->
+                IRootComponent.Child.ExpenseRequests(ExpenseRequestsComponent(ctx) { nav.pop() })
 
             is IRootComponent.Config.Menu ->
                 IRootComponent.Child.Menu(MenuComponent(ctx,
@@ -476,6 +483,17 @@ class DefaultRootComponent(
         }
     }
 
+    override fun openExpenseRequests(needBackToList: Boolean) {
+        if (needBackToList) {
+            val listChild = childStack.value.items
+                .firstOrNull { it.configuration is IRootComponent.Config.ExpenseRequests }
+                ?.instance as? IRootComponent.Child.ExpenseRequests
+            listChild?.component?._masterScreenPanel?.value = MasterPanel.List
+        } else {
+            bringToFrontWithRestore(IRootComponent.Config.ExpenseRequests)
+        }
+    }
+
     override fun openSettings() = bringToFrontWithRestore(IRootComponent.Config.Settings)
     override fun openLogin() = bringToFrontWithRestore(IRootComponent.Config.Login)
     override fun openProductDemo() = bringToFrontWithRestore(IRootComponent.Config.ProductDemo)
@@ -599,6 +617,7 @@ class DefaultRootComponent(
                 is IRootComponent.Child.InnerOrder -> childInstance.component
                 is IRootComponent.Child.IncomingApplications -> childInstance.component
                 is IRootComponent.Child.RepairTemplateCatalog -> childInstance.component
+                is IRootComponent.Child.ExpenseRequests -> childInstance.component
                 else -> null
             }
             if (master != null) return master
@@ -659,6 +678,14 @@ class DefaultRootComponent(
             "шаблоны_ремонта",
             "калькуляция",
             -> IRootComponent.Config.RepairTemplateCatalog
+            "expense_requests",
+            "expense_request",
+            "expenserequests",
+            "expenserequest",
+            "заявканарасход",
+            "заявки_на_расход",
+            "заявкирасход",
+            -> IRootComponent.Config.ExpenseRequests
             else -> null
         }
     }

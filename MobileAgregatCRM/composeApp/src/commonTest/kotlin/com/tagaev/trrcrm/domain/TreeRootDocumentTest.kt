@@ -34,6 +34,15 @@ class TreeRootDocumentTest {
     }
 
     @Test
+    fun parseExpenseRequest() {
+        val parsed = TreeRootDocument.parse("Заявка на расход 000000004 от 18.05.2026 17:51:49")
+        assertNotNull(parsed)
+        assertEquals("ЗаявкаНаРасход", parsed.requestName)
+        assertEquals(TreeRootDocumentKind.EXPENSE_REQUEST, parsed.kind)
+        assertEquals("000000004", parsed.documentNumber)
+    }
+
+    @Test
     fun parseUnknownTypeReturnsNull() {
         val parsed = TreeRootDocument.parse("Неизвестный документ 777 от 01.01.2026")
         assertNull(parsed)

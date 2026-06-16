@@ -8,6 +8,7 @@ import com.tagaev.trrcrm.ui.complectation.ComplectationDetailsSheet
 import com.tagaev.trrcrm.ui.complectation.ComplectationTreeStackedUi
 import com.tagaev.trrcrm.ui.complaints.ComplaintDetailsSheetWithMessages
 import com.tagaev.trrcrm.ui.events.EventDetailsSheet
+import com.tagaev.trrcrm.ui.expense_requests.ExpenseRequestDetailsSheet
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrderDetailsSheetWithMessages
 import com.tagaev.trrcrm.ui.supplier_order.SupplierOrderDetailsSheet
 import com.tagaev.trrcrm.ui.work_order.WorkOrderDetailsSheet
@@ -70,6 +71,10 @@ fun TreeRootDocumentDetailsSheet(
         is TreeRootResolvedDocument.Cargo -> CargoDetailsSheet(
             cargo = document.value,
             onClose = onBack,
+            onOpenBaseDocument = onOpenBaseDocument,
+        )
+        is TreeRootResolvedDocument.ExpenseRequest -> ExpenseRequestDetailsSheet(
+            item = document.value,
             onOpenBaseDocument = onOpenBaseDocument,
         )
     }
