@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,8 +32,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,10 +49,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.tagaev.trrcrm.data.MainRepository
+import com.tagaev.trrcrm.data.fixator.FixatorPendingPhotoEntry
+import com.tagaev.trrcrm.data.fixator.FixatorPhotoStorage
+import com.tagaev.trrcrm.data.fixator.GallerySaveResult
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.domain.FixatorPhotoNormalizationException
 import com.tagaev.trrcrm.domain.normalizeFixatorPhoto
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
@@ -59,6 +67,7 @@ import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.FixatorCameraControls
 import com.tagaev.trrcrm.ui.permissions.FixatorCameraPreview
 import com.tagaev.trrcrm.ui.permissions.decodePhotoThumbnail
+import com.tagaev.trrcrm.ui.permissions.rememberPhotoLibrarySavePermission
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.Camera
@@ -68,13 +77,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
-import kotlin.random.Random
 
 internal data class CapturedPhoto(
-    val id: String,
-    val bytes: ByteArray,
+    val entry: FixatorPendingPhotoEntry,
     val thumbnail: ImageBitmap?,
-)
+) {
+    val id: String get() = entry.id
+}
 
 private sealed interface UploadUiStatus {
     data object Idle : UploadUiStatus
@@ -83,7 +92,17 @@ private sealed interface UploadUiStatus {
     data class Error(val message: String) : UploadUiStatus
 }
 
+private enum class CameraSnackbarKind {
+    Default,
+    Error,
+    Success,
+}
+
+private val SuccessSnackbarTextColor = Color(0xFF2E7D32)
+private val SuccessSnackbarContainerColor = Color(0xFFE8F5E9)
+
 private const val THUMB_SIZE_DP = 72
+private const val MAX_PHOTOS_PER_UPLOAD = 10
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,31 +114,89 @@ fun DocumentCameraScreen(
     onBack: () -> Unit,
 ) {
     val repository = koinInject<MainRepository>()
+    val photoStorage = koinInject<FixatorPhotoStorage>()
+    val galleryPermission = rememberPhotoLibrarySavePermission()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    var snackbarIsError by remember { mutableStateOf(false) }
+    var snackbarKind by remember { mutableStateOf(CameraSnackbarKind.Default) }
 
     val photos = remember { mutableStateListOf<CapturedPhoto>() }
     var uploadStatus by remember { mutableStateOf<UploadUiStatus>(UploadUiStatus.Idle) }
     var cameraControls by remember { mutableStateOf<FixatorCameraControls?>(null) }
     var isProcessingPhoto by remember { mutableStateOf(false) }
     var previewPhoto by remember { mutableStateOf<CapturedPhoto?>(null) }
+    var showUploadSuccessDialog by remember { mutableStateOf(false) }
 
     val isUploading = uploadStatus is UploadUiStatus.Uploading
-    val canCapture = cameraControls != null && !isProcessingPhoto && !isUploading
+    val hasReachedPhotoLimit = photos.size >= MAX_PHOTOS_PER_UPLOAD
+    val canCapture = cameraControls != null && !isProcessingPhoto && !isUploading && !hasReachedPhotoLimit
 
-    fun showCameraSnackbar(message: String, isError: Boolean = false) {
-        snackbarIsError = isError
+    fun showCameraSnackbar(message: String, kind: CameraSnackbarKind = CameraSnackbarKind.Default) {
+        snackbarKind = kind
+        val displayMessage = if (kind == CameraSnackbarKind.Error) {
+            userFacingMessage(message, message)
+        } else {
+            message
+        }
         scope.launch {
             snackbarHostState.showSnackbar(
-                message = message,
+                message = displayMessage,
                 duration = SnackbarDuration.Short,
             )
         }
     }
 
+    suspend fun trySaveToPublicGallery(normalizedBytes: ByteArray, displayName: String) {
+        if (!galleryPermission.canSaveToGallery) return
+        when (photoStorage.saveToPublicGallery(normalizedBytes, displayName)) {
+            GallerySaveResult.Success -> Unit
+            GallerySaveResult.PermissionDenied -> {
+                showCameraSnackbar("Фото сохранено локально, в галерею не добавлено")
+            }
+            GallerySaveResult.Failed -> {
+                showCameraSnackbar("Фото сохранено локально, в галерею не добавлено")
+            }
+            GallerySaveResult.Unavailable -> Unit
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (galleryPermission.shouldRequest) {
+            galleryPermission.request()
+        }
+    }
+
+    LaunchedEffect(documentNumber) {
+        val pending = photoStorage.listPendingPhotos(documentNumber)
+        if (pending.isEmpty()) return@LaunchedEffect
+        photos.clear()
+        pending.forEach { entry ->
+            runCatching {
+                val bytes = photoStorage.readPendingPhotoBytes(documentNumber, entry)
+                photos.add(
+                    CapturedPhoto(
+                        entry = entry,
+                        thumbnail = decodePhotoThumbnail(bytes),
+                    ),
+                )
+            }.onFailure { error ->
+                CameraFixatorLog.d("photo_restore_failed id=${entry.id} message=${error.message}")
+            }
+        }
+        if (photos.isNotEmpty()) {
+            showCameraSnackbar("Восстановлено ${photos.size} фото, ожидают отправки")
+        }
+    }
+
     fun addPhoto(rawBytes: ByteArray) {
         if (isProcessingPhoto) return
+        if (photos.size >= MAX_PHOTOS_PER_UPLOAD) {
+            showCameraSnackbar(
+                "Можно добавить не более $MAX_PHOTOS_PER_UPLOAD фото за одну отправку",
+                kind = CameraSnackbarKind.Error,
+            )
+            return
+        }
         isProcessingPhoto = true
         scope.launch {
             val rawSize = rawBytes.size
@@ -128,35 +205,57 @@ fun DocumentCameraScreen(
                     normalizeFixatorPhoto(rawBytes)
                 }
             }
-            isProcessingPhoto = false
             normalizedResult
                 .onSuccess { normalizedBytes ->
+                    val savedEntry = runCatching {
+                        photoStorage.savePendingPhoto(
+                            documentNumber = documentNumber,
+                            documentName = documentName,
+                            normalizedBytes = normalizedBytes,
+                        )
+                    }.getOrElse { error ->
+                        isProcessingPhoto = false
+                        CameraFixatorLog.d("photo_save_failed message=${error.message}")
+                        showCameraSnackbar("Не удалось сохранить фото на устройстве", kind = CameraSnackbarKind.Error)
+                        return@launch
+                    }
+                    trySaveToPublicGallery(normalizedBytes, savedEntry.fileName)
                     photos.add(
                         CapturedPhoto(
-                            id = Random.nextLong().toString(),
-                            bytes = normalizedBytes,
+                            entry = savedEntry,
                             thumbnail = decodePhotoThumbnail(normalizedBytes),
                         ),
                     )
+                    isProcessingPhoto = false
                     CameraFixatorLog.d(
                         "photo_added count=${photos.size} size=${normalizedBytes.size} normalized_from=$rawSize",
                     )
                     showCameraSnackbar("Фото сделано")
+                    performCameraHapticFeedback(CameraHapticFeedbackStrength.PhotoCaptured)
                 }
                 .onFailure { error ->
+                    isProcessingPhoto = false
                     val message = when (error) {
                         is FixatorPhotoNormalizationException -> error.message ?: "Не удалось обработать фото"
                         else -> "Не удалось обработать фото"
                     }
                     CameraFixatorLog.d("photo_normalize_failed from=$rawSize message=$message")
-                    showCameraSnackbar(message, isError = true)
+                    showCameraSnackbar(message, kind = CameraSnackbarKind.Error)
                 }
         }
     }
 
     fun removePhoto(photoId: String) {
-        photos.removeAll { it.id == photoId }
-        showCameraSnackbar("Фото удалено")
+        val photo = photos.find { it.id == photoId } ?: return
+        scope.launch {
+            runCatching {
+                photoStorage.deletePendingPhoto(documentNumber, photo.entry)
+            }.onFailure { error ->
+                CameraFixatorLog.d("photo_delete_failed id=$photoId message=${error.message}")
+            }
+            photos.removeAll { it.id == photoId }
+            showCameraSnackbar("Фото удалено")
+        }
     }
 
     Scaffold(
@@ -174,15 +273,15 @@ fun DocumentCameraScreen(
             SnackbarHost(snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = if (snackbarIsError) {
-                        MaterialTheme.colorScheme.errorContainer
-                    } else {
-                        MaterialTheme.colorScheme.inverseSurface
+                    containerColor = when (snackbarKind) {
+                        CameraSnackbarKind.Error -> MaterialTheme.colorScheme.errorContainer
+                        CameraSnackbarKind.Success -> SuccessSnackbarContainerColor
+                        CameraSnackbarKind.Default -> MaterialTheme.colorScheme.inverseSurface
                     },
-                    contentColor = if (snackbarIsError) {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    } else {
-                        MaterialTheme.colorScheme.inverseOnSurface
+                    contentColor = when (snackbarKind) {
+                        CameraSnackbarKind.Error -> MaterialTheme.colorScheme.onErrorContainer
+                        CameraSnackbarKind.Success -> SuccessSnackbarTextColor
+                        CameraSnackbarKind.Default -> MaterialTheme.colorScheme.inverseOnSurface
                     },
                 )
             }
@@ -197,10 +296,16 @@ fun DocumentCameraScreen(
                                 "upload_start document=$documentNumber photos=${photos.size}",
                             )
                             uploadStatus = UploadUiStatus.Uploading
+                            val entries = photos.map { it.entry }
+                            val photoBytes = withContext(Dispatchers.Default) {
+                                entries.map { entry ->
+                                    photoStorage.readPendingPhotoBytes(documentNumber, entry)
+                                }
+                            }
                             when (
                                 val result = repository.uploadFixatorPhotos(
                                     documentNumber = documentNumber,
-                                    photos = photos.map { it.bytes },
+                                    photos = photoBytes,
                                     documentName = documentName,
                                 )
                             ) {
@@ -209,21 +314,16 @@ fun DocumentCameraScreen(
                                         "upload_success files=${result.data.storedFilenames.size} folder=${result.data.ftpFolderPath}",
                                     )
                                     uploadStatus = UploadUiStatus.Success(result.data)
-                                    val count = result.data.storedFilenames.size.coerceAtLeast(photos.size)
+                                    photoStorage.deletePendingPhotos(documentNumber, entries)
                                     photos.clear()
-                                    showCameraSnackbar(
-                                        if (count == 1) {
-                                            "Фото отправлено успешно"
-                                        } else {
-                                            "Фотографии отправлены успешно"
-                                        },
-                                    )
+                                    showUploadSuccessDialog = true
+                                    performCameraHapticFeedback(CameraHapticFeedbackStrength.UploadSucceeded)
                                 }
                                 is Resource.Error -> {
                                     CameraFixatorLog.d("upload_error message=${result.causes}")
                                     val message = result.causes ?: "Не удалось отправить фото"
                                     uploadStatus = UploadUiStatus.Error(message)
-                                    showCameraSnackbar(message, isError = true)
+                                    showCameraSnackbar(message, kind = CameraSnackbarKind.Error)
                                 }
                                 is Resource.Loading -> Unit
                             }
@@ -264,15 +364,27 @@ fun DocumentCameraScreen(
                         .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FixatorCameraPreview(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
-                            .clip(RoundedCornerShape(16.dp)),
-                        onPhotoCaptured = ::addPhoto,
-                        onControlsChanged = { cameraControls = it },
-                        onLog = CameraFixatorLog::d,
-                    )
+                            .weight(1f),
+                    ) {
+                        FixatorCameraPreview(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(16.dp)),
+                            onPhotoCaptured = ::addPhoto,
+                            onControlsChanged = { cameraControls = it },
+                            onLog = CameraFixatorLog::d,
+                        )
+                        CameraPhotoCounterBadge(
+                            count = photos.size,
+                            max = MAX_PHOTOS_PER_UPLOAD,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp),
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -307,12 +419,12 @@ fun DocumentCameraScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 8.dp),
             ) {
-                item {
-                    PhotoAddTile(
-                        enabled = canCapture,
-                        onClick = { cameraControls?.capturePhoto() },
-                    )
-                }
+//                item {
+//                    PhotoAddTile(
+//                        enabled = canCapture,
+//                        onClick = { cameraControls?.capturePhoto() },
+//                    )
+//                }
                 items(photos, key = { it.id }) { photo ->
                     PhotoThumbnailTile(
                         photo = photo,
@@ -328,6 +440,47 @@ fun DocumentCameraScreen(
         PhotoPreviewDialog(
             photo = photo,
             onDismiss = { previewPhoto = null },
+        )
+    }
+
+    if (showUploadSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showUploadSuccessDialog = false },
+            text = {
+                Text("Фотографии успешно загружены в комплектацию $documentNumber")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUploadSuccessDialog = false
+                        uploadStatus = UploadUiStatus.Idle
+                    },
+                ) {
+                    Text("ОК")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun CameraPhotoCounterBadge(
+    count: Int,
+    max: Int,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Black.copy(alpha = 0.55f),
+    ) {
+        Text(
+            text = "$count/$max",
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
         )
     }
 }

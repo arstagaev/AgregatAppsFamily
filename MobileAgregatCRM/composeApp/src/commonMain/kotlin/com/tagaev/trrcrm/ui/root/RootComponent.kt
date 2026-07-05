@@ -10,6 +10,7 @@ import com.arkivanov.decompose.value.Value
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.EventsApi
+import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.push.DeepLinkBridge
 import com.tagaev.trrcrm.push.NotificationContextParser
@@ -741,9 +742,8 @@ class DefaultRootComponent(
             is DeepLinkOpenResult.Failed -> {
                 if (context.requestId != activeDeepLinkRequestId) return
                 masterComponent.restoreAfterDeepLinkIfNeeded()
-                _notFoundDialogMessage.value = result.reason.ifBlank {
-                    "Документ ${context.docTypeLabel}. $identifier не найден"
-                }
+                val defaultMessage = "Документ ${context.docTypeLabel}. $identifier не найден"
+                _notFoundDialogMessage.value = userFacingMessage(result.reason, defaultMessage)
             }
         }
     }

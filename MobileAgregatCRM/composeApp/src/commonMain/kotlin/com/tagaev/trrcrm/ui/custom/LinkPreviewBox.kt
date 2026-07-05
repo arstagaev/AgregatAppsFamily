@@ -31,6 +31,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import org.koin.compose.koinInject
+import com.tagaev.trrcrm.data.remote.friendlyError
 import kotlin.toString
 
 
@@ -73,7 +74,7 @@ fun LinkPreviewBox(
         try {
             preview = fetchLinkPreview(httpClient, firstUrl)
         } catch (t: Throwable) {
-            error = t.message ?: "Ошибка загрузки превью"
+            error = friendlyError(t, "Ошибка загрузки превью")
         } finally {
             isLoading = false
         }

@@ -98,6 +98,9 @@ sealed class Resource<out R> {
     object Loading: Resource<Nothing>()
 }
 
+fun Resource.Error<*>.userMessage(fallback: String): String =
+    userFacingMessage(causes, friendlyError(exception, fallback))
+
 class EventsApi(
     private val client: HttpClient
 ) {

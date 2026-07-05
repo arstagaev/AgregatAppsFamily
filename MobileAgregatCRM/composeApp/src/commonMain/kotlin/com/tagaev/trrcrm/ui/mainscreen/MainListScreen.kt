@@ -323,8 +323,8 @@ fun MainListScreen(component: ListComponent) {
                         try {
                             component.setFiltersAndRefresh(filters.sanitize())
                         } catch (t: Throwable) {
-                            error = t.message ?: "Unknown error"
-                            errorText = error ?: "Unknown error"
+                            error = friendlyError(t, "Неизвестная ошибка")
+                            errorText = friendlyError(t, "Неизвестная ошибка")
                             showErrorDialog = true
                         } finally {
                             gate.join()

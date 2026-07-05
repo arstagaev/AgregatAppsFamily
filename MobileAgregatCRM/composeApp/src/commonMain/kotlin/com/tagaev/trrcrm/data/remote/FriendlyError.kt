@@ -37,7 +37,24 @@ private val UNSAFE_DUMP_MARKERS = listOf(
 )
 
 private val URL_REGEX = Regex("""https?://\S+""")
+private val HOST_PATH_REGEX = Regex(
+    """\b[\w.-]+\.(?:ru|com|net|org|io)(?::\d+)?(?:/\S*)?""",
+    RegexOption.IGNORE_CASE,
+)
+private val IPV4_REGEX = Regex("""\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?(?:/\S*)?""")
 private val TOKEN_REGEX = Regex("""token=[^\s&"']+""", RegexOption.IGNORE_CASE)
+private val KTOR_REQUEST_REGEX = Regex(
+    """(?i)(client request|server response|request)\s*\([^)]*\)""",
+)
+private val PROJECT_HOST_MARKERS = listOf(
+    "agregatka",
+    "trrservice",
+    "agrapp",
+)
+
+private val TECHNICAL_REMAINS_REGEX = Regex(
+    """(?i)(https?://|\b\d{1,3}(?:\.\d{1,3}){3}\b|[\w.-]+\.(?:ru|com|net|org|io)\b|client request|server response)""",
+)
 
 /**
  * Strip URLs and tokens from a raw message. Returns "" if the message
@@ -47,10 +64,35 @@ fun sanitizeMessage(raw: String?): String {
     if (raw.isNullOrBlank()) return ""
     val lower = raw.lowercase()
     if (UNSAFE_DUMP_MARKERS.any { it in lower }) return ""
-    return raw
+    if (PROJECT_HOST_MARKERS.any { it in lower }) return ""
+    val cleaned = stripKnownSensitiveFragments(raw)
+    if (cleaned.isBlank()) return ""
+    if (looksTechnical(cleaned)) return ""
+    return cleaned
+}
+
+fun userFacingMessage(raw: String?, fallback: String = "Произошла ошибка"): String {
+    val sanitized = sanitizeMessage(raw)
+    return sanitized.ifBlank { fallback }
+}
+
+private fun stripKnownSensitiveFragments(raw: String): String =
+    raw
         .replace(URL_REGEX, "")
+        .replace(HOST_PATH_REGEX, "")
+        .replace(IPV4_REGEX, "")
         .replace(TOKEN_REGEX, "")
+        .replace(KTOR_REQUEST_REGEX, "")
+        .replace(Regex("""\s{2,}"""), " ")
         .trim()
+        .trim('(', ')', '|', '-', ':', ';', ',')
+
+private fun looksTechnical(value: String): Boolean {
+    val lower = value.lowercase()
+    if (TECHNICAL_REMAINS_REGEX.containsMatchIn(value)) return true
+    if (PROJECT_HOST_MARKERS.any { it in lower }) return true
+    if (HTTP_PREFIX_REGEX.containsMatchIn(value)) return true
+    return false
 }
 
 /**

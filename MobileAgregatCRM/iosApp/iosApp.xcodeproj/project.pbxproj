@@ -218,6 +218,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "TRR Client";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Нужна камера для сканирования QR-кодов";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Нужен доступ для сохранения фото комплектации в галерею";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -323,6 +324,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "TRR Client";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Нужна камера для сканирования QR-кодов";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Нужен доступ для сохранения фото комплектации в галерею";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

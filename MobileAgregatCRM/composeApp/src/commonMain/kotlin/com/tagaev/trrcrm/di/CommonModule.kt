@@ -11,6 +11,7 @@ import com.tagaev.trrcrm.data.db.EventsCacheStore
 import com.tagaev.trrcrm.data.db.FavoritesStore
 import com.tagaev.trrcrm.data.db.createDatabase
 import com.tagaev.trrcrm.data.db.isSqlDriverAvailable
+import com.tagaev.trrcrm.data.fixator.createFixatorPhotoStorage
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.HttpClientFactory
 import com.tagaev.trrcrm.data.remote.ImageMediatorApi
@@ -49,6 +50,7 @@ val commonModule = module {
     }
 
     single { ImageMediatorApi(client = get()) }
+    single { createFixatorPhotoStorage() }
 
 //    single { provideHttpClient() } // you already have this
 

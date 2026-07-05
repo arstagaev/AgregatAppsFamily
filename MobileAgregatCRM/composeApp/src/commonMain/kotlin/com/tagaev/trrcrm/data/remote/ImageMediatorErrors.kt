@@ -7,7 +7,7 @@ class ImageMediatorException(
     val statusCode: Int,
     val url: String,
     val responseBody: String,
-) : Exception("HTTP $statusCode $url | ${responseBody.take(500)}")
+) : Exception("HTTP $statusCode")
 
 fun imageMediatorErrorMessage(statusCode: Int, fallback: String = "Не удалось отправить фото"): String =
     when (statusCode) {

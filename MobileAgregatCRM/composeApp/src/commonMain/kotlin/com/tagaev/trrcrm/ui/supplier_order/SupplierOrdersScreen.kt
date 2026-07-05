@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.remote.Resource
+import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootDocumentKind
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
@@ -164,7 +165,7 @@ fun SupplierOrdersScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = e.message ?: "Ошибка поиска документа") }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
                             is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
                             is Resource.Loading -> Unit

@@ -223,7 +223,7 @@ fun WorkOrdersScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = e.message ?: "Ошибка поиска документа") }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
                             is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
                             is Resource.Loading -> Unit

@@ -144,7 +144,7 @@ class DefaultQRScannerComponent(
                 _state.update {
                     it.copy(
                         isOpeningComplectation = false,
-                        openComplectationError = t.message ?: "Не удалось открыть комплектацию"
+                        openComplectationError = friendlyError(t, "Не удалось открыть комплектацию")
                     )
                 }
             }

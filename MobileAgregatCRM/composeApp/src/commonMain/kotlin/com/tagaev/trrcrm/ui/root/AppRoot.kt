@@ -85,6 +85,7 @@ import com.tagaev.trrcrm.navigation.BottomNavLayoutState
 import com.tagaev.trrcrm.navigation.toBottomNavItemId
 import com.tagaev.trrcrm.push.NotificationsUnreadState
 import com.tagaev.trrcrm.updates.DesktopUpdateService
+import com.tagaev.trrcrm.data.remote.userFacingMessage
 
 val LocalAppSnackbar = staticCompositionLocalOf<(String) -> Unit> {
     { _ -> }
@@ -108,7 +109,7 @@ fun AppRoot(root: IRootComponent) {
         LaunchedEffect(searchDiagnosticMessage) {
             if (searchDiagnosticMessage.isNotBlank()) {
                 snackbarHostState.showSnackbar(
-                    message = searchDiagnosticMessage,
+                    message = userFacingMessage(searchDiagnosticMessage, searchDiagnosticMessage),
                     duration = SnackbarDuration.Short
                 )
                 root.consumeSearchDiagnostic()
@@ -135,7 +136,7 @@ fun AppRoot(root: IRootComponent) {
             LocalAppSnackbar provides { message: String ->
                 scope.launch {
                     snackbarHostState.showSnackbar(
-                        message = message,
+                        message = userFacingMessage(message, message),
                         duration = SnackbarDuration.Short // ~4 seconds
                     )
                 }
@@ -199,7 +200,7 @@ fun AppRoot(root: IRootComponent) {
                 AlertDialog(
                     onDismissRequest = root::consumeNotFoundDialog,
                     title = { Text("Документ не найден") },
-                    text = { Text(notFoundMessage) },
+                    text = { Text(userFacingMessage(notFoundMessage, notFoundMessage)) },
                     confirmButton = {
                         TextButton(onClick = root::consumeNotFoundDialog) {
                             Text("OK")

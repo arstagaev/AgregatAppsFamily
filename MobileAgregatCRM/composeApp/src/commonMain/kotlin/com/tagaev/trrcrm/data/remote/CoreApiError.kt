@@ -35,7 +35,7 @@ class CoreApiException(
     val errorCode: String? = null,
     val errorMessage: String? = null,
     val fields: List<CoreApiFieldError> = emptyList(),
-) : Exception("HTTP $statusCode $url | ${responseBody.take(500)}")
+) : Exception("HTTP $statusCode")
 
 fun CoreApiException.normalizedErrorCode(): String {
     return errorCode

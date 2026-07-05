@@ -21,6 +21,7 @@ import compose.icons.feathericons.AlertCircle
 import compose.icons.feathericons.CheckCircle
 import compose.icons.feathericons.Copy
 import com.tagaev.trrcrm.getPlatform
+import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.CameraView
 import com.tagaev.trrcrm.utils.getTimestamp
@@ -38,11 +39,11 @@ fun QRScannerScreen(component: IQRScannerComponent) {
 
     // Show error from state (like "Некорректный QR-код")
     LaunchedEffect(state.lastError) {
-        state.lastError?.let { snackbarHostState.showSnackbar(it) }
+        state.lastError?.let { snackbarHostState.showSnackbar(userFacingMessage(it, it)) }
     }
     LaunchedEffect(state.openComplectationError) {
         state.openComplectationError?.let {
-            snackbarHostState.showSnackbar(it)
+            snackbarHostState.showSnackbar(userFacingMessage(it, it))
             component.onOpenComplectationErrorShown()
         }
     }

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
+import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.domain.Refiner
@@ -161,7 +162,7 @@ fun ComplectationsScreen(
         val error = cameraPrecheckError
         if (!error.isNullOrBlank()) {
             cameraSnackbarIsError = true
-            cameraErrorSnackbarHostState.showSnackbar(error)
+            cameraErrorSnackbarHostState.showSnackbar(userFacingMessage(error, error))
             component.consumeCameraPrecheckError()
         }
     }
@@ -312,7 +313,7 @@ fun ComplectationsScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = e.message ?: "Ошибка поиска документа") }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
                             is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
                             is Resource.Loading -> Unit
@@ -697,7 +698,7 @@ private fun ComplectationQrScannerView(
 
     LaunchedEffect(errorText) {
         if (!errorText.isNullOrBlank()) {
-            snackbarHostState.showSnackbar(errorText)
+            snackbarHostState.showSnackbar(userFacingMessage(errorText, errorText))
             onErrorConsumed()
         }
     }
