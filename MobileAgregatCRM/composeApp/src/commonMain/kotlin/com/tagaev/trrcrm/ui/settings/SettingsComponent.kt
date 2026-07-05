@@ -13,6 +13,10 @@ import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.push.disablePushDeliveryForLoggedOutUser
 import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.utils.SessionPermissions
+import com.tagaev.trrcrm.navigation.BottomNavItemId
+import com.tagaev.trrcrm.navigation.BottomNavLayoutItem
+import com.tagaev.trrcrm.navigation.BottomNavLayoutResolver
+import com.tagaev.trrcrm.navigation.BottomNavLayoutState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +32,11 @@ enum class DeviceMuteDocType(val wire: String, val title: String) {
     COMPLECTATION("complectation", "Complectation");
 }
 
-interface ISettingsComponent {
+interface ISettingsComponent : BottomNavLayoutEditorHost {
+    val showBottomNavEditor: StateFlow<Boolean>
+    val showNotificationSettings: StateFlow<Boolean>
+    val showDeveloperMenu: StateFlow<Boolean>
+    val showCameraFixator: StateFlow<Boolean>
     val muteAll: StateFlow<Boolean>
     val mutedDocTypes: StateFlow<Set<DeviceMuteDocType>>
     val muteLoading: StateFlow<Boolean>
@@ -41,6 +49,14 @@ interface ISettingsComponent {
     fun onWriteToDeveloper()
     fun onLogout()
     fun back()
+    fun openBottomNavEditor()
+    fun closeBottomNavEditor()
+    fun openNotificationSettings()
+    fun closeNotificationSettings()
+    fun openDeveloperMenu()
+    fun closeDeveloperMenu()
+    fun openCameraFixator()
+    fun closeCameraFixator()
 }
 
 class SettingsComponent(
@@ -55,6 +71,39 @@ class SettingsComponent(
     private val appScope: CoroutineScope by inject()
     private val muteUpdateMutex = Mutex()
     private var muteRequestVersion: Long = 0L
+    private val bottomNavEditor = BottomNavLayoutEditorController(settings)
+
+    private val _showBottomNavEditor = MutableStateFlow(false)
+    override val showBottomNavEditor: StateFlow<Boolean> = _showBottomNavEditor
+
+    private val _showNotificationSettings = MutableStateFlow(false)
+    override val showNotificationSettings: StateFlow<Boolean> = _showNotificationSettings
+
+    private val _showDeveloperMenu = MutableStateFlow(false)
+    override val showDeveloperMenu: StateFlow<Boolean> = _showDeveloperMenu
+
+    private val _showCameraFixator = MutableStateFlow(false)
+    override val showCameraFixator: StateFlow<Boolean> = _showCameraFixator
+
+    override val bottomNavDraft = bottomNavEditor.bottomNavDraft
+    override val bottomNavDirty = bottomNavEditor.bottomNavDirty
+    override val bottomNavSaveMessage = bottomNavEditor.bottomNavSaveMessage
+    override val bottomNavSaveError = bottomNavEditor.bottomNavSaveError
+
+    override fun moveBottomNavItem(fromIndex: Int, toIndex: Int) =
+        bottomNavEditor.moveBottomNavItem(fromIndex, toIndex)
+
+    override fun toggleBottomNavVisible(id: String) =
+        bottomNavEditor.toggleBottomNavVisible(id)
+
+    override fun saveBottomNavLayout(activeTabId: BottomNavItemId?) =
+        bottomNavEditor.saveBottomNavLayout(activeTabId)
+
+    override fun resetBottomNavDraft() = bottomNavEditor.resetBottomNavDraft()
+
+    override fun consumeBottomNavSaveMessage() = bottomNavEditor.consumeBottomNavSaveMessage()
+
+    override fun consumeBottomNavSaveError() = bottomNavEditor.consumeBottomNavSaveError()
 
     private val _muteAll = MutableStateFlow(settings.getBool(AppSettingsKeys.DEVICE_MUTE_ALL, false))
     override val muteAll: StateFlow<Boolean> = _muteAll
@@ -301,6 +350,7 @@ class SettingsComponent(
         eventsCacheStore.clearAll()
 
         SessionPermissions.clear()
+        BottomNavLayoutState.applySaved(BottomNavLayoutResolver.defaultLayout())
         settings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
         settings.clearForLogoutPreservingInstallIdentity()
         NotificationsUnreadState.setCount(0)
@@ -314,6 +364,65 @@ class SettingsComponent(
 
 
     override fun back() = onBack()
+
+    override fun openBottomNavEditor() {
+        closeAllSubScreens(exceptBottomNav = true)
+        bottomNavEditor.resetBottomNavDraft()
+        _showBottomNavEditor.value = true
+    }
+
+    override fun closeBottomNavEditor() {
+        bottomNavEditor.resetBottomNavDraft()
+        _showBottomNavEditor.value = false
+    }
+
+    override fun openNotificationSettings() {
+        closeAllSubScreens(exceptNotifications = true)
+        _showNotificationSettings.value = true
+    }
+
+    override fun closeNotificationSettings() {
+        _showNotificationSettings.value = false
+    }
+
+    override fun openDeveloperMenu() {
+        closeAllSubScreens(exceptDeveloperMenu = true)
+        _showDeveloperMenu.value = true
+    }
+
+    override fun closeDeveloperMenu() {
+        _showDeveloperMenu.value = false
+    }
+
+    override fun openCameraFixator() {
+        closeAllSubScreens(exceptCameraFixator = true)
+        _showCameraFixator.value = true
+    }
+
+    override fun closeCameraFixator() {
+        _showCameraFixator.value = false
+    }
+
+    private fun closeAllSubScreens(
+        exceptBottomNav: Boolean = false,
+        exceptNotifications: Boolean = false,
+        exceptDeveloperMenu: Boolean = false,
+        exceptCameraFixator: Boolean = false,
+    ) {
+        if (!exceptBottomNav) {
+            bottomNavEditor.resetBottomNavDraft()
+            _showBottomNavEditor.value = false
+        }
+        if (!exceptNotifications) {
+            _showNotificationSettings.value = false
+        }
+        if (!exceptDeveloperMenu) {
+            _showDeveloperMenu.value = false
+        }
+        if (!exceptCameraFixator) {
+            _showCameraFixator.value = false
+        }
+    }
 
     private fun applyMuteState(muteAll: Boolean, mutedDocumentTypes: List<String>) {
         val parsed = mutedDocumentTypes.mapNotNullTo(mutableSetOf()) { wire ->

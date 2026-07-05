@@ -13,6 +13,7 @@ import com.tagaev.trrcrm.data.db.createDatabase
 import com.tagaev.trrcrm.data.db.isSqlDriverAvailable
 import com.tagaev.trrcrm.data.remote.EventsApi
 import com.tagaev.trrcrm.data.remote.HttpClientFactory
+import com.tagaev.trrcrm.data.remote.ImageMediatorApi
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.updates.createDesktopUpdateService
@@ -46,6 +47,8 @@ val commonModule = module {
             client = get()   // get<HttpClient>()
         )
     }
+
+    single { ImageMediatorApi(client = get()) }
 
 //    single { provideHttpClient() } // you already have this
 

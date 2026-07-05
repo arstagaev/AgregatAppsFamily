@@ -47,6 +47,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.inject
+import com.tagaev.trrcrm.utils.SessionPermissions
 
 interface IRootComponent {
     val childStack: Value<ChildStack<Config, Child>>
@@ -484,6 +485,7 @@ class DefaultRootComponent(
     }
 
     override fun openExpenseRequests(needBackToList: Boolean) {
+        if (!SessionPermissions.canOpenExpenseRequestsTab()) return
         if (needBackToList) {
             val listChild = childStack.value.items
                 .firstOrNull { it.configuration is IRootComponent.Config.ExpenseRequests }
@@ -553,6 +555,10 @@ class DefaultRootComponent(
         println("PUSH_SERVICE DEEPLINK: ")
         val config = mapScreenToConfig(normalizedScreen) ?: run {
             println("PUSH_SERVICE DEEPLINK: onDeepLink unknown screen '$screen', ignoring")
+            return
+        }
+        if (config is IRootComponent.Config.ExpenseRequests && !SessionPermissions.canOpenExpenseRequestsTab()) {
+            println("PUSH_SERVICE DEEPLINK: onDeepLink expense_requests denied by getpermission")
             return
         }
 

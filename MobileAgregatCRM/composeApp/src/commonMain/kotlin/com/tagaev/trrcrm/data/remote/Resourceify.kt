@@ -27,6 +27,9 @@ suspend inline fun <T> resourceify(
                 is CoreApiException -> {
                     Resource.Error(t, friendlyError(t, "Ошибка запроса"))
                 }
+                is ImageMediatorException -> {
+                    Resource.Error(t, t.toImageMediatorError("Не удалось выполнить запрос"))
+                }
                 is ServerResponseException -> {
                     Resource.Error(t, friendlyError(t, "Сервер временно недоступен"))
                 }

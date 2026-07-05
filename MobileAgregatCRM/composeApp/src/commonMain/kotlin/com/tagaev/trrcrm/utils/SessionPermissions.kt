@@ -26,11 +26,24 @@ object SessionPermissions {
         return classifyPermissionValue(raw) != AccessValueKind.NONE
     }
 
-    /** Нет явного ключа или не «Нет доступа» — показываем вкладку. */
+    fun canOpenExpenseRequestsTab(): Boolean {
+        val raw = value(KnownPermission.ZAYAVKA_NA_RASHOD_DS.wire) ?: return false
+        return expenseRequestAllowedValues.any { it.equals(raw.trim(), ignoreCase = true) }
+    }
+
+    /** Нет явного ключа или не «Нет доступа» — показываем вкладку (кроме allow-list типов). */
     fun canOpenDocumentTab(key: KnownPermission): Boolean {
+        if (key == KnownPermission.ZAYAVKA_NA_RASHOD_DS) return canOpenExpenseRequestsTab()
         val raw = value(key.wire) ?: return true
         return classifyPermissionValue(raw) != AccessValueKind.NONE
     }
+
+    private val expenseRequestAllowedValues = setOf(
+        "Редактирование все",
+        "Просмотр по подразделению в карточке пользователя",
+        "Возможность чтения",
+        "Да",
+    )
 }
 
 /** Ключи `permission`, которые клиент интерпретирует в v1. */
@@ -42,6 +55,7 @@ enum class KnownPermission(val wire: String) {
     ZAKAZ_POSTAVSHCHIKU("Право доступа ЗаказПоставщику"),
     ZAKAZ_VNUTRENNIY("Право доступа ЗаказВнутренний"),
     KOMPLEKTATSIYA("Право доступа Комплектация"),
+    ZAYAVKA_NA_RASHOD_DS("Право доступа ЗаявкаНаРасходДС"),
 }
 
 enum class AccessValueKind {

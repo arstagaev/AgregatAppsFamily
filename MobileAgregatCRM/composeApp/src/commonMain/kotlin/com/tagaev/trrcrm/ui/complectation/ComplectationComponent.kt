@@ -12,6 +12,8 @@ import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
+import com.tagaev.trrcrm.domain.isValidDocumentNumber
+import com.tagaev.trrcrm.domain.normalizeDocumentNumber
 import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.messages.normalizedPushRecipients
@@ -72,6 +74,15 @@ class ComplectationComponent(
     private val _qrLookupError = MutableStateFlow<String?>(null)
     val qrLookupError: StateFlow<String?> = _qrLookupError
 
+    private val _isCameraOpen = MutableStateFlow(false)
+    val isCameraOpen: StateFlow<Boolean> = _isCameraOpen
+    private val _isCameraPrecheckInProgress = MutableStateFlow(false)
+    val isCameraPrecheckInProgress: StateFlow<Boolean> = _isCameraPrecheckInProgress
+    private val _cameraDocumentNumber = MutableStateFlow<String?>(null)
+    val cameraDocumentNumber: StateFlow<String?> = _cameraDocumentNumber
+    private val _cameraPrecheckError = MutableStateFlow<String?>(null)
+    val cameraPrecheckError: StateFlow<String?> = _cameraPrecheckError
+
     override fun selectItemFromList(guid: String?) {
         _selectedOrderGuid.value = guid
     }
@@ -87,6 +98,42 @@ class ComplectationComponent(
 
     fun consumeQrLookupError() {
         _qrLookupError.value = null
+    }
+
+    fun requestOpenCamera(rawNumber: String) {
+        if (_isCameraPrecheckInProgress.value) return
+
+        val normalized = normalizeDocumentNumber(rawNumber.filter { it.isDigit() })
+        if (!isValidDocumentNumber(normalized)) {
+            _cameraPrecheckError.value = "Некорректный номер документа"
+            return
+        }
+
+        appScope.launch {
+            _isCameraPrecheckInProgress.value = true
+            _cameraPrecheckError.value = null
+            when (val result = repository.checkCanUploadFixatorPhotos(normalized, "Комплектация")) {
+                is Resource.Success -> {
+                    _cameraDocumentNumber.value = normalized
+                    _isCameraOpen.value = true
+                }
+                is Resource.Error -> {
+                    _cameraPrecheckError.value = result.causes
+                        ?: friendlyError(result.exception, "Не удалось проверить возможность загрузки")
+                }
+                is Resource.Loading -> Unit
+            }
+            _isCameraPrecheckInProgress.value = false
+        }
+    }
+
+    fun closeCamera() {
+        _isCameraOpen.value = false
+        _cameraDocumentNumber.value = null
+    }
+
+    fun consumeCameraPrecheckError() {
+        _cameraPrecheckError.value = null
     }
 
     fun onQrScanned(raw: String) {

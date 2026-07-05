@@ -89,10 +89,12 @@ fun <T, F> MasterScreen(
     topBarTopContent: (@Composable () -> Unit)? = null,
     topBarBottomContent: (@Composable () -> Unit)? = null,
     onDetailsBack: (() -> Unit)? = null,
+    compactDetailsTopBar: Boolean = false,
 ) {
     val listState: LazyListState = rememberLazyListState()
     val isLoadingTopBar = resource is Resource.Loading ||
             (resource as? Resource.Success<*>)?.additionalLoading == true
+    val useCompactDetailsTopBar = compactDetailsTopBar && panel == MasterPanel.Details
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -106,7 +108,15 @@ fun <T, F> MasterScreen(
                             Row(Modifier.clickable {
                                 onPanelChange(MasterPanel.List)
                             }) {
-                                Text(text = title, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 10.dp))
+                                Text(
+                                    text = title,
+                                    fontSize = if (useCompactDetailsTopBar) 14.sp else 16.sp,
+                                    modifier = Modifier.padding(
+                                        horizontal = if (useCompactDetailsTopBar) 4.dp else 10.dp,
+                                    ),
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
                             }
                         }
                     }
@@ -145,11 +155,21 @@ fun <T, F> MasterScreen(
                                         onSelectedItemChange(null)
                                         onPanelChange(MasterPanel.List)
                                     }
-                                }
+                                },
+                                modifier = if (useCompactDetailsTopBar) {
+                                    Modifier.size(36.dp)
+                                } else {
+                                    Modifier
+                                },
                             ) {
                                 Icon(
                                     FeatherIcons.ArrowLeft,
-                                    contentDescription = "Назад к списку"
+                                    contentDescription = "Назад к списку",
+                                    modifier = if (useCompactDetailsTopBar) {
+                                        Modifier.size(18.dp)
+                                    } else {
+                                        Modifier
+                                    },
                                 )
                             }
                         }

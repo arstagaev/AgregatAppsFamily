@@ -61,6 +61,14 @@ import com.tagaev.trrcrm.models.SupplierOrderDto
 import com.tagaev.trrcrm.models.ThreadMessageResponse
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.utils.DefaultValuesConst
+import com.tagaev.trrcrm.data.AppSettingsKeys
+import com.tagaev.trrcrm.data.remote.ImageMediatorApi
+import com.tagaev.trrcrm.data.remote.canUploadBlockedMessage
+import com.tagaev.trrcrm.data.remote.toImageMediatorError
+import com.tagaev.trrcrm.domain.exceedsHardMax
+import com.tagaev.trrcrm.domain.isValidDocumentNumber
+import com.tagaev.trrcrm.domain.normalizeDocumentNumber
+import com.tagaev.trrcrm.models.ImageMediatorUploadResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.koin.core.component.KoinComponent
@@ -84,6 +92,7 @@ class MainRepository(
     }
 
     private val settings: AppSettings by inject()
+    private val imageMediatorApi: ImageMediatorApi by inject()
 
     suspend fun loadEvents(
         type: String? = null,
@@ -608,6 +617,101 @@ class MainRepository(
 
     @OptIn(ExperimentalTime::class)
     private fun currentTimeMillis(): Long = Clock.System.now().toEpochMilliseconds()
+
+    suspend fun checkCanUploadFixatorPhotos(
+        documentNumber: String,
+        documentName: String = "Комплектация",
+    ): Resource<Unit> {
+        val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
+        if (token.isBlank()) {
+            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+        }
+
+        val normalizedNumber = normalizeDocumentNumber(documentNumber)
+        if (!isValidDocumentNumber(normalizedNumber)) {
+            return Resource.Error(causes = "Некорректный номер документа")
+        }
+
+        return when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentName)) {
+            is Resource.Success -> {
+                val data = precheck.data
+                if (!data.folderFound || !data.allowed) {
+                    Resource.Error(causes = canUploadBlockedMessage(data))
+                } else {
+                    Resource.Success(Unit)
+                }
+            }
+            is Resource.Error -> Resource.Error(
+                exception = precheck.exception,
+                causes = precheck.causes ?: precheck.exception.toImageMediatorError(
+                    "Не удалось проверить возможность загрузки",
+                ),
+            )
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    suspend fun uploadFixatorPhotos(
+        documentNumber: String,
+        photos: List<ByteArray>,
+        documentName: String = "Camera fixator",
+    ): Resource<ImageMediatorUploadResult> {
+        val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
+        if (token.isBlank()) {
+            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+        }
+        if (photos.isEmpty()) {
+            return Resource.Error(causes = "Нет фотографий для отправки")
+        }
+
+        val normalizedNumber = normalizeDocumentNumber(documentNumber)
+        if (!isValidDocumentNumber(normalizedNumber)) {
+            return Resource.Error(causes = "Номер документа: 6–12 цифр")
+        }
+
+        val oversized = photos.withIndex().firstOrNull { (_, bytes) -> exceedsHardMax(bytes.size) }
+        if (oversized != null) {
+            return Resource.Error(
+                causes = "Фото ${oversized.index + 1} превышает 5 МБ. Переснимите или удалите его.",
+            )
+        }
+
+        when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentName)) {
+            is Resource.Success -> {
+                val data = precheck.data
+                if (!data.folderFound || !data.allowed) {
+                    return Resource.Error(causes = canUploadBlockedMessage(data))
+                }
+            }
+            is Resource.Error -> {
+                return Resource.Error(
+                    exception = precheck.exception,
+                    causes = precheck.causes ?: precheck.exception.toImageMediatorError("Не удалось проверить возможность загрузки"),
+                )
+            }
+            is Resource.Loading -> Unit
+        }
+
+        return when (val upload = imageMediatorApi.uploadPhotos(token, normalizedNumber, photos, documentName)) {
+            is Resource.Success -> {
+                val data = upload.data
+                Resource.Success(
+                    ImageMediatorUploadResult(
+                        documentNumber = data.documentNumber,
+                        storedFilenames = data.uploadedFiles.mapNotNull { it.storedFilename },
+                        ftpFolderPath = data.ftpFolderPath,
+                        resolvedYear = data.resolvedYear,
+                        resolvedMonth = data.resolvedMonth,
+                    )
+                )
+            }
+            is Resource.Error -> Resource.Error(
+                exception = upload.exception,
+                causes = upload.causes ?: upload.exception.toImageMediatorError("Не удалось отправить фото"),
+            )
+            is Resource.Loading -> Resource.Loading
+        }
+    }
 
 
     //          api.sendMessage(api = cfg, number = number, date = date, message = message)

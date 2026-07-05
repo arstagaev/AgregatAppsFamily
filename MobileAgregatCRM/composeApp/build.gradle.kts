@@ -101,6 +101,12 @@ kotlin {
             implementation("io.github.ismai117:KScan:0.4.0")
             implementation("io.github.g00fy2.quickie:quickie-bundled:1.11.0")
 
+            // Embedded camera for fixator screen
+            implementation("androidx.camera:camera-camera2:1.4.1")
+            implementation("androidx.camera:camera-lifecycle:1.4.1")
+            implementation("androidx.camera:camera-view:1.4.1")
+            implementation("androidx.exifinterface:exifinterface:1.3.7")
+
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -393,6 +399,7 @@ buildkonfig {
 
         buildConfigField(STRING, "PUSH_BASE_URL", "http://trrservice.agregatka.ru:8444/")
         buildConfigField(STRING, "CATALOG_BASE_URL", catalogBaseUrl)
+        buildConfigField(STRING, "IMAGE_MEDIATOR_BASE_URL", "http://trrservice.agregatka.ru:8777")
         buildConfigField(STRING, "PUSH_API_KEY", "BALAKOVO44")
     }
     // If you later use flavors (via buildkonfig.flavor), you STILL keep defaultConfigs above.

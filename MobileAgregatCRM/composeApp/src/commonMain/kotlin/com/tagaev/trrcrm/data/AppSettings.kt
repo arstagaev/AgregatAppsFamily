@@ -6,6 +6,7 @@ import com.russhwolf.settings.serialization.removeValue
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.navigation.BottomNavLayoutItem
 
 
 
@@ -84,6 +85,8 @@ object AppSettingsKeys {
     const val NOTIFICATIONS_SEARCH_QUERY = "NOTIFICATIONS_SEARCH_QUERY_"+VERSION_CODE
     const val NOTIFICATIONS_STATUS_FILTER = "NOTIFICATIONS_STATUS_FILTER_"+VERSION_CODE
     const val NOTIFICATIONS_UNREAD_COUNT = "NOTIFICATIONS_UNREAD_COUNT_"+VERSION_CODE
+    const val BOTTOM_NAV_LAYOUT = "BOTTOM_NAV_LAYOUT_" + VERSION_CODE
+    const val DEVELOPER_MODE_ENABLED = "DEVELOPER_MODE_ENABLED_" + VERSION_CODE
 
 //    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
 //    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
@@ -207,6 +210,20 @@ class AppSettings(
         settings.putBoolean(AppSettingsKeys.DETAILS_TASKS_OPEN, s.tasksOpen)
         settings.putBoolean(AppSettingsKeys.DETAILS_MSGS_OPEN, s.messagesOpen)
         settings.putString(AppSettingsKeys.DETAILS_MSG_DRAFT, s.messageDraft)
+    }
+
+    fun loadBottomNavLayout(): List<BottomNavLayoutItem>? {
+        val raw = getStringOrNull(AppSettingsKeys.BOTTOM_NAV_LAYOUT) ?: return null
+        return runCatching {
+            json.decodeFromString(ListSerializer(BottomNavLayoutItem.serializer()), raw)
+        }.getOrNull()
+    }
+
+    fun saveBottomNavLayout(items: List<BottomNavLayoutItem>) {
+        setString(
+            AppSettingsKeys.BOTTOM_NAV_LAYOUT,
+            json.encodeToString(ListSerializer(BottomNavLayoutItem.serializer()), items)
+        )
     }
 
     fun clearAll() {

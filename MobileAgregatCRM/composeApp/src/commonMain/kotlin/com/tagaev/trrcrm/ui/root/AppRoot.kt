@@ -20,8 +20,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
@@ -64,6 +64,7 @@ import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
 import com.tagaev.trrcrm.ui.supplier_order.SupplierOrdersScreen
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersScreen
 import compose.icons.LineAwesomeIcons
+import compose.icons.feathericons.Inbox
 import compose.icons.feathericons.Box
 import compose.icons.feathericons.Grid
 import compose.icons.feathericons.Phone
@@ -76,10 +77,12 @@ import compose.icons.lineawesomeicons.CheckCircle
 import compose.icons.lineawesomeicons.QrcodeSolid
 import compose.icons.lineawesomeicons.ToolsSolid
 import kotlinx.coroutines.launch
-import com.tagaev.trrcrm.utils.KnownPermission
 import com.tagaev.trrcrm.utils.SessionPermissions
-import compose.icons.feathericons.Home
-import compose.icons.feathericons.Inbox
+import com.tagaev.trrcrm.navigation.BottomNavItemId
+import com.tagaev.trrcrm.navigation.BottomNavItemIcon
+import com.tagaev.trrcrm.navigation.BottomNavLayoutResolver
+import com.tagaev.trrcrm.navigation.BottomNavLayoutState
+import com.tagaev.trrcrm.navigation.toBottomNavItemId
 import com.tagaev.trrcrm.push.NotificationsUnreadState
 import com.tagaev.trrcrm.updates.DesktopUpdateService
 
@@ -112,6 +115,7 @@ fun AppRoot(root: IRootComponent) {
             }
         }
         LaunchedEffect(Unit) {
+            BottomNavLayoutState.loadFrom(appSettings)
             val hasAuth = !appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
             if (hasAuth) {
                 val cachedUnread = appSettings.getInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
@@ -151,99 +155,7 @@ fun AppRoot(root: IRootComponent) {
                             activeChild = activeChild,
                             mainHomeUnreadCount = unreadNotificationsCount,
                             onMainHome = { if (activeChild !is IRootComponent.Child.MainHome) root.openMainHome() },
-                            onEvents = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.Events) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openEvents(needBackToList)
-                            },
-                            onDetails = { if (activeChild !is IRootComponent.Child.Details) root.openDetails() },
-                            onWorkOrder = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.WorkOrder) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openWorkOrders(needBackToList)
-                            },
-                            onComplectation = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.Complectation) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openComplectation(needBackToList)
-                            },
-                            onQRScanner = { if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner() },
-                            onFavorites = { if (activeChild !is IRootComponent.Child.Favorites) root.openFavorites() },
-                            onCargo = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.Cargo) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openCargo(needBackToList)
-                            },
-                            onBuyerOrder = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.BuyerOrder) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openBuyerOrders(needBackToList)
-                            },
-                            onSupplierOrder = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.SupplierOrder) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openSupplierOrders(needBackToList)
-                            },
-                            onComplaint = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.Complaint) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openComplaint(needBackToList)
-                            },
-                            onInnerOrder = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.InnerOrder) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openInnerOrder(needBackToList)
-                            },
-                            onIncomingApplications = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.IncomingApplications) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openIncomingApplications(needBackToList)
-                            },
-                            onRepairTemplateCatalog = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.RepairTemplateCatalog) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openRepairTemplateCatalog(needBackToList)
-                            },
-                            onExpenseRequests = {
-                                val needBackToList = if (activeChild !is IRootComponent.Child.ExpenseRequests) {
-                                    false
-                                } else {
-                                    true
-                                }
-                                root.openExpenseRequests(needBackToList)
-                            },
-                            onMenu = { if (activeChild !is IRootComponent.Child.Menu) root.openMenu() },
-                            onSettings = { if (activeChild !is IRootComponent.Child.Settings) root.openSettings() },
+                            onTabClick = { tabId -> handleBottomNavTabClick(tabId, activeChild, root) },
                         )
                     }
                 }
@@ -270,7 +182,11 @@ fun AppRoot(root: IRootComponent) {
                         is IRootComponent.Child.RepairTemplateCatalog -> RepairTemplateCatalogScreen(c.component)
                         is IRootComponent.Child.ExpenseRequests -> ExpenseRequestsScreen(c.component)
                         is IRootComponent.Child.Favorites -> FavoritesScreen(c.component)
-                        is IRootComponent.Child.Settings -> SettingsScreen(c.component)
+                        is IRootComponent.Child.Settings -> SettingsScreen(
+                            component = c.component,
+                            contextTabId = activeChild.toBottomNavItemId() ?: BottomNavItemId.MENU,
+                            onNavigateHome = { root.openMainHome() },
+                        )
                         is IRootComponent.Child.ProductDemo -> ProductDemoScreen(c.component)
                         is IRootComponent.Child.Menu -> MenuScreen(c.component)
                         is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
@@ -324,44 +240,14 @@ fun AppBottomNavBar2(
     activeChild: IRootComponent.Child,
     mainHomeUnreadCount: Int,
     onMainHome: () -> Unit,
-    onEvents: () -> Unit,
-    onDetails: () -> Unit,
-    onQRScanner: () -> Unit,
-    onMenu: () -> Unit,
-    onCargo: () -> Unit,
-    onBuyerOrder: () -> Unit,
-    onSupplierOrder: () -> Unit,
-    onFavorites: () -> Unit,
-    onSettings: () -> Unit,
-    onWorkOrder: () -> Unit,
-    onComplectation: () -> Unit,
-    onComplaint: () -> Unit,
-    onInnerOrder: () -> Unit,
-    onIncomingApplications: () -> Unit,
-    onRepairTemplateCatalog: () -> Unit,
-    onExpenseRequests: () -> Unit,
+    onTabClick: (BottomNavItemId) -> Unit,
 ) {
     val permissionMap by SessionPermissions.state
-    val showWorkOrderTab = remember(permissionMap) {
-        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_NARYAD)
-    }
-    val showComplectationTab = remember(permissionMap) {
-        SessionPermissions.canOpenDocumentTab(KnownPermission.KOMPLEKTATSIYA)
-    }
-    val showCargoTab = remember(permissionMap) {
-        SessionPermissions.canOpenDocumentTab(KnownPermission.GRUZ)
-    }
-    val showBuyerOrderTab = remember(permissionMap) {
-        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_POKUPATELYA)
-    }
-    val showSupplierOrderTab = remember(permissionMap) {
-        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_POSTAVSHCHIKU)
-    }
-    val showInnerOrderTab = remember(permissionMap) {
-        SessionPermissions.canOpenDocumentTab(KnownPermission.ZAKAZ_VNUTRENNIY)
+    val layout by BottomNavLayoutState.state
+    val visibleTabs = remember(permissionMap, layout) {
+        BottomNavLayoutResolver.resolveVisibleTabs(layout)
     }
 
-    // Use Surface to mimic NavigationBar style but control layout ourselves
     Surface(
         tonalElevation = NavigationBarDefaults.Elevation,
         color = NavigationBarDefaults.containerColor,
@@ -383,117 +269,37 @@ fun AppBottomNavBar2(
                 badgeCount = mainHomeUnreadCount
             )
 
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.Events,
-                onClick = onEvents,
-                icon = { Icon(LineAwesomeIcons.CheckCircle, contentDescription = null) },
-                label = "События"
-            )
-
-            if (showWorkOrderTab) {
+            visibleTabs.forEach { tabId ->
                 BottomNavChip(
-                    selected = activeChild is IRootComponent.Child.WorkOrder,
-                    onClick = onWorkOrder,
-                    icon = { Icon(LineAwesomeIcons.CarSideSolid, contentDescription = null) },
-                    label = "Заказ-Наряды"
+                    selected = tabId.isSelected(activeChild),
+                    onClick = { onTabClick(tabId) },
+                    icon = { BottomNavItemIcon(tabId) },
+                    label = tabId.label
                 )
             }
-
-            if (showComplectationTab) {
-                BottomNavChip(
-                    selected = activeChild is IRootComponent.Child.Complectation,
-                    onClick = onComplectation,
-                    icon = { Icon(LineAwesomeIcons.ToolsSolid, contentDescription = null) },
-                    label = "Комплектация"
-                )
-            }
-
-            if (showCargoTab) {
-                BottomNavChip(
-                    selected = activeChild is IRootComponent.Child.Cargo,
-                    onClick = onCargo,
-                    icon = { Icon(FeatherIcons.Truck, contentDescription = null) },
-                    label = "Доставки"
-                )
-            }
-
-            if (showBuyerOrderTab) {
-                BottomNavChip(
-                    selected = activeChild is IRootComponent.Child.BuyerOrder,
-                    onClick = onBuyerOrder,
-                    icon = { Icon(FeatherIcons.Box, contentDescription = null) },
-                    label = "Заказы покуп."
-                )
-            }
-
-            if (showSupplierOrderTab) {
-                BottomNavChip(
-                    selected = activeChild is IRootComponent.Child.SupplierOrder,
-                    onClick = onSupplierOrder,
-                    icon = { Icon(FeatherIcons.Box, contentDescription = null) },
-                    label = "Заказы пост."
-                )
-            }
-
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.Complaint,
-                onClick = onComplaint,
-                icon = { Icon(FeatherIcons.Zap, contentDescription = null) },
-                label = "Рекламации"
-            )
-
-            if (showInnerOrderTab) {
-                BottomNavChip(
-                    selected = activeChild is IRootComponent.Child.InnerOrder,
-                    onClick = onInnerOrder,
-                    icon = { Icon(FeatherIcons.Box, contentDescription = null) },
-                    label = "Внутр. заказы"
-                )
-            }
-
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.IncomingApplications,
-                onClick = onIncomingApplications,
-                icon = { Icon(FeatherIcons.Phone, contentDescription = null) },
-                label = "Входящие Заявки"
-            )
-
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.RepairTemplateCatalog,
-                onClick = onRepairTemplateCatalog,
-                icon = { Icon(FeatherIcons.Cpu, contentDescription = null) },
-                label = "Калькуляция"
-            )
-
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.ExpenseRequests,
-                onClick = onExpenseRequests,
-                icon = { Icon(FeatherIcons.DollarSign, contentDescription = null) },
-                label = "Заявки расход"
-            )
-
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.QRScanner,
-                onClick = onQRScanner,
-                icon = { Icon(LineAwesomeIcons.QrcodeSolid, contentDescription = null) },
-                label = "QR Сканер"
-            )
-
-            BottomNavChip(
-                selected = activeChild is IRootComponent.Child.Menu,
-                onClick = onMenu,
-                icon = { Icon(FeatherIcons.Grid, contentDescription = null) },
-                label = "Меню"
-            )
-
-            // If later you want:
-            // BottomNavChip(
-            //     selected = activeChild is IRootComponent.Child.Settings,
-            //     onClick = onSettings,
-            //     icon = { Icon(FeatherIcons.Settings, contentDescription = null) },
-            //     label = "Настройки"
-            // )
         }
+    }
+}
+
+private fun handleBottomNavTabClick(
+    tabId: BottomNavItemId,
+    activeChild: IRootComponent.Child,
+    root: IRootComponent,
+) {
+    when (tabId) {
+        BottomNavItemId.EVENTS -> root.openEvents(activeChild is IRootComponent.Child.Events)
+        BottomNavItemId.WORK_ORDER -> root.openWorkOrders(activeChild is IRootComponent.Child.WorkOrder)
+        BottomNavItemId.COMPLECTATION -> root.openComplectation(activeChild is IRootComponent.Child.Complectation)
+        BottomNavItemId.CARGO -> root.openCargo(activeChild is IRootComponent.Child.Cargo)
+        BottomNavItemId.BUYER_ORDER -> root.openBuyerOrders(activeChild is IRootComponent.Child.BuyerOrder)
+        BottomNavItemId.SUPPLIER_ORDER -> root.openSupplierOrders(activeChild is IRootComponent.Child.SupplierOrder)
+        BottomNavItemId.COMPLAINT -> root.openComplaint(activeChild is IRootComponent.Child.Complaint)
+        BottomNavItemId.INNER_ORDER -> root.openInnerOrder(activeChild is IRootComponent.Child.InnerOrder)
+        BottomNavItemId.INCOMING_APPLICATIONS -> root.openIncomingApplications(activeChild is IRootComponent.Child.IncomingApplications)
+        BottomNavItemId.REPAIR_TEMPLATE_CATALOG -> root.openRepairTemplateCatalog(activeChild is IRootComponent.Child.RepairTemplateCatalog)
+        BottomNavItemId.EXPENSE_REQUESTS -> root.openExpenseRequests(activeChild is IRootComponent.Child.ExpenseRequests)
+        BottomNavItemId.QR_SCANNER -> if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner()
+        BottomNavItemId.MENU -> if (activeChild !is IRootComponent.Child.Menu) root.openMenu()
     }
 }
 @Composable

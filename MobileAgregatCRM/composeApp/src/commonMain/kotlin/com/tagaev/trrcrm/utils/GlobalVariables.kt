@@ -31,6 +31,7 @@ object DefaultValuesConst {
     // CoreService currently shares the same environment host strategy as Push service.
     val GLOBAL_CORE_URL = Secrets.PUSH_BASE_URL// if (IS_PUBLISH.toBoolean()) Secrets.PUSH_BASE_URL else getPlatform().baseDebugFCMurl
     val GLOBAL_CATALOG_URL = Secrets.CATALOG_BASE_URL
+    val GLOBAL_IMAGE_MEDIATOR_URL = Secrets.IMAGE_MEDIATOR_BASE_URL
     val CORE_API_KEY = Secrets.PUSH_API_KEY
 
 //    var needBack

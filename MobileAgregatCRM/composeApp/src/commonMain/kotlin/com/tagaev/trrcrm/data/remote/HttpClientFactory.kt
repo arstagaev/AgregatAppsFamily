@@ -73,7 +73,7 @@ object HttpClientFactory {
         if (loggingEnabled) {
             install(Logging) {
                 logger = HumanLogger()
-                level = LogLevel.ALL // set to LogLevel.NONE if you prefer keeping the plugin installed but silent
+                level = LogLevel.HEADERS
             }
             // Status line & timing
             install(ResponseObserver) {

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +41,7 @@ import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.domain.stableStateKey
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.master_screen.LinkedDocumentStackTabStrip
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -111,7 +113,14 @@ fun ComplectationsScreen(
     val isQrScannerOpen by component.isQrScannerOpen.collectAsState()
     val isQrLookupInProgress by component.isQrLookupInProgress.collectAsState()
     val qrLookupError by component.qrLookupError.collectAsState()
+    val isCameraOpen by component.isCameraOpen.collectAsState()
+    val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
+    val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
     val transientWarning by component.transientWarning.collectAsState()
+
+    val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
+    var cameraSnackbarIsError by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
@@ -148,6 +157,20 @@ fun ComplectationsScreen(
             component.consumeTransientWarning()
         }
     }
+    LaunchedEffect(cameraPrecheckError) {
+        val error = cameraPrecheckError
+        if (!error.isNullOrBlank()) {
+            cameraSnackbarIsError = true
+            cameraErrorSnackbarHostState.showSnackbar(error)
+            component.consumeCameraPrecheckError()
+        }
+    }
+
+    val activeComplectation = resolveActiveComplectation(
+        selectedId = selectedId,
+        resource = resource,
+        linkedDocuments = linkedDocuments,
+    )
 
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
         val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
@@ -218,11 +241,25 @@ fun ComplectationsScreen(
         )
         return
     }
+    if (isCameraOpen) {
+        val number = cameraDocumentNumber
+        if (number != null) {
+            DocumentCameraScreen(
+                documentNumber = number,
+                title = "Камера ($number)",
+                documentName = "Комплектация",
+                showUploadStatusBlock = false,
+                onBack = component::closeCamera,
+            )
+        }
+        return
+    }
 
-    MasterScreen(
-        title = "Комплектация",
-        resource = resource,
-        errorText = "Не удалось загрузить комплектации",
+    Box(modifier = modifier.fillMaxSize()) {
+        MasterScreen(
+            title = "Комплектация",
+            resource = resource,
+            errorText = "Не удалось загрузить комплектации",
         notFoundText = "Комплектации не найдены",
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
@@ -389,12 +426,28 @@ fun ComplectationsScreen(
                 }
             }
             panel == MasterPanel.Details && linkedDocuments.isNotEmpty() -> {
-                { Text(linkedDocuments.last().linkTabLabel()) }
+                {
+                    Text(
+                        text = linkedDocuments.last().linkTabLabel(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             else -> null
         },
         topBarActionsContent = { isLoadingTopBar ->
-            if (panel == MasterPanel.List) {
+            if (panel == MasterPanel.Details) {
+                val cameraNumber = activeComplectation?.number.orEmpty()
+                if (activeComplectation != null && cameraNumber.isNotBlank()) {
+                    ComplectationAddPhotoTopBarAction(
+                        enabled = !isCameraPrecheckInProgress,
+                        onClick = { component.requestOpenCamera(cameraNumber) },
+                    )
+                }
+            } else if (panel == MasterPanel.List) {
                 if (isSearchMode) {
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
@@ -470,8 +523,40 @@ fun ComplectationsScreen(
             null
         },
         onDetailsBack = handleDetailsBack,
-        modifier = modifier
+        compactDetailsTopBar = true,
+        modifier = Modifier.fillMaxSize(),
     )
+
+        SnackbarHost(
+            hostState = cameraErrorSnackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = if (cameraSnackbarIsError) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseSurface
+                },
+                contentColor = if (cameraSnackbarIsError) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseOnSurface
+                },
+            )
+        }
+    }
+
+    if (isCameraPrecheckInProgress) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Пожалуйста, подождите") },
+            text = { Text("Проверка возможности загрузки…") },
+            confirmButton = {},
+        )
+    }
 
     if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
         AlertDialog(
@@ -858,6 +943,54 @@ private fun ComplectationMetaRow(
             overflow = TextOverflow.Clip,
             softWrap = true
         )
+    }
+}
+
+private fun resolveActiveComplectation(
+    selectedId: String?,
+    resource: Resource<List<WorkOrderDto>>,
+    linkedDocuments: List<TreeRootResolvedDocument>,
+): WorkOrderDto? {
+    linkedDocuments.lastOrNull()?.let { document ->
+        return when (document) {
+            is TreeRootResolvedDocument.Complectation -> document.value
+            else -> null
+        }
+    }
+    if (selectedId == null) return null
+    return (resource as? Resource.Success)?.data?.firstOrNull { it.guid.toString() == selectedId }
+}
+
+@Composable
+private fun ComplectationAddPhotoTopBarAction(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .alpha(if (enabled) 1f else 0.45f)
+            .clip(MaterialTheme.shapes.small)
+            .clickable(enabled = enabled, onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "добавить фото",
+                style = MaterialTheme.typography.labelMedium,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
+            Icon(
+                FeatherIcons.Camera,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 
