@@ -128,6 +128,9 @@ fun ComplectationDetailsSheet(
     stackedDetailsSnapshot: StackedDocumentDetailsSnapshot? = null,
     onStackedDetailsSnapshotChange: ((StackedDocumentDetailsSnapshot) -> Unit)? = null,
     detailsScrollState: ScrollState? = null,
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     val useStackedDetails =
         stackedDetailsSnapshot != null && onStackedDetailsSnapshotChange != null && detailsScrollState != null
@@ -179,6 +182,9 @@ fun ComplectationDetailsSheet(
                 onOpenBaseDocument = onOpenBaseDocument,
                 stackedDetailsSnapshot = stackedDetailsSnapshot,
                 onStackedDetailsSnapshotChange = onStackedDetailsSnapshotChange,
+                documentPhotoCount = documentPhotoCount,
+                isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+                onOpenDocumentPhotos = onOpenDocumentPhotos,
             )
         }
     )
@@ -227,6 +233,9 @@ private fun wireframeComplectationHeader(
     onOpenBaseDocument: ((String) -> Unit)? = null,
     stackedDetailsSnapshot: StackedDocumentDetailsSnapshot? = null,
     onStackedDetailsSnapshotChange: ((StackedDocumentDetailsSnapshot) -> Unit)? = null,
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     val useStacked =
         stackedDetailsSnapshot != null && onStackedDetailsSnapshotChange != null
@@ -369,6 +378,15 @@ private fun wireframeComplectationHeader(
 
     CompactSectionTitle("Комментарий:")
     CompactBody(wo.comment?.takeIf { it.isNotBlank() } ?: "—")
+
+    if (onOpenDocumentPhotos != null) {
+        ComplectationOpenPhotosButton(
+            photoCount = documentPhotoCount,
+            isLoading = isDocumentPhotoCountLoading,
+            onClick = onOpenDocumentPhotos,
+        )
+        Spacer(Modifier.height(6.dp))
+    }
 
     val products = complectationProductsForDisplay(wo)
     val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }

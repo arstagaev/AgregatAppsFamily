@@ -88,6 +88,7 @@ sealed interface Refiner : ApiOption {
         override val wire: String
     ) : Refiner {
         TOPIC("По теме события","Тема"),
+        PURPOSE("По назначению", "Назначение"),
         CODE("По номеру события/ЗН","Номер"),
         AUTHOR("По автору", "Автор"),
         MANAGER("По менеджеру", "Менеджер"),

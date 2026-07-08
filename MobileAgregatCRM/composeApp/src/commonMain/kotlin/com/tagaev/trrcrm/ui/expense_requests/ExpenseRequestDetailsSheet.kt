@@ -24,7 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.domain.TreeRootDocument
 import com.tagaev.trrcrm.models.ExpenseRequestDto
+import com.tagaev.trrcrm.models.ExpenseRequestPaymentDto
 import com.tagaev.trrcrm.models.ExpenseRequestSignatoryDto
+import com.tagaev.trrcrm.models.meaningfulPayments
 import com.tagaev.trrcrm.models.meaningfulSignatories
 import com.tagaev.trrcrm.models.primaryDetailGridRows
 import com.tagaev.trrcrm.models.supplementaryDetailGridRows
@@ -72,6 +74,17 @@ fun ExpenseRequestDetailsSheet(
                 items = signatories,
             ) { signatory ->
                 SignatoryRow(signatory)
+            }
+        }
+
+        val paymentRows = item.meaningfulPayments()
+        if (paymentRows.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            ExpandableListSection(
+                title = "Платежи (${paymentRows.size})",
+                items = paymentRows,
+            ) { payment ->
+                PaymentRow(payment)
             }
         }
     }
@@ -194,6 +207,36 @@ private fun SignatoryRow(signatory: ExpenseRequestSignatoryDto) {
         val details = buildList {
             if (status.isNotEmpty() && status != "01.01.0001 0:00:00") add(status)
             if (changeDate.isNotEmpty() && changeDate != "01.01.0001 0:00:00") add(changeDate)
+        }
+        if (details.isNotEmpty()) {
+            TextC(
+                text = details.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaymentRow(payment: ExpenseRequestPaymentDto) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+    ) {
+        val title = buildList {
+            payment.paymentDate?.trim()?.takeIf { it.isNotEmpty() }?.let { add(it) }
+            payment.amount?.trim()?.takeIf { it.isNotEmpty() }?.let { add(it) }
+        }.joinToString(" · ").ifBlank { "—" }
+        TextC(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        val details = buildList {
+            payment.status?.trim()?.takeIf { it.isNotEmpty() }?.let { add(it) }
+            payment.approvedBy?.trim()?.takeIf { it.isNotEmpty() }?.let { add(it) }
+            payment.description?.trim()?.takeIf { it.isNotEmpty() }?.let { add(it) }
         }
         if (details.isNotEmpty()) {
             TextC(

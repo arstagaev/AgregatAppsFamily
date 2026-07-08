@@ -62,15 +62,18 @@ import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.domain.FixatorPhotoNormalizationException
 import com.tagaev.trrcrm.domain.normalizeFixatorPhoto
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
+import com.tagaev.trrcrm.ui.common.rememberBusyActionGate
 import com.tagaev.trrcrm.ui.permissions.CameraFixatorLog
 import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.FixatorCameraControls
 import com.tagaev.trrcrm.ui.permissions.FixatorCameraPreview
 import com.tagaev.trrcrm.ui.permissions.decodePhotoThumbnail
+import com.tagaev.trrcrm.ui.permissions.rememberGalleryPhotoPicker
 import com.tagaev.trrcrm.ui.permissions.rememberPhotoLibrarySavePermission
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.Camera
+import compose.icons.feathericons.Image
 import compose.icons.feathericons.X
 import compose.icons.feathericons.Zap
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +120,7 @@ fun DocumentCameraScreen(
     val photoStorage = koinInject<FixatorPhotoStorage>()
     val galleryPermission = rememberPhotoLibrarySavePermission()
     val scope = rememberCoroutineScope()
+    val photoActionGate = rememberBusyActionGate()
     val snackbarHostState = remember { SnackbarHostState() }
     var snackbarKind by remember { mutableStateOf(CameraSnackbarKind.Default) }
 
@@ -124,12 +128,15 @@ fun DocumentCameraScreen(
     var uploadStatus by remember { mutableStateOf<UploadUiStatus>(UploadUiStatus.Idle) }
     var cameraControls by remember { mutableStateOf<FixatorCameraControls?>(null) }
     var isProcessingPhoto by remember { mutableStateOf(false) }
+    var isCapturePending by remember { mutableStateOf(false) }
     var previewPhoto by remember { mutableStateOf<CapturedPhoto?>(null) }
     var showUploadSuccessDialog by remember { mutableStateOf(false) }
 
     val isUploading = uploadStatus is UploadUiStatus.Uploading
+    val isCameraBusy = photoActionGate.isBusy || isProcessingPhoto || isUploading || isCapturePending
     val hasReachedPhotoLimit = photos.size >= MAX_PHOTOS_PER_UPLOAD
-    val canCapture = cameraControls != null && !isProcessingPhoto && !isUploading && !hasReachedPhotoLimit
+    val canCapture = cameraControls != null && !isCameraBusy && !hasReachedPhotoLimit
+    val canAddFromGallery = !isCameraBusy && !hasReachedPhotoLimit
 
     fun showCameraSnackbar(message: String, kind: CameraSnackbarKind = CameraSnackbarKind.Default) {
         snackbarKind = kind
@@ -188,60 +195,108 @@ fun DocumentCameraScreen(
         }
     }
 
-    fun addPhoto(rawBytes: ByteArray) {
-        if (isProcessingPhoto) return
-        if (photos.size >= MAX_PHOTOS_PER_UPLOAD) {
-            showCameraSnackbar(
-                "Можно добавить не более $MAX_PHOTOS_PER_UPLOAD фото за одну отправку",
-                kind = CameraSnackbarKind.Error,
-            )
-            return
+    fun addPhotosFromBytes(rawBytesList: List<ByteArray>, fromCamera: Boolean) {
+        if (fromCamera) {
+            isCapturePending = false
         }
-        isProcessingPhoto = true
-        scope.launch {
-            val rawSize = rawBytes.size
-            val normalizedResult = runCatching {
-                withContext(Dispatchers.Default) {
-                    normalizeFixatorPhoto(rawBytes)
-                }
+        if (rawBytesList.isEmpty() || isCameraBusy) return
+        photoActionGate.launch(scope) {
+            if (photos.size >= MAX_PHOTOS_PER_UPLOAD) {
+                showCameraSnackbar(
+                    "Можно добавить не более $MAX_PHOTOS_PER_UPLOAD фото за одну отправку",
+                    kind = CameraSnackbarKind.Error,
+                )
+                return@launch
             }
-            normalizedResult
-                .onSuccess { normalizedBytes ->
-                    val savedEntry = runCatching {
-                        photoStorage.savePendingPhoto(
-                            documentNumber = documentNumber,
-                            documentName = documentName,
-                            normalizedBytes = normalizedBytes,
-                        )
-                    }.getOrElse { error ->
-                        isProcessingPhoto = false
-                        CameraFixatorLog.d("photo_save_failed message=${error.message}")
-                        showCameraSnackbar("Не удалось сохранить фото на устройстве", kind = CameraSnackbarKind.Error)
-                        return@launch
+
+            val availableSlots = MAX_PHOTOS_PER_UPLOAD - photos.size
+            val bytesToAdd = rawBytesList.take(availableSlots)
+            if (bytesToAdd.size < rawBytesList.size) {
+                showCameraSnackbar(
+                    "Можно добавить не более $MAX_PHOTOS_PER_UPLOAD фото за одну отправку",
+                    kind = CameraSnackbarKind.Error,
+                )
+            }
+
+            isProcessingPhoto = true
+            try {
+                var addedCount = 0
+                var failedCount = 0
+                for (rawBytes in bytesToAdd) {
+                    val rawSize = rawBytes.size
+                    val normalizedResult = runCatching {
+                        withContext(Dispatchers.Default) {
+                            normalizeFixatorPhoto(rawBytes)
+                        }
                     }
-                    trySaveToPublicGallery(normalizedBytes, savedEntry.fileName)
-                    photos.add(
-                        CapturedPhoto(
-                            entry = savedEntry,
-                            thumbnail = decodePhotoThumbnail(normalizedBytes),
-                        ),
-                    )
-                    isProcessingPhoto = false
-                    CameraFixatorLog.d(
-                        "photo_added count=${photos.size} size=${normalizedBytes.size} normalized_from=$rawSize",
-                    )
-                    showCameraSnackbar("Фото сделано")
-                    performCameraHapticFeedback(CameraHapticFeedbackStrength.PhotoCaptured)
-                }
-                .onFailure { error ->
-                    isProcessingPhoto = false
-                    val message = when (error) {
-                        is FixatorPhotoNormalizationException -> error.message ?: "Не удалось обработать фото"
-                        else -> "Не удалось обработать фото"
+                    val processed = normalizedResult
+                        .onSuccess { normalizedBytes ->
+                            val savedEntry = runCatching {
+                                photoStorage.savePendingPhoto(
+                                    documentNumber = documentNumber,
+                                    documentName = documentName,
+                                    normalizedBytes = normalizedBytes,
+                                )
+                            }.getOrElse { error ->
+                                failedCount += 1
+                                CameraFixatorLog.d("photo_save_failed message=${error.message}")
+                                return@onSuccess
+                            }
+                            trySaveToPublicGallery(normalizedBytes, savedEntry.fileName)
+                            photos.add(
+                                CapturedPhoto(
+                                    entry = savedEntry,
+                                    thumbnail = decodePhotoThumbnail(normalizedBytes),
+                                ),
+                            )
+                            addedCount += 1
+                            CameraFixatorLog.d(
+                                "photo_added count=${photos.size} size=${normalizedBytes.size} normalized_from=$rawSize",
+                            )
+                        }
+                        .onFailure { error ->
+                            failedCount += 1
+                            val message = when (error) {
+                                is FixatorPhotoNormalizationException -> error.message ?: "Не удалось обработать фото"
+                                else -> "Не удалось обработать фото"
+                            }
+                            CameraFixatorLog.d("photo_normalize_failed from=$rawSize message=$message")
+                            showCameraSnackbar(message, kind = CameraSnackbarKind.Error)
+                        }
+                    if (processed.isFailure && addedCount == 0 && failedCount == bytesToAdd.size) {
+                        break
                     }
-                    CameraFixatorLog.d("photo_normalize_failed from=$rawSize message=$message")
-                    showCameraSnackbar(message, kind = CameraSnackbarKind.Error)
                 }
+
+                when {
+                    fromCamera && addedCount == 1 -> {
+                        showCameraSnackbar("Фото сделано")
+                        performCameraHapticFeedback(CameraHapticFeedbackStrength.PhotoCaptured)
+                    }
+                    !fromCamera && addedCount > 1 -> showCameraSnackbar("Добавлено $addedCount фото из галереи")
+                    !fromCamera && addedCount == 1 -> {
+                        showCameraSnackbar("Фото добавлено из галереи")
+                        performCameraHapticFeedback(CameraHapticFeedbackStrength.PhotoCaptured)
+                    }
+                    failedCount > 0 && addedCount == 0 -> {
+                        if (bytesToAdd.size == 1) {
+                            showCameraSnackbar("Не удалось добавить фото", kind = CameraSnackbarKind.Error)
+                        }
+                    }
+                }
+            } finally {
+                isProcessingPhoto = false
+            }
+        }
+    }
+
+    fun addPhoto(rawBytes: ByteArray) {
+        addPhotosFromBytes(listOf(rawBytes), fromCamera = true)
+    }
+
+    val launchGalleryPicker = rememberGalleryPhotoPicker { pickedBytes ->
+        if (pickedBytes.isNotEmpty()) {
+            addPhotosFromBytes(pickedBytes, fromCamera = false)
         }
     }
 
@@ -290,12 +345,12 @@ fun DocumentCameraScreen(
             Surface(tonalElevation = 3.dp) {
                 Button(
                     onClick = {
-                        if (photos.isEmpty() || isUploading) return@Button
-                        scope.launch {
+                        if (photos.isEmpty() || isCameraBusy) return@Button
+                        photoActionGate.launch(scope) {
+                            uploadStatus = UploadUiStatus.Uploading
                             CameraFixatorLog.d(
                                 "upload_start document=$documentNumber photos=${photos.size}",
                             )
-                            uploadStatus = UploadUiStatus.Uploading
                             val entries = photos.map { it.entry }
                             val photoBytes = withContext(Dispatchers.Default) {
                                 entries.map { entry ->
@@ -329,7 +384,7 @@ fun DocumentCameraScreen(
                             }
                         }
                     },
-                    enabled = photos.isNotEmpty() && !isUploading,
+                    enabled = photos.isNotEmpty() && !isCameraBusy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -390,7 +445,11 @@ fun DocumentCameraScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Button(
-                            onClick = { cameraControls?.capturePhoto() },
+                            onClick = {
+                                if (!canCapture) return@Button
+                                isCapturePending = true
+                                cameraControls?.capturePhoto()
+                            },
                             enabled = canCapture,
                             modifier = Modifier.weight(1f),
                         ) {
@@ -419,12 +478,15 @@ fun DocumentCameraScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 8.dp),
             ) {
-//                item {
-//                    PhotoAddTile(
-//                        enabled = canCapture,
-//                        onClick = { cameraControls?.capturePhoto() },
-//                    )
-//                }
+                item(key = "gallery_pick") {
+                    PhotoGalleryPickTile(
+                        enabled = canAddFromGallery,
+                        onClick = {
+                            if (isCameraBusy) return@PhotoGalleryPickTile
+                            launchGalleryPicker(MAX_PHOTOS_PER_UPLOAD - photos.size)
+                        },
+                    )
+                }
                 items(photos, key = { it.id }) { photo ->
                     PhotoThumbnailTile(
                         photo = photo,
@@ -594,6 +656,27 @@ private fun RowStatus(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
             color = color,
+        )
+    }
+}
+
+@Composable
+private fun PhotoGalleryPickTile(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(THUMB_SIZE_DP.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            FeatherIcons.Image,
+            contentDescription = "Добавить из галереи",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

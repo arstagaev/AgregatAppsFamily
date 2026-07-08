@@ -62,32 +62,34 @@ import compose.icons.feathericons.X
 import kotlinx.coroutines.launch
 
 private val EXPENSE_REQUEST_STATUS_STYLES = mapOf(
+    "Создан" to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
     "Создана" to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
     "Согласована" to StatusStyle(DefaultColors.RainbowAquaBg, DefaultColors.RainbowAquaFg),
+    "Не согласовано" to StatusStyle(DefaultColors.RainbowOrangeBg, DefaultColors.RainbowOrangeFg),
 )
 
 private val EXPENSE_TOPBAR_SEARCH_OPTIONS = listOf(
     Refiner.SearchQueryType.CODE,
     Refiner.SearchQueryType.AUTHOR,
-    Refiner.SearchQueryType.TOPIC,
+    Refiner.SearchQueryType.PURPOSE,
 )
 
 private enum class ExpenseSearchMode {
     NUMBER,
     AUTHOR,
-    TOPIC,
+    PURPOSE,
 }
 
 private fun ExpenseSearchMode.toRefineType(): Refiner.SearchQueryType = when (this) {
     ExpenseSearchMode.NUMBER -> Refiner.SearchQueryType.CODE
     ExpenseSearchMode.AUTHOR -> Refiner.SearchQueryType.AUTHOR
-    ExpenseSearchMode.TOPIC -> Refiner.SearchQueryType.TOPIC
+    ExpenseSearchMode.PURPOSE -> Refiner.SearchQueryType.PURPOSE
 }
 
 private fun refineToExpenseMode(type: Refiner.SearchQueryType): ExpenseSearchMode =
     when (type) {
         Refiner.SearchQueryType.AUTHOR -> ExpenseSearchMode.AUTHOR
-        Refiner.SearchQueryType.TOPIC -> ExpenseSearchMode.TOPIC
+        Refiner.SearchQueryType.PURPOSE -> ExpenseSearchMode.PURPOSE
         else -> ExpenseSearchMode.NUMBER
     }
 
@@ -152,10 +154,10 @@ fun ExpenseRequestsScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         MasterScreen(
-            title = "Заявки на расход",
+            title = "Заявки на расход ДС",
             resource = resource,
-            errorText = "Не удалось загрузить заявки на расход",
-            notFoundText = "Заявки на расход не найдены",
+            errorText = "Не удалось загрузить заявки на расход ДС",
+            notFoundText = "Заявки на расход ДС не найдены",
             refineState = refineState,
             onRefresh = { component.fullRefresh() },
             onLoadMore = { component.loadMore() },
@@ -163,9 +165,9 @@ fun ExpenseRequestsScreen(
             itemId = { it.guid },
             isItemChanged = { old, new ->
                 old.date != new.date ||
-                    old.requestStatus != new.requestStatus ||
+                    old.state != new.state ||
                     old.amount != new.amount ||
-                    old.topic != new.topic
+                    old.purpose != new.purpose
             },
             listItem = { item, _, onClick ->
                 val bottomRight = buildList {
@@ -182,7 +184,7 @@ fun ExpenseRequestsScreen(
                         .filter { it.isNotBlank() }
                         .joinToString(" · "),
                     topRightPrimary = {
-                        val status = item.requestStatus
+                        val status = item.state
                         if (!status.isNullOrBlank()) {
                             StatusBadge(
                                 state = status,
@@ -190,8 +192,8 @@ fun ExpenseRequestsScreen(
                             )
                         }
                     },
-                    bigText1 = item.topic.orEmpty(),
-                    bigText2 = listOfNotNull(item.requestType, item.operation)
+                    bigText1 = item.purpose.orEmpty(),
+                    bigText2 = listOfNotNull(item.counterparty, item.operation)
                         .filter { it.isNotBlank() }
                         .joinToString(" · "),
                     bottomLeftText = item.date.orEmpty(),
@@ -408,9 +410,9 @@ private fun ExpenseRequestsSearchModeRow(
             label = { Text("Автор", maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
-            selected = selected == ExpenseSearchMode.TOPIC,
-            onClick = { onSelected(ExpenseSearchMode.TOPIC) },
-            label = { Text("Тема", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            selected = selected == ExpenseSearchMode.PURPOSE,
+            onClick = { onSelected(ExpenseSearchMode.PURPOSE) },
+            label = { Text("Назначение", maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
     }
 }
@@ -418,5 +420,5 @@ private fun ExpenseRequestsSearchModeRow(
 private fun ExpenseSearchMode.placeholder(): String = when (this) {
     ExpenseSearchMode.NUMBER -> "Номер заявки…"
     ExpenseSearchMode.AUTHOR -> "Автор…"
-    ExpenseSearchMode.TOPIC -> "Тема…"
+    ExpenseSearchMode.PURPOSE -> "Назначение…"
 }

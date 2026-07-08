@@ -57,6 +57,7 @@ interface ISettingsComponent : BottomNavLayoutEditorHost {
     fun closeDeveloperMenu()
     fun openCameraFixator()
     fun closeCameraFixator()
+    fun clearDocumentPhotoCache(onResult: (String) -> Unit)
 }
 
 class SettingsComponent(
@@ -401,6 +402,19 @@ class SettingsComponent(
 
     override fun closeCameraFixator() {
         _showCameraFixator.value = false
+    }
+
+    override fun clearDocumentPhotoCache(onResult: (String) -> Unit) {
+        appScope.launch {
+            val stats = runCatching { repository.clearDocumentPhotoCache() }
+                .getOrElse {
+                    onResult("Не удалось очистить кэш фотографий")
+                    return@launch
+                }
+            val sizeMb = stats.freedBytes / (1024.0 * 1024.0)
+            val roundedSizeMb = (sizeMb * 10.0).toInt() / 10.0
+            onResult("Удалено ${stats.deletedFiles} файлов ($roundedSizeMb МБ)")
+        }
     }
 
     private fun closeAllSubScreens(

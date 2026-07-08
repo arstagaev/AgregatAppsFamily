@@ -96,16 +96,20 @@ private fun ByteArray.toNsData(): NSData {
     }
 }
 
-actual fun createFixatorPhotoStorage(): FixatorPhotoStorage {
+actual fun appFixatorStorageRoot(): Path {
     val fileManager = NSFileManager.defaultManager
     val baseDir = fileManager.URLsForDirectory(
         directory = NSApplicationSupportDirectory,
         inDomains = NSUserDomainMask,
     ).firstOrNull() as? NSURL
-    val rootPath = (baseDir?.path ?: "/tmp")
-        .toPath() / fixatorAppStorageFolderName()
-    return FixatorPhotoStorage(
-        storageRoot = rootPath,
+    return (baseDir?.path ?: "/tmp").toPath() / fixatorAppStorageFolderName()
+}
+
+actual fun createFixatorPhotoStorage(): FixatorPhotoStorage =
+    FixatorPhotoStorage(
+        storageRoot = appFixatorStorageRoot(),
         publicGallerySaver = IosPublicGallerySaver(),
     )
-}
+
+actual fun createDocumentPhotoCache(): DocumentPhotoCache =
+    DocumentPhotoCache(storageRoot = appFixatorStorageRoot())

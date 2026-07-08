@@ -690,7 +690,9 @@ class DefaultRootComponent(
             "expenserequests",
             "expenserequest",
             "заявканарасход",
+            "заявканарасходдс",
             "заявки_на_расход",
+            "заявки_на_расход_дс",
             "заявкирасход",
             -> IRootComponent.Config.ExpenseRequests
             else -> null

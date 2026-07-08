@@ -988,7 +988,7 @@ class EventsApi(
                 parameters.append("token", apiConfig.token)
                 parameters.append("task", "getitemslist")
                 parameters.append("type", "Документ")
-                parameters.append("name", "ЗаявкаНаРасход")
+                parameters.append("name", "ЗаявкаНаРасходДС")
                 parameters.append("count", "30")
                 parameters.append("ncount", "$ncount")
                 if (currentRefine.orderBy != Refiner.OrderBy.OFF) {

@@ -68,6 +68,10 @@ import com.tagaev.trrcrm.data.remote.toImageMediatorError
 import com.tagaev.trrcrm.domain.exceedsHardMax
 import com.tagaev.trrcrm.domain.isValidDocumentNumber
 import com.tagaev.trrcrm.domain.normalizeDocumentNumber
+import com.tagaev.trrcrm.data.fixator.DocumentPhotoCache
+import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheKey
+import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheStats
+import com.tagaev.trrcrm.models.ImageMediatorImageListResponse
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -93,6 +97,7 @@ class MainRepository(
 
     private val settings: AppSettings by inject()
     private val imageMediatorApi: ImageMediatorApi by inject()
+    private val documentPhotoCache: DocumentPhotoCache by inject()
 
     suspend fun loadEvents(
         type: String? = null,
@@ -712,6 +717,102 @@ class MainRepository(
             is Resource.Loading -> Resource.Loading
         }
     }
+
+    suspend fun getFixatorDocumentPhotoCount(documentNumber: String): Resource<Int> {
+        val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
+        if (token.isBlank()) {
+            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+        }
+        val normalizedNumber = normalizeDocumentNumber(documentNumber)
+        if (!isValidDocumentNumber(normalizedNumber)) {
+            return Resource.Success(0)
+        }
+        return when (val result = imageMediatorApi.getDocumentPhotoCount(token, normalizedNumber)) {
+            is Resource.Success -> Resource.Success(result.data)
+            is Resource.Error -> Resource.Error(
+                exception = result.exception,
+                causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить количество фотографий"),
+            )
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    suspend fun listFixatorDocumentImages(
+        documentNumber: String,
+        page: Int,
+    ): Resource<ImageMediatorImageListResponse> {
+        val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
+        if (token.isBlank()) {
+            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+        }
+        val normalizedNumber = normalizeDocumentNumber(documentNumber)
+        if (!isValidDocumentNumber(normalizedNumber)) {
+            return Resource.Error(causes = "Номер документа: 6–12 цифр")
+        }
+        if (page < 1) {
+            return Resource.Error(causes = "Некорректный номер страницы")
+        }
+        return when (val result = imageMediatorApi.listDocumentImages(token, normalizedNumber, page)) {
+            is Resource.Success -> Resource.Success(result.data)
+            is Resource.Error -> Resource.Error(
+                exception = result.exception,
+                causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить фотографии"),
+            )
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    suspend fun downloadFixatorDocumentImage(
+        documentType: String,
+        documentNumber: String,
+        imageId: String,
+        contentUrl: String,
+    ): Resource<ByteArray> {
+        val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
+        if (token.isBlank()) {
+            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+        }
+        if (contentUrl.isBlank() || imageId.isBlank()) {
+            return Resource.Error(causes = "Не удалось загрузить фотографии")
+        }
+
+        val cacheKey = DocumentPhotoCacheKey(
+            documentType = documentType,
+            documentNumber = normalizeDocumentNumber(documentNumber),
+            imageId = imageId,
+        )
+        runCatching {
+            documentPhotoCache.readBytes(cacheKey)
+        }.getOrNull()?.let { cached ->
+            return Resource.Success(cached)
+        }
+
+        return when (val result = imageMediatorApi.downloadImageContent(token, contentUrl)) {
+            is Resource.Success -> {
+                runCatching {
+                    documentPhotoCache.writeBytes(cacheKey, result.data)
+                }
+                Resource.Success(result.data)
+            }
+            is Resource.Error -> Resource.Error(
+                exception = result.exception,
+                causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить фотографии"),
+            )
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    suspend fun clearFixatorDocumentPhotoCache(
+        documentType: String,
+        documentNumber: String,
+    ): DocumentPhotoCacheStats =
+        documentPhotoCache.clearDocument(
+            documentType = documentType,
+            documentNumber = normalizeDocumentNumber(documentNumber),
+        )
+
+    suspend fun clearDocumentPhotoCache(): DocumentPhotoCacheStats =
+        documentPhotoCache.clearAll()
 
 
     //          api.sendMessage(api = cfg, number = number, date = date, message = message)

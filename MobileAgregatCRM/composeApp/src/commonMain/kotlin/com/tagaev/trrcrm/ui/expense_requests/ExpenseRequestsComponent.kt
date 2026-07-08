@@ -134,7 +134,7 @@ class ExpenseRequestsComponent(
         itemNumber: String,
         itemDate: String,
         message: String,
-    ): String? = "Отправка сообщений для заявок на расход не поддерживается"
+    ): String? = "Отправка сообщений для заявок на расход ДС не поддерживается"
 
     override fun addLocalMessage(orderGuid: String?, message: MessageModel) {
         // read-only screen

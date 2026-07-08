@@ -30,7 +30,7 @@ fun TreeRootDocumentKind.displayNameRu(): String = when (this) {
     TreeRootDocumentKind.BUYER_ORDER -> "Заказ покупателя"
     TreeRootDocumentKind.SUPPLIER_ORDER -> "Заказ поставщику"
     TreeRootDocumentKind.CARGO -> "Груз"
-    TreeRootDocumentKind.EXPENSE_REQUEST -> "Заявка на расход"
+    TreeRootDocumentKind.EXPENSE_REQUEST -> "Заявка на расход ДС"
 }
 
 data class TreeRootDocumentRef(
@@ -210,7 +210,9 @@ object TreeRootDocument {
             "заказ покупателя", "заказ покупат", "покупательский заказ" -> TypeMapping("ЗаказПокупателя", TreeRootDocumentKind.BUYER_ORDER)
             "заказ поставщику", "заказ поставщика" -> TypeMapping("ЗаказПоставщику", TreeRootDocumentKind.SUPPLIER_ORDER)
             "груз" -> TypeMapping("Груз", TreeRootDocumentKind.CARGO)
-            "заявка на расход" -> TypeMapping("ЗаявкаНаРасход", TreeRootDocumentKind.EXPENSE_REQUEST)
+            "заявка на расход дс",
+            "заявка на расход",
+            -> TypeMapping("ЗаявкаНаРасходДС", TreeRootDocumentKind.EXPENSE_REQUEST)
             else -> null
         }
     }

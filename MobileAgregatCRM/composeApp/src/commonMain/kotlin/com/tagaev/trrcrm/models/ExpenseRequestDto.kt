@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 typealias ExpenseRequestsResponse = List<ExpenseRequestDto>
 
-/** Документ 1C «ЗаявкаНаРасход» (список через getitemslist). */
+/** Документ 1C «ЗаявкаНаРасходДС» (список через getitemslist). */
 @Serializable
 data class ExpenseRequestDto(
     @SerialName("guid") val guid: String,
@@ -14,24 +14,67 @@ data class ExpenseRequestDto(
     @SerialName("ПометкаУдаления") val deletionMark: String? = null,
     @SerialName("Дата") val date: String? = null,
     @SerialName("Номер") val number: String? = null,
-    @SerialName("ХозОперация") val operation: String? = null,
     @SerialName("Автор") val author: String? = null,
-    @SerialName("ДатаОплаты") val paymentDate: String? = null,
-    @SerialName("Комментарий") val comment: String? = null,
-    @SerialName("Приоритет") val priority: String? = null,
-    @SerialName("Тема") val topic: String? = null,
     @SerialName("ВалютаДокумента") val currency: String? = null,
     @SerialName("ДоговорВзаиморасчетов") val settlementContract: String? = null,
     @SerialName("ДокументОснование") val baseDocument: String? = null,
+    @SerialName("СтруктурнаяЕдиница") val structuralUnit: String? = null,
+    @SerialName("Комментарий") val comment: String? = null,
+    @SerialName("Контрагент") val counterparty: String? = null,
     @SerialName("КурсДокумента") val exchangeRate: String? = null,
+    @SerialName("Назначение") val purpose: String? = null,
     @SerialName("Организация") val organization: String? = null,
     @SerialName("ПодразделениеКомпании") val branch: String? = null,
+    @SerialName("Проект") val project: String? = null,
+    @SerialName("СпособПоследнегоЗаполнения") val lastFillMethod: String? = null,
     @SerialName("СтатьяДДС") val cashFlowItem: String? = null,
     @SerialName("СуммаДокумента") val amount: String? = null,
-    @SerialName("СтатусЗаявки") val requestStatus: String? = null,
-    @SerialName("ТипЗаявки") val requestType: String? = null,
-    @SerialName("СтруктурнаяЕдиница") val structuralUnit: String? = null,
+    @SerialName("ХозОперация") val operation: String? = null,
+    @SerialName("КурсВалютыУпр") val managementExchangeRate: String? = null,
+    @SerialName("КурсВалютыВзаиморасчетов") val settlementExchangeRate: String? = null,
+    @SerialName("ДатаСоздания") val createdAt: String? = null,
+    @SerialName("ДатаОперации") val operationDate: String? = null,
+    @SerialName("Подтверждено") val confirmed: String? = null,
+    @SerialName("ОплатаСогласована") val paymentApproved: String? = null,
+    @SerialName("ОплатаСогласованаСотрудник") val paymentApprovedBy: String? = null,
+    @SerialName("ОплатаСогласованаДата") val paymentApprovedAt: String? = null,
+    @SerialName("Состояние") val state: String? = null,
+    @SerialName("БанковскийСчетКонтрагента") val counterpartyBankAccount: String? = null,
+    @SerialName("ОплатаСогласованаУК") val paymentApprovedByUk: String? = null,
+    @SerialName("ОплатаСогласованаУКСотрудник") val paymentApprovedByUkEmployee: String? = null,
+    @SerialName("ОплатаСогласованаУКДата") val paymentApprovedByUkAt: String? = null,
+    @SerialName("Срочное") val urgent: String? = null,
+    @SerialName("Платежи") val payments: List<ExpenseRequestPaymentDto> = emptyList(),
+    @SerialName("Счета") val accounts: List<ExpenseRequestAccountDto> = emptyList(),
     @SerialName("Подписанты") val signatories: List<ExpenseRequestSignatoryDto> = emptyList(),
+    @SerialName("РаспределениеПоСчетам") val accountAllocation: List<ExpenseRequestAccountAllocationDto> = emptyList(),
+)
+
+@Serializable
+data class ExpenseRequestPaymentDto(
+    @SerialName("НомерСтроки") val lineNumber: String? = null,
+    @SerialName("ДатаПлатежа") val paymentDate: String? = null,
+    @SerialName("СтатьяРасходов") val expenseItem: String? = null,
+    @SerialName("Описание") val description: String? = null,
+    @SerialName("Сумма") val amount: String? = null,
+    @SerialName("СтатьяДДС") val cashFlowItem: String? = null,
+    @SerialName("Направление") val direction: String? = null,
+    @SerialName("Статус") val status: String? = null,
+    @SerialName("Комментарий") val comment: String? = null,
+    @SerialName("Согласовал") val approvedBy: String? = null,
+    @SerialName("СуммаНДС") val vatAmount: String? = null,
+    @SerialName("СтруктурнаяЕдиница") val structuralUnit: String? = null,
+    @SerialName("СтавкаНДС") val vatRate: String? = null,
+)
+
+@Serializable
+data class ExpenseRequestAccountDto(
+    @SerialName("НомерСтроки") val lineNumber: String? = null,
+)
+
+@Serializable
+data class ExpenseRequestAccountAllocationDto(
+    @SerialName("НомерСтроки") val lineNumber: String? = null,
 )
 
 @Serializable
@@ -48,8 +91,18 @@ fun ExpenseRequestSignatoryDto.isMeaningful(): Boolean {
     return !user.isNullOrBlank() || !status.isNullOrBlank()
 }
 
+fun ExpenseRequestPaymentDto.isMeaningful(): Boolean {
+    return !amount.isNullOrBlank() ||
+        !paymentDate.isNullOrBlank() ||
+        !status.isNullOrBlank() ||
+        !description.isNullOrBlank()
+}
+
 fun ExpenseRequestDto.meaningfulSignatories(): List<ExpenseRequestSignatoryDto> =
     signatories.filter { it.isMeaningful() }
+
+fun ExpenseRequestDto.meaningfulPayments(): List<ExpenseRequestPaymentDto> =
+    payments.filter { it.isMeaningful() }
 
 fun ExpenseRequestDto.formattedAmount(): String? {
     val value = amount?.trim().orEmpty()
@@ -72,15 +125,15 @@ fun ExpenseRequestDto.detailDisplayValue(raw: String?): String {
 fun ExpenseRequestDto.primaryDetailGridRows(): List<Pair<Pair<String, String>, Pair<String, String>>> =
     listOf(
         ("Номер" to detailDisplayValue(number)) to ("Дата" to detailDisplayValue(date)),
-        ("Тема" to detailDisplayValue(topic)) to (
+        ("Назначение" to detailDisplayValue(purpose)) to (
             "Сумма документа" to (formattedAmount()?.takeIf { it.isNotBlank() } ?: "—")
             ),
-        ("Договор взаиморасчётов" to detailDisplayValue(settlementContract)) to
-            ("Документ-основание" to detailDisplayValue(baseDocument)),
+        ("Контрагент" to detailDisplayValue(counterparty)) to
+            ("Договор взаиморасчётов" to detailDisplayValue(settlementContract)),
         ("Организация" to detailDisplayValue(organization)) to
             ("Подразделение" to detailDisplayValue(branch)),
-        ("Статус заявки" to detailDisplayValue(requestStatus)) to
-            ("Тип заявки" to detailDisplayValue(requestType)),
+        ("Состояние" to detailDisplayValue(state)) to
+            ("Хоз. операция" to detailDisplayValue(operation)),
     )
 
 /** Дополнительные поля — в той же сетке, только непустые. Нечётная последняя строка — одна колонка. */
@@ -90,13 +143,20 @@ fun ExpenseRequestDto.supplementaryDetailGridRows(): List<Pair<Pair<String, Stri
             val value = detailDisplayValue(raw)
             if (value != "—") add(label to value)
         }
-        addPair("Хоз. операция", operation)
+        addPair("Документ-основание", baseDocument)
         addPair("Автор", author)
-        addPair("Дата оплаты", paymentDate)
-        addPair("Приоритет", priority)
+        addPair("Дата операции", operationDate)
+        addPair("Дата создания", createdAt)
+        addPair("Подтверждено", confirmed)
+        addPair("Оплата согласована", paymentApproved)
+        addPair("Согласовал оплату", paymentApprovedBy)
+        addPair("Дата согласования оплаты", paymentApprovedAt)
+        addPair("Срочное", urgent)
         addPair("Статья ДДС", cashFlowItem)
         addPair("Курс документа", exchangeRate)
         addPair("Структурная единица", structuralUnit)
+        addPair("Проект", project)
+        addPair("Банковский счёт контрагента", counterpartyBankAccount)
         addPair("Проведен", posted)
         addPair("Комментарий", comment)
     }
@@ -119,10 +179,8 @@ fun ExpenseRequestDto.nonEmptyDisplayRows(): List<Pair<String, String>> = buildL
     add("Номер", number)
     add("Хоз. операция", operation)
     add("Автор", author)
-    add("Дата оплаты", paymentDate)
     add("Комментарий", comment)
-    add("Приоритет", priority)
-    add("Тема", topic)
+    add("Назначение", purpose)
     add("Валюта", currency)
     add("Договор взаиморасчётов", settlementContract)
     add("Документ-основание", baseDocument)
@@ -131,8 +189,8 @@ fun ExpenseRequestDto.nonEmptyDisplayRows(): List<Pair<String, String>> = buildL
     add("Подразделение", branch)
     add("Статья ДДС", cashFlowItem)
     add("Сумма документа", amount)
-    add("Статус заявки", requestStatus)
-    add("Тип заявки", requestType)
+    add("Состояние", state)
+    add("Контрагент", counterparty)
     add("Структурная единица", structuralUnit)
     if (guid.isNotBlank()) add("GUID" to guid.trim())
 }

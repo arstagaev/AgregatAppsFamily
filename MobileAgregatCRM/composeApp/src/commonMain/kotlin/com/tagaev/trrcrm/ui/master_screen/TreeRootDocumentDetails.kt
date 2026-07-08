@@ -22,6 +22,9 @@ fun TreeRootDocumentDetailsSheet(
     complectationStacked: ComplectationTreeStackedUi? = null,
     /** For [TreeRootResolvedDocument.Complectation] only: click on product characteristic. */
     onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     when (document) {
         is TreeRootResolvedDocument.Event -> EventDetailsSheet(
@@ -44,6 +47,9 @@ fun TreeRootDocumentDetailsSheet(
             detailsScrollState = complectationStacked?.detailsScroll,
             onOpenBaseDocument = onOpenBaseDocument,
             onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
         is TreeRootResolvedDocument.Complaint -> ComplaintDetailsSheetWithMessages(
             complaint = document.value,

@@ -54,3 +54,32 @@ data class ImageMediatorUploadResult(
     val resolvedYear: Int?,
     val resolvedMonth: Int?,
 )
+
+@Serializable
+data class ImageMediatorImageCountResponse(
+    @SerialName("document_number") val documentNumber: String,
+    @SerialName("resolved_year") val resolvedYear: Int? = null,
+    @SerialName("resolved_month") val resolvedMonth: Int? = null,
+    val count: Int,
+)
+
+@Serializable
+data class ImageMediatorImageMeta(
+    @SerialName("image_id") val imageId: String,
+    @SerialName("content_url") val contentUrl: String,
+    @SerialName("size_bytes") val sizeBytes: Long? = null,
+)
+
+@Serializable
+data class ImageMediatorImageListResponse(
+    @SerialName("document_number") val documentNumber: String,
+    @SerialName("resolved_year") val resolvedYear: Int? = null,
+    @SerialName("resolved_month") val resolvedMonth: Int? = null,
+    val page: Int,
+    @SerialName("page_size") val pageSize: Int,
+    @SerialName("total_count") val totalCount: Int,
+    @SerialName("total_pages") val totalPages: Int,
+    @SerialName("has_next") val hasNext: Boolean,
+    @SerialName("has_previous") val hasPrevious: Boolean,
+    val images: List<ImageMediatorImageMeta> = emptyList(),
+)

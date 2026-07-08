@@ -30,9 +30,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.getPlatform
+import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.data.remote.userFacingMessage
+import com.tagaev.trrcrm.developer.ComplectationPhotosViewerFeatureState
 import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.domain.Refiner
@@ -67,6 +69,7 @@ import compose.icons.feathericons.X
 import compose.icons.lineawesomeicons.QrcodeSolid
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 private enum class ComplectationSearchModeType {
     NAME,
@@ -118,7 +121,19 @@ fun ComplectationsScreen(
     val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
     val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
     val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
+    val documentPhotoCount by component.documentPhotoCount.collectAsState()
+    val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
+    val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
+    val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
+    val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
+    val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
     val transientWarning by component.transientWarning.collectAsState()
+
+    val appSettings = koinInject<AppSettings>()
+    LaunchedEffect(panel) {
+        ComplectationPhotosViewerFeatureState.loadFrom(appSettings)
+    }
+    val photosViewerFeatureEnabled by ComplectationPhotosViewerFeatureState.enabled
 
     val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
     var cameraSnackbarIsError by remember { mutableStateOf(false) }
@@ -255,6 +270,17 @@ fun ComplectationsScreen(
         }
         return
     }
+    if (isPhotosViewerOpen) {
+        val number = photosViewerDocumentNumber
+        if (number != null) {
+            DocumentPhotosViewerScreen(
+                documentNumber = number,
+                documentType = "complectation",
+                onBack = component::closePhotosViewer,
+            )
+        }
+        return
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         MasterScreen(
@@ -286,6 +312,19 @@ fun ComplectationsScreen(
             } else {
                 complectationRootListStateKey(order)
             }
+            val activeOrderNumber = (currentLinked as? TreeRootResolvedDocument.Complectation)?.value?.number
+                ?: order.number
+            LaunchedEffect(activeOrderNumber, photosViewerFeatureEnabled) {
+                if (photosViewerFeatureEnabled) {
+                    activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+                }
+            }
+            val openDocumentPhotos: (() -> Unit)? =
+                if (photosViewerFeatureEnabled && !activeOrderNumber.isNullOrBlank()) {
+                    { component.requestOpenDocumentPhotos(activeOrderNumber) }
+                } else {
+                    null
+                }
             val snapshot: StackedDocumentDetailsSnapshot = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot()
             val detailsScroll: ScrollState = remember(detailsKey) {
                 ScrollState(snapshot.scroll)
@@ -333,7 +372,10 @@ fun ComplectationsScreen(
                     onBack = onNestedBack,
                     onOpenBaseDocument = onOpenBaseDocument,
                     complectationStacked = complectationStackedUi,
-                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    documentPhotoCount = if (photosViewerFeatureEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosViewerFeatureEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                 )
             } else {
                 component.pickedComplectation = order
@@ -344,6 +386,9 @@ fun ComplectationsScreen(
                     onStackedDetailsSnapshotChange = complectationStackedUi.onDetailsSnapshot,
                     detailsScrollState = complectationStackedUi.detailsScroll,
                     onOpenBaseDocument = onOpenBaseDocument,
+                    documentPhotoCount = if (photosViewerFeatureEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosViewerFeatureEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                     onSendMessage = { message, onResult ->
                         val number = order.number.orEmpty()
                         val date = order.date.orEmpty()

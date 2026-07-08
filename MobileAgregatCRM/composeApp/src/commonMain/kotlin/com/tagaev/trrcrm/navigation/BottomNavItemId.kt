@@ -30,7 +30,7 @@ enum class BottomNavItemId(val wire: String) {
             INNER_ORDER -> "Внутр. заказы"
             INCOMING_APPLICATIONS -> "Входящие Заявки"
             REPAIR_TEMPLATE_CATALOG -> "Калькуляция"
-            EXPENSE_REQUESTS -> "Заявки расход"
+            EXPENSE_REQUESTS -> "Заявки расход ДС"
             QR_SCANNER -> "QR Сканер"
             MENU -> "Меню"
         }

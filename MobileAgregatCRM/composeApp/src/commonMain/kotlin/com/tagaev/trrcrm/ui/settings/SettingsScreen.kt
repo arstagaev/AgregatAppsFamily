@@ -26,6 +26,7 @@ import com.tagaev.secrets.Secrets
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Bell
 import compose.icons.feathericons.Code
+import compose.icons.feathericons.Image
 import compose.icons.feathericons.LogOut
 import compose.icons.feathericons.Sliders
 
@@ -96,6 +97,7 @@ private fun SettingsMainScreen(
     val developerMode by DeveloperModeState.enabled
     var titleTapCount by rememberSaveable { mutableIntStateOf(0) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
+    var showClearPhotoCacheDialog by rememberSaveable { mutableStateOf(false) }
     val titleInteractionSource = remember { MutableInteractionSource() }
 
     val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
@@ -179,6 +181,16 @@ private fun SettingsMainScreen(
                     Divider()
                 }
 
+                item {
+                    ListItem(
+                        headlineContent = { Text("Очистить кэш фотографий") },
+                        supportingContent = { Text("Загруженные фото документов на устройстве") },
+                        leadingContent = { Icon(FeatherIcons.Image, contentDescription = null) },
+                        modifier = Modifier.clickable { showClearPhotoCacheDialog = true },
+                    )
+                    Divider()
+                }
+
                 if (developerMode) {
                     item {
                         ListItem(
@@ -219,6 +231,29 @@ private fun SettingsMainScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = { showLogoutDialog = false }) {
+                            Text("Отмена")
+                        }
+                    },
+                )
+            }
+
+            if (showClearPhotoCacheDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearPhotoCacheDialog = false },
+                    title = { Text("Очистить кэш фотографий") },
+                    text = { Text("Удалить загруженные фото документов с устройства?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showClearPhotoCacheDialog = false
+                                component.clearDocumentPhotoCache(showSnackbar)
+                            },
+                        ) {
+                            Text("Очистить")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearPhotoCacheDialog = false }) {
                             Text("Отмена")
                         }
                     },

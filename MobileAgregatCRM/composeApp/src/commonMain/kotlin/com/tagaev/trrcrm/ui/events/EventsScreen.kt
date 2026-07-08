@@ -114,6 +114,7 @@ private fun Refiner.SearchQueryType.eventsSearchLabel(): String = when (this) {
     Refiner.SearchQueryType.REPAIR_TEMPLATE_TRANSMISSION,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
+    Refiner.SearchQueryType.PURPOSE,
     -> "Калькуляция"
 }
 

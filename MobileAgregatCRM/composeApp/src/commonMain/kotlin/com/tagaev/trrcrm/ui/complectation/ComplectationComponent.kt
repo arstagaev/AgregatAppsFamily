@@ -8,6 +8,7 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
+import com.tagaev.trrcrm.developer.ComplectationPhotosViewerFeatureState
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
 import com.tagaev.trrcrm.domain.RefineState
@@ -83,6 +84,19 @@ class ComplectationComponent(
     private val _cameraPrecheckError = MutableStateFlow<String?>(null)
     val cameraPrecheckError: StateFlow<String?> = _cameraPrecheckError
 
+    private val _documentPhotoCount = MutableStateFlow(0)
+    val documentPhotoCount: StateFlow<Int> = _documentPhotoCount
+    private val _isDocumentPhotoCountLoading = MutableStateFlow(false)
+    val isDocumentPhotoCountLoading: StateFlow<Boolean> = _isDocumentPhotoCountLoading
+    private val _documentPhotoCountLoaded = MutableStateFlow(false)
+    val documentPhotoCountLoaded: StateFlow<Boolean> = _documentPhotoCountLoaded
+    private var documentPhotoCountRequestId = 0
+
+    private val _isPhotosViewerOpen = MutableStateFlow(false)
+    val isPhotosViewerOpen: StateFlow<Boolean> = _isPhotosViewerOpen
+    private val _photosViewerDocumentNumber = MutableStateFlow<String?>(null)
+    val photosViewerDocumentNumber: StateFlow<String?> = _photosViewerDocumentNumber
+
     override fun selectItemFromList(guid: String?) {
         _selectedOrderGuid.value = guid
     }
@@ -128,12 +142,63 @@ class ComplectationComponent(
     }
 
     fun closeCamera() {
+        val documentNumber = _cameraDocumentNumber.value
         _isCameraOpen.value = false
         _cameraDocumentNumber.value = null
+        documentNumber?.let(::refreshDocumentPhotoCount)
     }
 
     fun consumeCameraPrecheckError() {
         _cameraPrecheckError.value = null
+    }
+
+    fun refreshDocumentPhotoCount(documentNumber: String) {
+        val normalized = normalizeDocumentNumber(documentNumber.filter { it.isDigit() })
+        if (!isValidDocumentNumber(normalized)) {
+            _documentPhotoCount.value = 0
+            _documentPhotoCountLoaded.value = true
+            _isDocumentPhotoCountLoading.value = false
+            return
+        }
+        val requestId = ++documentPhotoCountRequestId
+        _documentPhotoCountLoaded.value = false
+        _isDocumentPhotoCountLoading.value = true
+        appScope.launch {
+            try {
+                when (val result = repository.getFixatorDocumentPhotoCount(normalized)) {
+                    is Resource.Success -> {
+                        if (requestId != documentPhotoCountRequestId) return@launch
+                        _documentPhotoCount.value = result.data
+                    }
+                    else -> {
+                        if (requestId != documentPhotoCountRequestId) return@launch
+                        _documentPhotoCount.value = 0
+                    }
+                }
+            } finally {
+                if (requestId == documentPhotoCountRequestId) {
+                    _documentPhotoCountLoaded.value = true
+                    _isDocumentPhotoCountLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun requestOpenDocumentPhotos(documentNumber: String) {
+        if (!ComplectationPhotosViewerFeatureState.isEnabled(appSettings)) return
+
+        val normalized = normalizeDocumentNumber(documentNumber.filter { it.isDigit() })
+        if (!isValidDocumentNumber(normalized)) return
+
+        _photosViewerDocumentNumber.value = normalized
+        _isPhotosViewerOpen.value = true
+    }
+
+    fun closePhotosViewer() {
+        val documentNumber = _photosViewerDocumentNumber.value
+        _isPhotosViewerOpen.value = false
+        _photosViewerDocumentNumber.value = null
+        documentNumber?.let(::refreshDocumentPhotoCount)
     }
 
     fun onQrScanned(raw: String) {

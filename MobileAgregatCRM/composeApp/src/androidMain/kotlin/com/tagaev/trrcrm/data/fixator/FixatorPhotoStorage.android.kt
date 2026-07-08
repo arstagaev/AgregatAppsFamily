@@ -11,6 +11,7 @@ import com.tagaev.trrcrm.ui.permissions.CameraFixatorLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.core.context.GlobalContext
+import okio.Path
 import okio.Path.Companion.toPath
 
 actual fun fixatorAppStorageFolderName(): String = "TRR APP"
@@ -59,13 +60,20 @@ private class AndroidPublicGallerySaver(
         }
 }
 
-actual fun createFixatorPhotoStorage(): FixatorPhotoStorage {
+actual fun appFixatorStorageRoot(): Path {
     val context = GlobalContext.get().get<Context>()
     val rootDir = context.getExternalFilesDir(null)
         ?: context.filesDir
-    val rootPath = rootDir.resolve(fixatorAppStorageFolderName()).absolutePath.toPath()
+    return rootDir.resolve(fixatorAppStorageFolderName()).absolutePath.toPath()
+}
+
+actual fun createFixatorPhotoStorage(): FixatorPhotoStorage {
+    val context = GlobalContext.get().get<Context>()
     return FixatorPhotoStorage(
-        storageRoot = rootPath,
+        storageRoot = appFixatorStorageRoot(),
         publicGallerySaver = AndroidPublicGallerySaver(context),
     )
 }
+
+actual fun createDocumentPhotoCache(): DocumentPhotoCache =
+    DocumentPhotoCache(storageRoot = appFixatorStorageRoot())

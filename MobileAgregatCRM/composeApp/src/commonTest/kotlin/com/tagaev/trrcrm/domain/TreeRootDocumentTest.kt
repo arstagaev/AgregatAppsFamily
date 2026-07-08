@@ -34,10 +34,19 @@ class TreeRootDocumentTest {
     }
 
     @Test
-    fun parseExpenseRequest() {
+    fun parseExpenseRequestDs() {
+        val parsed = TreeRootDocument.parse("Заявка на расход ДС МСК0000181 от 03.07.2026 17:07:36")
+        assertNotNull(parsed)
+        assertEquals("ЗаявкаНаРасходДС", parsed.requestName)
+        assertEquals(TreeRootDocumentKind.EXPENSE_REQUEST, parsed.kind)
+        assertEquals("МСК0000181", parsed.documentNumber)
+    }
+
+    @Test
+    fun parseExpenseRequestLegacyLabel() {
         val parsed = TreeRootDocument.parse("Заявка на расход 000000004 от 18.05.2026 17:51:49")
         assertNotNull(parsed)
-        assertEquals("ЗаявкаНаРасход", parsed.requestName)
+        assertEquals("ЗаявкаНаРасходДС", parsed.requestName)
         assertEquals(TreeRootDocumentKind.EXPENSE_REQUEST, parsed.kind)
         assertEquals("000000004", parsed.documentNumber)
     }

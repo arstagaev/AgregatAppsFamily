@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.data.fixator
 
+import okio.Path
 import okio.Path.Companion.toPath
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -37,11 +38,17 @@ private fun desktopAppDataRoot(): String {
     }
 }
 
-actual fun createFixatorPhotoStorage(): FixatorPhotoStorage {
+actual fun appFixatorStorageRoot(): Path {
     val root = desktopAppDataRoot()
     Files.createDirectories(Paths.get(root))
-    return FixatorPhotoStorage(
-        storageRoot = root.toPath(),
+    return root.toPath()
+}
+
+actual fun createFixatorPhotoStorage(): FixatorPhotoStorage =
+    FixatorPhotoStorage(
+        storageRoot = appFixatorStorageRoot(),
         publicGallerySaver = NoOpPublicGallerySaver(),
     )
-}
+
+actual fun createDocumentPhotoCache(): DocumentPhotoCache =
+    DocumentPhotoCache(storageRoot = appFixatorStorageRoot())

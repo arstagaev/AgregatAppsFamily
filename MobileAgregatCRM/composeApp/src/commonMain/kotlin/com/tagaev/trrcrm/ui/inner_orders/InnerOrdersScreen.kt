@@ -109,6 +109,7 @@ private fun Refiner.SearchQueryType.innerOrdersSearchLabel(): String = when (thi
     Refiner.SearchQueryType.REPAIR_TEMPLATE_TRANSMISSION,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
+    Refiner.SearchQueryType.PURPOSE,
     -> "Калькуляция"
 }
 

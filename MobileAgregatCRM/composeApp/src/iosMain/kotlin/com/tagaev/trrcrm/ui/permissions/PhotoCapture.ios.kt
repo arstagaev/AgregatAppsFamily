@@ -33,6 +33,24 @@ import platform.UIKit.UIView
 import platform.darwin.NSObject
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+private class FixatorCameraPreviewView(
+    session: AVCaptureSession,
+) : UIView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0)) {
+    private val previewLayer = AVCaptureVideoPreviewLayer(session = session).apply {
+        videoGravity = AVLayerVideoGravityResizeAspectFill
+    }
+
+    init {
+        layer.addSublayer(previewLayer)
+    }
+
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer.frame = bounds
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Composable
 actual fun FixatorCameraPreview(
     modifier: Modifier,
@@ -158,16 +176,10 @@ actual fun FixatorCameraPreview(
         UIKitView(
             modifier = Modifier.fillMaxSize(),
             factory = {
-                val root = UIView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0))
-                val previewLayer = AVCaptureVideoPreviewLayer(session = captureSession).apply {
-                    videoGravity = AVLayerVideoGravityResizeAspectFill
-                }
-                root.layer.addSublayer(previewLayer)
-                root
+                FixatorCameraPreviewView(session = captureSession)
             },
             update = { view ->
-                val layer = view.layer.sublayers?.firstOrNull() as? AVCaptureVideoPreviewLayer
-                layer?.frame = view.bounds
+                (view as? FixatorCameraPreviewView)?.setNeedsLayout()
             },
         )
         if (!isReady) {
