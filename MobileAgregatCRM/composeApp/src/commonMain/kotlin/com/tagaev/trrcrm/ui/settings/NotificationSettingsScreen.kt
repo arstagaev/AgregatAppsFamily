@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.settings
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -42,10 +44,10 @@ fun NotificationSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Уведомления") },
+                title = { Text(s("settings_uvedomleniya")) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
+                        Icon(FeatherIcons.ArrowLeft, contentDescription = s("settings_nazad"))
                     }
                 },
             )
@@ -60,8 +62,8 @@ fun NotificationSettingsScreen(
         ) {
             item {
                 ListItem(
-                    headlineContent = { Text("Отключить все уведомления на этом устройстве") },
-                    supportingContent = { Text("Блокирует все push-уведомления для текущего устройства") },
+                    headlineContent = { Text(s("settings_otklyuchit_vse_uvedomleniya_na_etom_ustroystve")) },
+                    supportingContent = { Text(s("settings_blokiruet_vse_push_uvedomleniya_dlya_tekuschego_ustr")) },
                     trailingContent = {
                         Switch(
                             checked = muteAll,
@@ -75,7 +77,7 @@ fun NotificationSettingsScreen(
 
             item {
                 ListItem(
-                    headlineContent = { Text("Откл. Событие") },
+                    headlineContent = { Text(s("settings_otkl_sobytie")) },
                     trailingContent = {
                         Switch(
                             checked = DeviceMuteDocType.EVENT in mutedDocTypes,
@@ -89,7 +91,7 @@ fun NotificationSettingsScreen(
 
             item {
                 ListItem(
-                    headlineContent = { Text("Откл. Заказ-Наряд") },
+                    headlineContent = { Text(s("settings_otkl_zakaz_naryad")) },
                     trailingContent = {
                         Switch(
                             checked = DeviceMuteDocType.WORK_ORDER in mutedDocTypes,
@@ -103,7 +105,7 @@ fun NotificationSettingsScreen(
 
             item {
                 ListItem(
-                    headlineContent = { Text("Откл. Комплектация") },
+                    headlineContent = { Text(s("settings_otkl_komplektatsiya")) },
                     trailingContent = {
                         Switch(
                             checked = DeviceMuteDocType.COMPLECTATION in mutedDocTypes,
@@ -123,7 +125,7 @@ fun NotificationSettingsScreen(
                     ) {
                         Icon(FeatherIcons.RefreshCw, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(if (muteLoading) "Обновляем..." else "Обновить настройки уведомлений")
+                        Text(if (muteLoading) s("settings_obnovlyaem") else s("settings_obnovit_nastroyki_uvedomleniy"))
                     }
                     if (!muteError.isNullOrBlank()) {
                         Text(

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.supplier_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,12 +53,12 @@ fun SupplierOrderDetailsSheet(
             )
         },
         onBack = onBack,
-        onSendMessage = { _, onResult -> onResult("Отправка сообщений для Заказа поставщику недоступна") },
+        onSendMessage = { _, onResult -> onResult(s("supplier_order_otpravka_soobscheniy_dlya_zakaza_postavschiku_nedost")) },
         initialDraft = initialDraft,
         onDraftChanged = onDraftChanged,
-        historyTitle = "История",
-        historyEmptyText = "Записей нет",
-        sendingDialogTitle = "Отправка записи",
+        historyTitle = s("complectation_istoriya"),
+        historyEmptyText = s("complectation_zapisey_net"),
+        sendingDialogTitle = s("complectation_otpravka_zapisi"),
         showComposer = false,
         headerContent = { wo ->
             SupplierOrderHeaderContent(
@@ -72,7 +74,7 @@ private fun SupplierOrderHeaderContent(
     order: SupplierOrderDto,
     onOpenBaseDocument: (String) -> Unit
 ) {
-    SupplierCompactTitle("Ссылка")
+    SupplierCompactTitle(s("buyer_order_ssylka"))
     SupplierCompactValue(order.link)
     Spacer(Modifier.height(4.dp))
 
@@ -81,25 +83,25 @@ private fun SupplierOrderHeaderContent(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Column(Modifier.weight(1f)) {
-            SupplierCompactTitle("Организация")
+            SupplierCompactTitle(s("events_organizatsiya"))
             SupplierCompactValue(order.organization)
         }
         Column(Modifier.weight(1f)) {
-            SupplierCompactTitle("Подразделение")
+            SupplierCompactTitle(s("events_podrazdelenie"))
             SupplierCompactValue(order.branch)
         }
     }
     Spacer(Modifier.height(4.dp))
 
-    SupplierCompactTitle("Контрагент")
+    SupplierCompactTitle(s("events_kontragent"))
     SupplierCompactValue(order.counterparty)
     Spacer(Modifier.height(4.dp))
 
-    SupplierCompactTitle("Состояние")
+    SupplierCompactTitle(s("work_order_sostoyanie"))
     SupplierCompactValue(order.status)
     Spacer(Modifier.height(4.dp))
 
-    SupplierCompactTitle("Автор")
+    SupplierCompactTitle(s("events_avtor"))
     SupplierCompactValue(order.author)
     Spacer(Modifier.height(4.dp))
 
@@ -126,7 +128,7 @@ private fun SupplierOrderHeaderContent(
     val productsTotal = order.products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
     ExpandableListSection(
         title = buildGoodsTitle(
-            baseTitle = "Товары (список)",
+            baseTitle = s("supplier_order_tovary_spisok"),
             positionsCount = order.products.size,
             totalAmount = productsTotal
         ),
@@ -156,7 +158,7 @@ private fun SupplierOrderHeaderContent(
         Spacer(Modifier.height(6.dp))
     }
 
-    SupplierCompactTitle("Комментарий")
+    SupplierCompactTitle(s("complectation_kommentariy"))
     SupplierCompactValue(order.comment)
 }
 

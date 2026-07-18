@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.expense_requests
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,10 +64,10 @@ import compose.icons.feathericons.X
 import kotlinx.coroutines.launch
 
 private val EXPENSE_REQUEST_STATUS_STYLES = mapOf(
-    "Создан" to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
-    "Создана" to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
-    "Согласована" to StatusStyle(DefaultColors.RainbowAquaBg, DefaultColors.RainbowAquaFg),
-    "Не согласовано" to StatusStyle(DefaultColors.RainbowOrangeBg, DefaultColors.RainbowOrangeFg),
+    s("expense_sozdan") to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
+    s("expense_sozdana") to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
+    s("expense_soglasovana") to StatusStyle(DefaultColors.RainbowAquaBg, DefaultColors.RainbowAquaFg),
+    s("expense_ne_soglasovano") to StatusStyle(DefaultColors.RainbowOrangeBg, DefaultColors.RainbowOrangeFg),
 )
 
 private val EXPENSE_TOPBAR_SEARCH_OPTIONS = listOf(
@@ -154,10 +156,10 @@ fun ExpenseRequestsScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         MasterScreen(
-            title = "Заявки на расход ДС",
+            title = s("expense_zayavki_na_rashod_ds"),
             resource = resource,
-            errorText = "Не удалось загрузить заявки на расход ДС",
-            notFoundText = "Заявки на расход ДС не найдены",
+            errorText = s("expense_ne_udalos_zagruzit_zayavki_na_rashod_ds"),
+            notFoundText = s("expense_zayavki_na_rashod_ds_ne_naydeny"),
             refineState = refineState,
             onRefresh = { component.fullRefresh() },
             onLoadMore = { component.loadMore() },
@@ -206,9 +208,9 @@ fun ExpenseRequestsScreen(
                         isResolvingBaseDocument = true
                         try {
                             when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                                .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                                .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                                 is Resource.Success -> linkedDocuments.add(resolved.data)
-                                is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                                is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                                 is Resource.Loading -> Unit
                             }
                         } finally {
@@ -239,7 +241,7 @@ fun ExpenseRequestsScreen(
                 RefineScreen(
                     current = current,
                     onBack = onDismiss,
-                    messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                    messageForUser = s("complaints_korrektno_rabotaet_tolko_sortirovka_po_date_ostalnye"),
                     orderByOptions = Refiner.OrderBy.allForUiExceptDateLastModification,
                     sections = setOf(
                         RefineSection.STATUS,
@@ -265,10 +267,10 @@ fun ExpenseRequestsScreen(
                 {
                     Row {
                         IconButton(onClick = hideSearchForm, enabled = !isTopBarLoading) {
-                            Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                            Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                         }
                         IconButton(onClick = clearSearchAndClose, enabled = !isTopBarLoading) {
-                            Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                            Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                         }
                     }
                 }
@@ -306,12 +308,12 @@ fun ExpenseRequestsScreen(
                             )
                         } else {
                             IconButton(onClick = applySearch) {
-                                Icon(FeatherIcons.Search, contentDescription = "Искать")
+                                Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                             }
                         }
                     } else {
                         IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                            Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                            Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                         }
                         SearchIconButtonWithIndicator(
                             showIndicator = refineState.searchQuery.isNotBlank(),
@@ -335,7 +337,7 @@ fun ExpenseRequestsScreen(
                             )
                         } else {
                             IconButton(onClick = { component.fullRefresh() }) {
-                                Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                                Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                             }
                         }
                     }
@@ -379,8 +381,8 @@ fun ExpenseRequestsScreen(
         if (isResolvingBaseDocument) {
             AlertDialog(
                 onDismissRequest = {},
-                title = { Text("Пожалуйста, подождите") },
-                text = { Text("ищем документ основание....") },
+                title = { Text(s("events_pozhaluysta_podozhdite")) },
+                text = { Text(s("events_ischem_dokument_osnovanie")) },
                 confirmButton = {},
             )
         }
@@ -402,23 +404,23 @@ private fun ExpenseRequestsSearchModeRow(
         FilterChip(
             selected = selected == ExpenseSearchMode.NUMBER,
             onClick = { onSelected(ExpenseSearchMode.NUMBER) },
-            label = { Text("Номер", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(s("filter_nomer"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
             selected = selected == ExpenseSearchMode.AUTHOR,
             onClick = { onSelected(ExpenseSearchMode.AUTHOR) },
-            label = { Text("Автор", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(s("events_avtor"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
             selected = selected == ExpenseSearchMode.PURPOSE,
             onClick = { onSelected(ExpenseSearchMode.PURPOSE) },
-            label = { Text("Назначение", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(s("filter_naznachenie"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
     }
 }
 
 private fun ExpenseSearchMode.placeholder(): String = when (this) {
-    ExpenseSearchMode.NUMBER -> "Номер заявки…"
+    ExpenseSearchMode.NUMBER -> s("expense_nomer_zayavki")
     ExpenseSearchMode.AUTHOR -> "Автор…"
     ExpenseSearchMode.PURPOSE -> "Назначение…"
 }

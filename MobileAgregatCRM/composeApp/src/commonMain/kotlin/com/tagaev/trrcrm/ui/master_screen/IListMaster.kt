@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.RefineState
@@ -34,7 +36,7 @@ interface IListMaster {
     )
 
     suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> =
-        Resource.Error(causes = "Переход по документу-основанию недоступен на этом экране")
+        Resource.Error(causes = tr("list_perehod_po_dokumentu_osnovaniyu_nedostupen_na_etom_e"))
 
     suspend fun resolveNotificationTarget(identifier: String, messageHint: String?): String? = null
 

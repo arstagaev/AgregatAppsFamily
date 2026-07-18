@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,7 +55,7 @@ fun ProductDemoScreen(component: IProductDemoComponent) {
                     selected = state.selectedTab == ProductDemoTab.Catalog,
                     onClick = { component.selectTab(ProductDemoTab.Catalog) },
                     icon = { Icon(FeatherIcons.Home,contentDescription = null) },
-                    label = { Text("Каталог") }
+                    label = { Text(s("menu_katalog")) }
                 )
                 NavigationBarItem(
                     selected = state.selectedTab == ProductDemoTab.SelectedProducts,

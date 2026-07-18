@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.feed
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -117,9 +119,9 @@ fun FeedScreen(component: IFeedComponent) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Главная", style = MaterialTheme.typography.headlineSmall)
+            Text(s("root_glavnaya"), style = MaterialTheme.typography.headlineSmall)
             TextButton(onClick = component::markAllRead, enabled = items.isNotEmpty()) {
-                Text("Прочитать все")
+                Text(s("feed_prochitat_vse"))
             }
         }
 
@@ -133,7 +135,7 @@ fun FeedScreen(component: IFeedComponent) {
                 value = searchInput,
                 onValueChange = { searchInput = it },
                 singleLine = true,
-                label = { Text("Поиск уведомлений") }
+                label = { Text(s("feed_poisk_uvedomleniy")) }
             )
             AssistChip(
                 modifier = Modifier.padding(start = 8.dp),
@@ -201,7 +203,7 @@ fun FeedScreen(component: IFeedComponent) {
                         )
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(onClick = component::retryFirstPage) {
-                            Text("Повторить")
+                            Text(s("login_povtorit"))
                         }
                     }
                 }
@@ -214,7 +216,7 @@ fun FeedScreen(component: IFeedComponent) {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (searchQuery.isBlank()) "Нет уведомлений" else "Ничего не найдено",
+                            text = if (searchQuery.isBlank()) s("feed_net_uvedomleniy") else s("feed_nichego_ne_naydeno"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -271,7 +273,7 @@ fun FeedScreen(component: IFeedComponent) {
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         TextButton(onClick = component::retryNextPage) {
-                                            Text("Повторить")
+                                            Text(s("login_povtorit"))
                                         }
                                     }
                                 }
@@ -371,7 +373,7 @@ private fun FeedRow(
                         modifier = Modifier.height(28.dp)
                     ) {
                         Text(
-                            text = if (isRead) "Непрочитано" else "Прочитано",
+                            text = if (isRead) s("feed_neprochitano") else s("feed_prochitano"),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }

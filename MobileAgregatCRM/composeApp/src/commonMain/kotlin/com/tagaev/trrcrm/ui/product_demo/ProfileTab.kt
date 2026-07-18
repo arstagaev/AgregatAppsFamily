@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -85,7 +87,7 @@ fun ProfileTab(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = onLogout
                     ) {
-                        Text("Выйти")
+                        Text(s("settings_vyyti"))
                     }
                 }
             }
@@ -104,17 +106,17 @@ fun ProfileTab(
                 value = profile.login,
                 onValueChange = onLoginChanged,
                 singleLine = true,
-                label = { Text("Логин") }
+                label = { Text(s("login_login")) }
             )
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 value = profile.password,
                 onValueChange = onPasswordChanged,
                 singleLine = true,
-                label = { Text("Пароль") },
+                label = { Text(s("login_parol")) },
                 visualTransformation = if (passVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    val label = if (passVisible) "Скрыть" else "Показать"
+                    val label = if (passVisible) s("login_skryt") else s("login_pokazat")
                     TextButton(onClick = { passVisible = !passVisible }) { Text(label) }
                 },
                 keyboardOptions = KeyboardOptions(
@@ -130,7 +132,7 @@ fun ProfileTab(
                 onClick = { onLogin(profile.login.trim(), profile.password) },
                 enabled = !profile.isLoginLoading
             ) {
-                Text(if (profile.isLoginLoading) "Авторизация..." else "Войти")
+                Text(if (profile.isLoginLoading) "Авторизация..." else s("login_voyti"))
             }
             if (!profile.loginError.isNullOrBlank()) {
                 Text(
@@ -143,7 +145,7 @@ fun ProfileTab(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = onOpenSignUp
             ) {
-                Text("Нет аккаунта? Запросить доступ к CRM")
+                Text(s("product_demo_net_akkaunta_zaprosit_dostup_k_crm"))
             }
         }
         Spacer(modifier = Modifier.height(8.dp))

@@ -21,6 +21,9 @@ import com.tagaev.trrcrm.navigation.BottomNavItemId
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.developer.DeveloperModeState
 import com.tagaev.trrcrm.ui.custom.TextC
+import com.tagaev.trrcrm.ui.i18n.AppLanguage
+import com.tagaev.trrcrm.ui.i18n.LanguageController
+import com.tagaev.trrcrm.ui.i18n.s
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.secrets.Secrets
 import compose.icons.FeatherIcons
@@ -87,7 +90,9 @@ private fun SettingsMainScreen(
 ) {
     val appSettings = koinInject<AppSettings>()
     val themeController = koinInject<ThemeController>()
+    val languageController = koinInject<LanguageController>()
     val currentTheme by themeController.mode.collectAsState()
+    val currentLanguage by languageController.language.collectAsState()
     val showSnackbar = LocalAppSnackbar.current
 
     LaunchedEffect(Unit) {
@@ -119,7 +124,7 @@ private fun SettingsMainScreen(
             ) {
                 item {
                     Text(
-                        text = "Настройки",
+                        text = s("settings_title"),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
@@ -133,8 +138,8 @@ private fun SettingsMainScreen(
                                     titleTapCount = 0
                                     val enabled = DeveloperModeState.toggle(appSettings)
                                     showSnackbar(
-                                        if (enabled) "Developer режим включён"
-                                        else "Developer режим выключен"
+                                        if (enabled) s("settings_developer_rezhim_vklyuchen")
+                                        else s("settings_developer_rezhim_vyklyuchen")
                                     )
                                 }
                             }
@@ -145,7 +150,7 @@ private fun SettingsMainScreen(
 
                 item {
                     Column {
-                        Text("Тема приложения")
+                        Text(s("settings_tema_prilozheniya"))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ThemeMode.values().forEach { mode ->
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
@@ -153,7 +158,39 @@ private fun SettingsMainScreen(
                                         selected = currentTheme == mode,
                                         onClick = { themeController.setMode(mode) }
                                     )
-                                    Text(mode.name)
+                                    Text(
+                                        when (mode) {
+                                            ThemeMode.System -> s("theme_system")
+                                            ThemeMode.Light -> s("theme_light")
+                                            ThemeMode.Dark -> s("theme_dark")
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Divider()
+                }
+
+                item {
+                    Column {
+                        Text(s("settings_language"))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AppLanguage.entries.forEach { language ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                ) {
+                                    RadioButton(
+                                        selected = currentLanguage == language,
+                                        onClick = { languageController.setLanguage(language) },
+                                    )
+                                    Text(
+                                        when (language) {
+                                            AppLanguage.Russian -> s("settings_language_russian")
+                                            AppLanguage.Uzbek -> s("settings_language_uzbek")
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -163,8 +200,8 @@ private fun SettingsMainScreen(
 
                 item {
                     ListItem(
-                        headlineContent = { Text("Панель навигации") },
-                        supportingContent = { Text("Порядок и видимость иконок в нижнем меню") },
+                        headlineContent = { Text(s("settings_panel_navigatsii")) },
+                        supportingContent = { Text(s("settings_poryadok_i_vidimost_ikonok_v_nizhnem_menyu")) },
                         leadingContent = { Icon(FeatherIcons.Sliders, contentDescription = null) },
                         modifier = Modifier.clickable { component.openBottomNavEditor() },
                     )
@@ -173,8 +210,8 @@ private fun SettingsMainScreen(
 
                 item {
                     ListItem(
-                        headlineContent = { Text("Уведомления") },
-                        supportingContent = { Text("Push-уведомления и mute по типам документов") },
+                        headlineContent = { Text(s("settings_uvedomleniya")) },
+                        supportingContent = { Text(s("settings_push_uvedomleniya_i_mute_po_tipam_dokumentov")) },
                         leadingContent = { Icon(FeatherIcons.Bell, contentDescription = null) },
                         modifier = Modifier.clickable { component.openNotificationSettings() },
                     )
@@ -183,8 +220,8 @@ private fun SettingsMainScreen(
 
                 item {
                     ListItem(
-                        headlineContent = { Text("Очистить кэш фотографий") },
-                        supportingContent = { Text("Загруженные фото документов на устройстве") },
+                        headlineContent = { Text(s("settings_ochistit_kesh_fotografiy")) },
+                        supportingContent = { Text(s("settings_zagruzhennye_foto_dokumentov_na_ustroystve")) },
                         leadingContent = { Icon(FeatherIcons.Image, contentDescription = null) },
                         modifier = Modifier.clickable { showClearPhotoCacheDialog = true },
                     )
@@ -195,7 +232,7 @@ private fun SettingsMainScreen(
                     item {
                         ListItem(
                             headlineContent = { Text("Developer") },
-                            supportingContent = { Text("Инструменты разработчика") },
+                            supportingContent = { Text(s("settings_instrumenty_razrabotchika")) },
                             leadingContent = { Icon(FeatherIcons.Code, contentDescription = null) },
                             modifier = Modifier.clickable { component.openDeveloperMenu() },
                         )
@@ -205,8 +242,8 @@ private fun SettingsMainScreen(
 
                 item {
                     ListItem(
-                        headlineContent = { Text("Выйти") },
-                        supportingContent = { Text("Завершить сессию") },
+                        headlineContent = { Text(s("settings_vyyti")) },
+                        supportingContent = { Text(s("settings_zavershit_sessiyu")) },
                         leadingContent = { Icon(FeatherIcons.LogOut, contentDescription = null) },
                         modifier = Modifier.clickable { showLogoutDialog = true }
                     )
@@ -217,8 +254,8 @@ private fun SettingsMainScreen(
             if (showLogoutDialog) {
                 AlertDialog(
                     onDismissRequest = { showLogoutDialog = false },
-                    title = { Text("Выход из аккаунта") },
-                    text = { Text("Вы уверены, что хотите выйти из аккаунта?") },
+                    title = { Text(s("settings_vyhod_iz_akkaunta")) },
+                    text = { Text(s("settings_vy_uvereny_chto_hotite_vyyti_iz_akkaunta")) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -226,12 +263,12 @@ private fun SettingsMainScreen(
                                 component.onLogout()
                             },
                         ) {
-                            Text("Да")
+                            Text(s("settings_da"))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showLogoutDialog = false }) {
-                            Text("Отмена")
+                            Text(s("settings_otmena"))
                         }
                     },
                 )
@@ -240,8 +277,8 @@ private fun SettingsMainScreen(
             if (showClearPhotoCacheDialog) {
                 AlertDialog(
                     onDismissRequest = { showClearPhotoCacheDialog = false },
-                    title = { Text("Очистить кэш фотографий") },
-                    text = { Text("Удалить загруженные фото документов с устройства?") },
+                    title = { Text(s("settings_ochistit_kesh_fotografiy")) },
+                    text = { Text(s("settings_udalit_zagruzhennye_foto_dokumentov_s_ustroystva")) },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -249,12 +286,12 @@ private fun SettingsMainScreen(
                                 component.clearDocumentPhotoCache(showSnackbar)
                             },
                         ) {
-                            Text("Очистить")
+                            Text(s("settings_ochistit"))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showClearPhotoCacheDialog = false }) {
-                            Text("Отмена")
+                            Text(s("settings_otmena"))
                         }
                     },
                 )
@@ -277,13 +314,13 @@ private fun SettingsMainScreen(
                 }
                 if (departmentData.isNotBlank()) {
                     TextC(
-                        text = "Подразделение: ${departmentData}",
+                        text = s("settings_podrazdelenie_departmentdata", departmentData),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 Text(
-                    text = "Версия: ${Secrets.VERSION}",
+                    text = s("common_version", Secrets.VERSION),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.custom
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -32,7 +34,7 @@ fun SearchIconButtonWithIndicator(
                 }
             }
         ) {
-            Icon(FeatherIcons.Search, contentDescription = "Поиск")
+            Icon(FeatherIcons.Search, contentDescription = tr("list_poisk"))
         }
     }
 }

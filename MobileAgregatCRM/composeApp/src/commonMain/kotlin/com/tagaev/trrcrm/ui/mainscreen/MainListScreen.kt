@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.mainscreen
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.draw.scale
@@ -95,7 +97,7 @@ fun MainListScreen(component: ListComponent) {
     LaunchedEffect(res) {
         when (val r = res) {
             is Resource.Error -> {
-                errorText = r.causes ?: friendlyError(r.exception, "Неизвестная ошибка")
+                errorText = r.causes ?: friendlyError(r.exception, s("main_neizvestnaya_oshibka"))
                 showErrorDialog = true
             }
             else -> Unit
@@ -110,8 +112,8 @@ fun MainListScreen(component: ListComponent) {
             try {
                 component.setFiltersAndRefresh(filters.sanitize())
             } catch (t: Throwable) {
-                error = friendlyError(t, "Неизвестная ошибка")
-                errorText = error ?: "Неизвестная ошибка"
+                error = friendlyError(t, s("main_neizvestnaya_oshibka"))
+                errorText = error ?: s("main_neizvestnaya_oshibka")
                 showErrorDialog = true
             } finally {
                 gate.join()
@@ -163,11 +165,11 @@ fun MainListScreen(component: ListComponent) {
                     }
                     AssistChip(
                         onClick = { showDialogOrderBy.value = true },
-                        label = { Text("Настройка показа", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        label = { Text(s("main_nastroyka_pokaza"), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                     AssistChip(
                         onClick = { showControlsDialog = true },
-                        label = { Text("Параметры") }
+                        label = { Text(s("main_parametry")) }
                     )
                 }
             }
@@ -199,7 +201,7 @@ fun MainListScreen(component: ListComponent) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator()
                                 Spacer(Modifier.height(12.dp))
-                                Text("Загрузка...")
+                                Text(s("main_zagruzka"))
                             }
                         }
                     }
@@ -209,7 +211,7 @@ fun MainListScreen(component: ListComponent) {
                     eventsCache = events
                     if (events.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Нет данных", style = MaterialTheme.typography.bodyLarge)
+                            Text(s("main_net_dannyh"), style = MaterialTheme.typography.bodyLarge)
                         }
                     } else {
                         LazyColumn(
@@ -243,8 +245,8 @@ fun MainListScreen(component: ListComponent) {
                                                     // Scroll list to the top after refresh
                                                     listState.animateScrollToItem(0)
                                                 } catch (t: Throwable) {
-                                                    error = friendlyError(t, "Неизвестная ошибка")
-                                                    errorText = error ?: "Неизвестная ошибка"
+                                                    error = friendlyError(t, s("main_neizvestnaya_oshibka"))
+                                                    errorText = error ?: s("main_neizvestnaya_oshibka")
                                                     showErrorDialog = true
                                                 } finally {
                                                     gate.join()
@@ -253,7 +255,7 @@ fun MainListScreen(component: ListComponent) {
                                             }
                                         }
                                     ) {
-                                        Text("В начало")
+                                        Text(s("main_v_nachalo"))
                                     }
                                     Text(
                                         modifier = Modifier,
@@ -266,7 +268,7 @@ fun MainListScreen(component: ListComponent) {
                                         modifier = Modifier.scale(0.8f),
                                         onClick = { scope.launch { component.loadMore(DefaultValuesConst.COUNT) } }
                                     ) {
-                                        Text("Загрузить ещё")
+                                        Text(s("main_zagruzit_esche"))
                                     }
                                 }
                             }
@@ -280,13 +282,13 @@ fun MainListScreen(component: ListComponent) {
 //                            verticalArrangement = Arrangement.spacedBy(12.dp)
 //                        ) {
 //                            Text(
-//                                r.causes ?: r.exception?.message ?: "Неизвестная ошибка",
+//                                r.causes ?: r.exception?.message ?: s("main_neizvestnaya_oshibka"),
 //                                style = MaterialTheme.typography.bodyLarge
 //                            )
 //                            Button(onClick = {
 //                                scope.launch { component.fullRefresh() }
 //                            }) {
-//                                Text("Повторить")
+//                                Text(s("login_povtorit"))
 //                            }
 //                        }
 //                    }
@@ -312,7 +314,7 @@ fun MainListScreen(component: ListComponent) {
             OrderDialog(
                 orderByOption = (filters.orderBy ?: DefaultValuesConst.ORDER_BY).toOrderByOption(),
                 currentDir = (filters.orderDir ?: DefaultValuesConst.ORDER_DIR).toOrderDirOption(),
-                currentFilterVal = (filters.filterVal ?: "Состояние").toFilterByOption(),
+                currentFilterVal = (filters.filterVal ?: s("work_order_sostoyanie")).toFilterByOption(),
                 onDismiss = { showDialogOrderBy.value = false },
                 onApply = { orderBy, dir, filterVal ->
                     filters = filters.copy(orderBy = orderBy.wire, orderDir = dir.wire, filterVal = filterVal.wire)
@@ -323,8 +325,8 @@ fun MainListScreen(component: ListComponent) {
                         try {
                             component.setFiltersAndRefresh(filters.sanitize())
                         } catch (t: Throwable) {
-                            error = friendlyError(t, "Неизвестная ошибка")
-                            errorText = friendlyError(t, "Неизвестная ошибка")
+                            error = friendlyError(t, s("main_neizvestnaya_oshibka"))
+                            errorText = friendlyError(t, s("main_neizvestnaya_oshibka"))
                             showErrorDialog = true
                         } finally {
                             gate.join()
@@ -340,8 +342,8 @@ fun MainListScreen(component: ListComponent) {
             AlertDialog(
                 onDismissRequest = { showErrorDialog = false },
                 icon = { Icon(FeatherIcons.AlertCircle, contentDescription = null) },
-                title = { Text("Ошибка запроса") },
-                text = { Text(errorText.ifBlank { "Неизвестная ошибка" }) },
+                title = { Text(s("main_oshibka_zaprosa")) },
+                text = { Text(errorText.ifBlank { s("main_neizvestnaya_oshibka") }) },
                 confirmButton = {
                     TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
                 }
@@ -361,7 +363,7 @@ private fun ControlsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Фильтры и параметры") },
+        title = { Text(s("main_filtry_i_parametry")) },
         text = {
             Column(Modifier.fillMaxWidth()) {
                 Spacer(Modifier.height(4.dp))
@@ -374,7 +376,7 @@ private fun ControlsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "Компактные карточки",
+                        s("main_kompaktnye_kartochki"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -388,15 +390,15 @@ private fun ControlsDialog(
                 Spacer(Modifier.height(8.dp))
                 AssistChip(
                     onClick = onOpenOrderDialog,
-                    label = { Text("Настройка показа") }
+                    label = { Text(s("main_nastroyka_pokaza")) }
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onApply, enabled = !isLoading) { Text("Применить") }
+            TextButton(onClick = onApply, enabled = !isLoading) { Text(s("list_primenit")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(s("settings_otmena")) }
         }
     )
 }
@@ -422,7 +424,7 @@ fun EventCard(
             // Header: number + status at right
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 TextC(
-                    text = ev.number?.let { "№ $it" } ?: "Без номера",
+                    text = ev.number?.let { "№ $it" } ?: s("events_bez_nomera"),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -445,14 +447,14 @@ fun EventCard(
             )
 
             if (!compact) {
-                KeyValueRow("Документ основание", ev.baseDocument)
+                KeyValueRow(s("events_dokument_osnovanie"), ev.baseDocument)
                 HorizontalDivider(modifier = Modifier.fillMaxWidth(), thickness = 2.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(Modifier.height(8.dp))
-                KeyValueRow("Вид события", ev.eventType)
-                KeyValueRow("Организация", ev.organization)
-                KeyValueRow("Подразделение", ev.companyDepartment)
-                KeyValueRow("Контрагент", ev.counterparty)
-                KeyValueRow("Автор", ev.author)
+                KeyValueRow(s("events_vid_sobytiya"), ev.eventType)
+                KeyValueRow(s("events_organizatsiya"), ev.organization)
+                KeyValueRow(s("events_podrazdelenie"), ev.companyDepartment)
+                KeyValueRow(s("events_kontragent"), ev.counterparty)
+                KeyValueRow(s("events_avtor"), ev.author)
             }
         }
     }
@@ -463,9 +465,9 @@ fun StatusBadge(state: String) {
     if (state.isBlank()) return
     val lower = state.lowercase()
     val bg = when (lower) {
-        "выполнено", "завершено" -> Color(0xFF4CAF50) // green
-        "выполняется"            -> Color(0xFFFF9800) // orange
-        "запланировано"          -> Color(0xFFFFEB3B) // yellow
+        s("main_vypolneno"), s("main_zaversheno") -> Color(0xFF4CAF50) // green
+        s("main_vypolnyaetsya")            -> Color(0xFFFF9800) // orange
+        s("main_zaplanirovano")          -> Color(0xFFFFEB3B) // yellow
         else -> MaterialTheme.colorScheme.secondaryContainer
     }
     val fg = Color.Black

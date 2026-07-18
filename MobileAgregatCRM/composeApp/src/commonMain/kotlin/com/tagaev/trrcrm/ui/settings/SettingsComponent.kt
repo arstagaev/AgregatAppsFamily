@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.settings
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
@@ -131,7 +133,7 @@ class SettingsComponent(
     override fun refreshMuteState() {
         val sessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
         if (sessionId.isBlank()) {
-            _muteErrorMessage.value = "Нет активной сессии. Перезайдите в приложение."
+            _muteErrorMessage.value = tr("settings_net_aktivnoy_sessii_perezaydite_v_prilozhenie")
             return
         }
         val expectedVersion = ++muteRequestVersion
@@ -149,7 +151,7 @@ class SettingsComponent(
                     }
                     is com.tagaev.trrcrm.data.remote.Resource.Error -> {
                         if (expectedVersion != muteRequestVersion) return@launch
-                        val mapped = res.exception.toCoreApiError(res.causes ?: "Не удалось загрузить настройки уведомлений")
+                        val mapped = res.exception.toCoreApiError(res.causes ?: tr("settings_ne_udalos_zagruzit_nastroyki_uvedomleniy"))
                         println("PUSH_SERVICE: mute_state_fetch_failed kind=${mapped.kind} status=${mapped.statusCode} reason=${mapped.message}")
                         if (mapped.kind == CoreApiErrorKind.NotFound && recoverSessionForMute("state_fetch")) {
                             val retrySessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
@@ -166,7 +168,7 @@ class SettingsComponent(
                                     }
                                     is com.tagaev.trrcrm.data.remote.Resource.Error -> {
                                         if (expectedVersion != muteRequestVersion) return@launch
-                                        val retryMapped = retry.exception.toCoreApiError(retry.causes ?: "Не удалось загрузить настройки уведомлений")
+                                        val retryMapped = retry.exception.toCoreApiError(retry.causes ?: tr("settings_ne_udalos_zagruzit_nastroyki_uvedomleniy"))
                                         _muteErrorMessage.value = actionableMuteError(retryMapped)
                                         return@launch
                                     }
@@ -189,7 +191,7 @@ class SettingsComponent(
     override fun setMuteAll(enabled: Boolean) {
         val sessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
         if (sessionId.isBlank()) {
-            _muteErrorMessage.value = "Нет активной сессии. Перезайдите в приложение."
+            _muteErrorMessage.value = tr("settings_net_aktivnoy_sessii_perezaydite_v_prilozhenie")
             return
         }
         val previousMuteAll = _muteAll.value
@@ -215,7 +217,7 @@ class SettingsComponent(
                         }
                         is com.tagaev.trrcrm.data.remote.Resource.Error -> {
                             if (expectedVersion != muteRequestVersion) return@withLock
-                            val mapped = res.exception.toCoreApiError(res.causes ?: "Не удалось обновить общий mute")
+                            val mapped = res.exception.toCoreApiError(res.causes ?: tr("settings_ne_udalos_obnovit_obschiy_mute"))
                             println("PUSH_SERVICE: mute_update_failed scope=all kind=${mapped.kind} status=${mapped.statusCode} reason=${mapped.message}")
                             if (mapped.kind == CoreApiErrorKind.NotFound && recoverSessionForMute("set_all")) {
                                 val retrySessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
@@ -254,7 +256,7 @@ class SettingsComponent(
     override fun setDocumentTypeMuted(type: DeviceMuteDocType, muted: Boolean) {
         val sessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
         if (sessionId.isBlank()) {
-            _muteErrorMessage.value = "Нет активной сессии. Перезайдите в приложение."
+            _muteErrorMessage.value = tr("settings_net_aktivnoy_sessii_perezaydite_v_prilozhenie")
             return
         }
         val previousSet = _mutedDocTypes.value
@@ -280,7 +282,7 @@ class SettingsComponent(
                         }
                         is com.tagaev.trrcrm.data.remote.Resource.Error -> {
                             if (expectedVersion != muteRequestVersion) return@withLock
-                            val mapped = res.exception.toCoreApiError(res.causes ?: "Не удалось обновить mute по типу")
+                            val mapped = res.exception.toCoreApiError(res.causes ?: tr("settings_ne_udalos_obnovit_mute_po_tipu"))
                             println("PUSH_SERVICE: mute_update_failed scope=${type.wire} kind=${mapped.kind} status=${mapped.statusCode} reason=${mapped.message}")
                             if (mapped.kind == CoreApiErrorKind.NotFound && recoverSessionForMute("set_${type.wire}")) {
                                 val retrySessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
@@ -408,7 +410,7 @@ class SettingsComponent(
         appScope.launch {
             val stats = runCatching { repository.clearDocumentPhotoCache() }
                 .getOrElse {
-                    onResult("Не удалось очистить кэш фотографий")
+                    onResult(tr("settings_ne_udalos_ochistit_kesh_fotografiy"))
                     return@launch
                 }
             val sizeMb = stats.freedBytes / (1024.0 * 1024.0)
@@ -464,18 +466,18 @@ class SettingsComponent(
             forceRebootstrap = true
         )
         if (!recovered) {
-            _muteErrorMessage.value = "Сессия устарела. Перезайдите в приложение."
+            _muteErrorMessage.value = tr("settings_sessiya_ustarela_perezaydite_v_prilozhenie")
         }
         return recovered
     }
 
     private fun actionableMuteError(error: com.tagaev.trrcrm.data.remote.CoreApiError): String = when (error.kind) {
         CoreApiErrorKind.Unauthorized, CoreApiErrorKind.Forbidden ->
-            "Ошибка авторизации. Перезайдите в приложение."
+            tr("settings_oshibka_avtorizatsii_perezaydite_v_prilozhenie")
         CoreApiErrorKind.NotFound ->
-            "Сессия не найдена или истекла. Перезайдите в приложение."
+            tr("settings_sessiya_ne_naydena_ili_istekla_perezaydite_v_prilozh")
         CoreApiErrorKind.Validation ->
-            "Параметры mute не приняты сервером. Обновите экран и повторите."
-        else -> error.message.ifBlank { "Не удалось обновить настройки уведомлений" }
+            tr("settings_parametry_mute_ne_prinyaty_serverom_obnovite_ekran_i")
+        else -> error.message.ifBlank { tr("settings_ne_udalos_obnovit_nastroyki_uvedomleniy") }
     }
 }

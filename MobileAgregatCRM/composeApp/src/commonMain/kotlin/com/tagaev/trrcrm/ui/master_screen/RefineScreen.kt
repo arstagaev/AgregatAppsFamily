@@ -1,5 +1,9 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import com.tagaev.trrcrm.domain.localizedLabel
+
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -80,10 +84,10 @@ fun RefineScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Фильтр") },
+                title = { Text(s("events_filtr")) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(LineAwesomeIcons.UndoSolid, contentDescription = "Назад")
+                        Icon(LineAwesomeIcons.UndoSolid, contentDescription = s("settings_nazad"))
                     }
                 },
                 actions = {
@@ -104,7 +108,7 @@ fun RefineScreen(
                             setRepairType = Refiner.WorkOrderRepairType.OFF
                         }
                     ) {
-                        Text("Сброс")
+                        Text(s("list_sbros"))
                     }
                 }
             )
@@ -147,18 +151,18 @@ fun RefineScreen(
 
                 if (RefineSection.STATUS in sections) {
                     // Статус
-                    Text("Статус", style = MaterialTheme.typography.titleSmall)
+                    Text(s("list_status"), style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
                         options = Refiner.Status.values().toList(),
                         selected = setStatus,
                         onSelect = { setStatus = it },
-                        labelFor = { it.label }
+                        labelFor = { it.localizedLabel() }
                     )
                 }
 
                 if (RefineSection.FILTER_VAL in sections && showDepartmentFilter) {
                     // Фильтр
-                    Text("Фильтр по подразделению", style = MaterialTheme.typography.titleSmall)
+                    Text(s("list_filtr_po_podrazdeleniyu"), style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
                         options = Refiner.Filter.values().toList(),
                         selected = setFilter,
@@ -169,49 +173,49 @@ fun RefineScreen(
                                 setFilterValue = departmentData
                             }
                         },
-                        labelFor = { it.label }
+                        labelFor = { it.localizedLabel() }
                     )
                 }
 
                 if (RefineSection.REPAIR_TYPE in sections) {
-                    Text("Вид ремонта", style = MaterialTheme.typography.titleSmall)
+                    Text(s("refine_vid_remonta_title"), style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
                         options = Refiner.WorkOrderRepairType.values().toList(),
                         selected = setRepairType,
                         onSelect = { setRepairType = it },
-                        labelFor = { it.label }
+                        labelFor = { it.localizedLabel() }
                     )
                 }
 
                 if (RefineSection.ORDER in sections) {
                     // Поле сортировки
-                    Text("Сортировать по", style = MaterialTheme.typography.titleSmall)
+                    Text(s("list_sortirovat_po"), style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
                         options = orderByOptions,
                         selected = selOrderBy,
                         onSelect = { selOrderBy = it },
-                        labelFor = { it.label }
+                        labelFor = { it.localizedLabel() }
                     )
                 }
 
                 if (RefineSection.DIRECTION in sections) {
                     // Направление
-                    Text("Направление", style = MaterialTheme.typography.titleSmall)
+                    Text(s("list_napravlenie"), style = MaterialTheme.typography.titleSmall)
                     OptionChipsRow(
                         options = Refiner.Dir.values().toList(),
                         selected = selOrderDir,
                         onSelect = { selOrderDir = it },
-                        labelFor = { it.label }
+                        labelFor = { it.localizedLabel() }
                     )
                 }
 
                 if (RefineSection.SEARCH in sections) {
                     // Поиск
-                    Text("Поиск", style = MaterialTheme.typography.titleSmall)
+                    Text(s("list_poisk"), style = MaterialTheme.typography.titleSmall)
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        label = { Text("Поиск по ключевым словам") },
+                        label = { Text(s("list_poisk_po_klyuchevym_slovam")) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
@@ -219,7 +223,7 @@ fun RefineScreen(
                         options = Refiner.SearchQueryType.values().toList(),
                         selected = searchQueryType,
                         onSelect = { searchQueryType = it },
-                        labelFor = { it.label }
+                        labelFor = { it.localizedLabel() }
                     )
                 }
 
@@ -247,7 +251,7 @@ fun RefineScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Применить")
+                    Text(s("list_primenit"))
                 }
             }
         }

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -78,7 +80,7 @@ fun BasketTab(
                                 }
                             }
                             OutlinedButton(onClick = { onRemove(item.product.id) }) {
-                                Text("Удалить")
+                                Text(s("product_demo_udalit"))
                             }
                         }
                     }

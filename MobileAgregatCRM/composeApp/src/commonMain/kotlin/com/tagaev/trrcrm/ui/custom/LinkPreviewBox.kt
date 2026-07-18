@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.custom
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,7 +76,7 @@ fun LinkPreviewBox(
         try {
             preview = fetchLinkPreview(httpClient, firstUrl)
         } catch (t: Throwable) {
-            error = friendlyError(t, "Ошибка загрузки превью")
+            error = friendlyError(t, s("ui_oshibka_zagruzki_prevyu"))
         } finally {
             isLoading = false
         }
@@ -120,7 +122,7 @@ fun LinkPreviewBox(
                         maxLines = 2
                     )
                     Text(
-                        text = error ?: "Нет превью",
+                        text = error ?: s("ui_net_prevyu"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.details
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import org.koin.compose.koinInject
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
@@ -94,7 +96,7 @@ fun DetailsScreen(
         Box(Modifier.fillMaxSize()) {
             Text(
                 modifier = Modifier.align(Alignment.Center),
-                text = "Событие не выбрано",
+                text = s("events_sobytie_ne_vybrano"),
                 fontSize = 44.sp,
                 textAlign = TextAlign.Center
             )
@@ -110,16 +112,16 @@ fun DetailsScreen(
         }
 
         val fields = buildList {
-            add("Тема" to (e.subject ?: ""))
-            add("Ссылка" to (e.link ?: ""))
-            add("Дата" to (e.date?.format(formatDDMMYYYY) ?: ""))
-            add("Дата изменения" to (e.modifiedDate ?: ""))
-            add("Состояние" to (e.state ?: ""))
-            add("ВидСобытия" to (e.eventType ?: ""))
-            add("ДатаНачала" to (e.startDate ?: ""))
-            add("ДатаОкончания" to (e.endDate ?: ""))
-            add("Организация" to (e.organization ?: ""))
-            add("Подразделение" to (e.companyDepartment ?: ""))
+            add(s("filter_tema") to (e.subject ?: ""))
+            add(s("buyer_order_ssylka") to (e.link ?: ""))
+            add(s("filter_data") to (e.date?.format(formatDDMMYYYY) ?: ""))
+            add(s("events_data_izmeneniya") to (e.modifiedDate ?: ""))
+            add(s("work_order_sostoyanie") to (e.state ?: ""))
+            add(s("events_vid_sobytiya") to (e.eventType ?: ""))
+            add(s("events_data_nachala") to (e.startDate ?: ""))
+            add(s("events_data_okonchaniya") to (e.endDate ?: ""))
+            add(s("events_organizatsiya") to (e.organization ?: ""))
+            add(s("events_podrazdelenie") to (e.companyDepartment ?: ""))
         }.filter { it.second.isNotBlank() }
 
         LazyColumn(
@@ -134,12 +136,12 @@ fun DetailsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: "Событие не выбрано"),
+                        text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: s("events_sobytie_ne_vybrano")),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f).basicMarquee()
                     )
-//                    TextButton(onClick = onRequestRefresh) { Text("Обновить") }
+//                    TextButton(onClick = onRequestRefresh) { Text(s("menu_obnovit")) }
                 }
                 Spacer(Modifier.height(8.dp))
                 Card {
@@ -155,18 +157,18 @@ fun DetailsScreen(
             // Пользователи
             item {
                 Section(
-                    title = "Пользователи",
+                    title = s("events_polzovateli"),
                     expanded = usersExpanded,
                     onToggle = { usersExpanded = !usersExpanded }
                 ) {
                     if (e.users.isEmpty()) {
-                        MutedText("Нет пользователей")
+                        MutedText(s("events_net_polzovateley"))
                     } else {
-                        // Optional: if your model has a boolean like isResponsible / Ответственный == "Да",
+                        // Optional: if your model has a boolean like isResponsible / Ответственный == s("settings_da"),
                         // upgrade the role for sorting only:
                         fun effectiveRole(u: UserRowDto): String? =
                             when {
-                                (u.isResponsible == true) -> "ответственный"
+                                (u.isResponsible == true) -> s("events_otvetstvennyy")
                                 else -> u.role // e.g. "Делаю", "Помогаю", "Наблюдаю"
                             }
 
@@ -187,13 +189,13 @@ fun DetailsScreen(
             // tasks (+)
             item {
                 Section(
-                    title = "Задачи",
+                    title = s("details_zadachi"),
                     expanded = tasksExpanded,
                     onToggle = { tasksExpanded = !tasksExpanded },
                     trailing = { TextButton(onClick = { component.addTask("TEST") }) { Text("+") } }
                 ) {
                     if (e.tasks.isEmpty()) {
-                        MutedText("Нет задач")
+                        MutedText(s("events_net_zadach"))
                     } else {
                         e.tasks.forEach { TaskItem(it) }
                     }
@@ -203,12 +205,12 @@ fun DetailsScreen(
             // messages + input
             item {
                 Section(
-                    title = "Сообщения",
+                    title = s("details_soobscheniya"),
                     expanded = messagesExpanded,
                     onToggle = { messagesExpanded = !messagesExpanded }
                 ) {
                     if (e.messages.isEmpty()) {
-                        MutedText("Нет сообщений")
+                        MutedText(s("details_net_soobscheniy"))
                     } else {
                         e.messages.forEach { MessageItem(it) }
                     }
@@ -219,7 +221,7 @@ fun DetailsScreen(
                             // hard limit (truncates pasted text)
                             messageDraft = if (input.length <= MESSAGE_MAX_CHARS) input else input.take(MESSAGE_MAX_CHARS)
                         },
-                        label = { Text("Новое сообщение") },
+                        label = { Text(s("details_novoe_soobschenie")) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 10.dp),
@@ -261,7 +263,7 @@ fun DetailsScreen(
                             },
                             enabled = messageDraft.isNotBlank() && e.number != null && e.date != null && sendState !is SendMessageUiState.Sending
                         ) {
-                            Text("Отправить")
+                            Text(s("camera_otpravit"))
                         }
                     }
                     when (val s = sendState) {
@@ -283,13 +285,13 @@ fun DetailsScreen(
                     p.sum?.replace(SPACE_RX, "")?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
                 }
                 Section(
-                    title = "Товары (Сумма: ${total} руб.)",
+                    title = s("details_tovary_summa_rub", total),
                     expanded = productsExpanded,
                     onToggle = { productsExpanded = !productsExpanded },
                     trailing = { TextButton(onClick = { component.addTask("TEST") }) { Text("+") } }
                 ) {
                     if (e.products.isEmpty()) {
-                        MutedText("Нет товаров")
+                        MutedText(s("events_net_tovarov"))
                     } else {
                         e.products.forEach { ProductItem(it) }
                     }
@@ -373,11 +375,11 @@ private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
         name.isNotEmpty() && target.isNotEmpty() && name.equals(target, ignoreCase = true)
     }
     val nameWeight = if (isHighlighted) FontWeight.Bold else FontWeight.SemiBold
-    val displayName = (u.user ?: "—") + if (isHighlighted) " (я)" else ""
+    val displayName = (u.user ?: "—") + if (isHighlighted) s("events_ya_suffix") else ""
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text(displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = nameWeight)
         val details = listOfNotNull(
-            u.role?.takeIf { it.isNotBlank() }?.let { "Роль: $it" },
+            u.role?.takeIf { it.isNotBlank() }?.let { s("events_rol_it", it) },
             //u.responsible?.takeIf { it.isNotBlank() }?.let { "Ответственный: $it" }
         ).joinToString("  •  ")
         if (details.isNotBlank()) {
@@ -390,11 +392,11 @@ private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
 @Composable
 private fun TaskItem(t: TaskDto) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(t.document ?: "Задача", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(t.document ?: s("events_zadacha"), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.workDate?.takeIf { it.isNotBlank() }?.let { add(it) }
-            t.author?.takeIf { it.isNotBlank() }?.let { add("Автор: $it") }
-            t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
+            t.author?.takeIf { it.isNotBlank() }?.let { add(s("events_avtor_it", it)) }
+            t.price?.takeIf { it.isNotBlank() }?.let { add(s("events_tsena_it", it)) }
         }.joinToString("  •  ")
         if (line.isNotBlank()) {
             Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -409,13 +411,13 @@ private fun TaskItem(t: TaskDto) {
 @Composable
 private fun ProductItem(t: ProductsItem) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(t.itemName ?: s("events_tovar_row", t.rowNo.orEmpty()), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
             formatProductQuantityWithUnit(t.quantity, t.unit)?.let { add(it) }
 //            t.unit?.takeIf { it.isNotBlank() }?.let { add("Ед. Измерения: $it") }
-            t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
-            t.sum?.takeIf { it.isNotBlank() }?.let { add("Сумма: $it") }
+            t.price?.takeIf { it.isNotBlank() }?.let { add(s("events_tsena_it", it)) }
+            t.sum?.takeIf { it.isNotBlank() }?.let { add(s("events_summa_it", it)) }
 
 //            t.rowNo?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
         }.joinToString("  •  ")
@@ -433,7 +435,7 @@ private fun ProductItem(t: ProductsItem) {
 private fun MessageItem(m: MessageDto) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(m.author ?: "Сообщение", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(m.author ?: s("events_soobschenie_fallback"), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             m.workDate?.takeIf { it.isNotBlank() }?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -465,7 +467,7 @@ private fun Section(
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 trailing?.invoke()
-                //TextButton(onClick = onToggle) { Text(if (expanded) "Скрыть" else "Показать") }
+                //TextButton(onClick = onToggle) { Text(if (expanded) s("login_skryt") else s("login_pokazat")) }
             }
             AnimatedVisibility(visible = expanded) {
                 Column(Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp, end = 8.dp)) { content() }

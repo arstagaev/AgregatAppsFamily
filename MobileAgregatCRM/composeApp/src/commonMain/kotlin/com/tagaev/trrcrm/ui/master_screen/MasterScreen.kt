@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -126,7 +128,7 @@ fun <T, F> MasterScreen(
                         topBarActionsContent != null -> topBarActionsContent(isLoadingTopBar)
                         panel == MasterPanel.List -> {
                             IconButton(onClick = { onPanelChange(MasterPanel.Filter) }) {
-                                Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                                Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                             }
                             if (isLoadingTopBar) {
                                 CircularProgressIndicator(
@@ -137,7 +139,7 @@ fun <T, F> MasterScreen(
                                 )
                             } else {
                                 IconButton(onClick = onRefresh) {
-                                    Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                                    Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                                 }
                             }
                         }
@@ -164,7 +166,7 @@ fun <T, F> MasterScreen(
                             ) {
                                 Icon(
                                     FeatherIcons.ArrowLeft,
-                                    contentDescription = "Назад к списку",
+                                    contentDescription = s("list_nazad_k_spisku"),
                                     modifier = if (useCompactDetailsTopBar) {
                                         Modifier.size(18.dp)
                                     } else {
@@ -233,7 +235,7 @@ fun <T, F> MasterScreen(
 //                                }
                                 Spacer(Modifier.height(16.dp))
                                 Button(onClick = onRefresh) {
-                                    Text("Повторить")
+                                    Text(s("login_povtorit"))
                                 }
                             }
                         }
@@ -311,7 +313,7 @@ fun <T, F> MasterScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Элемент не выбран")
+                            Text(s("list_element_ne_vybran"))
                         }
                     }
                 }

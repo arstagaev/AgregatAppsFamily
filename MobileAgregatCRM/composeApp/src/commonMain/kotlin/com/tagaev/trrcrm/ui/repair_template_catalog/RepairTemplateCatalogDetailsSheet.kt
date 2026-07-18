@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.repair_template_catalog
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -48,7 +50,7 @@ fun RepairTemplateCatalogDetailsSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
+                Icon(FeatherIcons.ArrowLeft, contentDescription = s("settings_nazad"))
             }
             Text(
                 text = title,
@@ -94,7 +96,7 @@ fun RepairTemplateCatalogDetailsSheet(
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Работы",
+                text = s("repair_template_raboty"),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -119,7 +121,7 @@ fun RepairTemplateCatalogDetailsSheet(
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Товары",
+                text = s("work_order_tovary"),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -144,7 +146,7 @@ fun RepairTemplateCatalogDetailsSheet(
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Заказчики",
+                text = s("repair_template_zakazchiki"),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )

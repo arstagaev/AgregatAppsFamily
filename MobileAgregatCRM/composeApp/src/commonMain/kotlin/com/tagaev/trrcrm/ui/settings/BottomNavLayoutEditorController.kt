@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.settings
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.tagaev.trrcrm.navigation.BottomNavItemId
 import com.tagaev.trrcrm.navigation.BottomNavLayoutItem
 import com.tagaev.trrcrm.navigation.BottomNavLayoutResolver
@@ -74,14 +76,14 @@ class BottomNavLayoutEditorController(
         val draft = BottomNavLayoutResolver.enforceRequiredVisibility(_bottomNavDraft.value)
         _bottomNavDraft.value = draft
         if (draft.none { it.visible }) {
-            _bottomNavSaveError.value = "Должен быть виден хотя бы один пункт меню"
-            return BottomNavSaveResult.Error("Должен быть виден хотя бы один пункт меню")
+            _bottomNavSaveError.value = tr("settings_dolzhen_byt_viden_hotya_by_odin_punkt_menyu")
+            return BottomNavSaveResult.Error(tr("settings_dolzhen_byt_viden_hotya_by_odin_punkt_menyu"))
         }
 
         settings.saveBottomNavLayout(draft)
         BottomNavLayoutState.applySaved(draft)
         updateDirty()
-        _bottomNavSaveMessage.value = "Панель навигации сохранена"
+        _bottomNavSaveMessage.value = tr("settings_panel_navigatsii_sohranena")
         _bottomNavSaveError.value = null
 
         val activeHidden = activeTabId != null &&

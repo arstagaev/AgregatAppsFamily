@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.qrscanner
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.MainRepository
@@ -111,7 +113,7 @@ class DefaultQRScannerComponent(
         val completionNumber = selected.response?.completionNumber?.trim().orEmpty()
         if (completionNumber.isBlank()) {
             _state.update {
-                it.copy(openComplectationError = "В QR нет номера комплектации")
+                it.copy(openComplectationError = tr("complectation_v_qr_net_nomera_komplektatsii"))
             }
             return
         }
@@ -144,7 +146,7 @@ class DefaultQRScannerComponent(
                 _state.update {
                     it.copy(
                         isOpeningComplectation = false,
-                        openComplectationError = friendlyError(t, "Не удалось открыть комплектацию")
+                        openComplectationError = friendlyError(t, tr("qr_ne_udalos_otkryt_komplektatsiyu"))
                     )
                 }
             }
@@ -230,7 +232,7 @@ class DefaultQRScannerComponent(
                 }
 
                 is Resource.Error -> {
-                    val err = res.causes ?: friendlyError(res.exception, "Ошибка запроса")
+                    val err = res.causes ?: friendlyError(res.exception, tr("main_oshibka_zaprosa"))
                     _state.update { old ->
                         val updatedAttempts = old.attempts.map { a ->
                             if (a.id == attemptId) {
@@ -244,7 +246,7 @@ class DefaultQRScannerComponent(
                         val selected = updatedAttempts.firstOrNull { it.id == attemptId }
                         old.copy(
                             isLoading = false,
-                            lastError = "Некорректный QR-код",
+                            lastError = tr("qr_nekorrektnyy_qr_kod"),
                             attempts = updatedAttempts,
                             selectedAttempt = selected   // show error dialog too
                         )

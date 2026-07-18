@@ -1,0 +1,527 @@
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ComplectationsScreen(
+    component: ComplectationComponent,
+    modifier: Modifier = Modifier
+) {
+    val resource by component.complectations.collectAsState()
+    val refineState by component.refineState.collectAsState()
+    val panel by component.masterScreenPanel.collectAsState()
+    val selectedId by component.selectedItemGuid.collectAsState()
+    val isQrScannerOpen by component.isQrScannerOpen.collectAsState()
+    val isQrLookupInProgress by component.isQrLookupInProgress.collectAsState()
+    val qrLookupError by component.qrLookupError.collectAsState()
+    val isCameraOpen by component.isCameraOpen.collectAsState()
+    val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
+    val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
+    val documentPhotoCount by component.documentPhotoCount.collectAsState()
+    val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
+    val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
+    val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
+    val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
+    val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    val transientWarning by component.transientWarning.collectAsState()
+
+    val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
+    var cameraSnackbarIsError by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val showSnackbar = LocalAppSnackbar.current
+    val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
+    val stackedDetails = remember { mutableStateMapOf<String, StackedDocumentDetailsSnapshot>() }
+    var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
+    var isResolvingLinkedByCharacteristic by rememberSaveable { mutableStateOf(false) }
+    var characteristicMatches by remember { mutableStateOf<List<WorkOrderDto>>(emptyList()) }
+    var isSearchMode by rememberSaveable { mutableStateOf(false) }
+    var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
+    var searchTypeDraft by rememberSaveable {
+        mutableStateOf(refineToComplectationSearchModeType(refineState.searchQueryType))
+    }
+    val isTopBarLoading = resource is Resource.Loading ||
+            (resource as? Resource.Success<*>)?.additionalLoading == true
+
+    LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
+        if (!isSearchMode) {
+            searchQueryDraft = refineState.searchQuery
+            searchTypeDraft = refineToComplectationSearchModeType(refineState.searchQueryType)
+        }
+    }
+    LaunchedEffect(selectedId) {
+        linkedDocuments.clear()
+        isResolvingBaseDocument = false
+        isResolvingLinkedByCharacteristic = false
+        characteristicMatches = emptyList()
+        stackedDetails.clear()
+    }
+    LaunchedEffect(transientWarning) {
+        val warning = transientWarning
+        if (!warning.isNullOrBlank()) {
+            showSnackbar(warning)
+            component.consumeTransientWarning()
+        }
+    }
+    LaunchedEffect(cameraPrecheckError) {
+        val error = cameraPrecheckError
+        if (!error.isNullOrBlank()) {
+            cameraSnackbarIsError = true
+            cameraErrorSnackbarHostState.showSnackbar(userFacingMessage(error, error))
+            component.consumeCameraPrecheckError()
+        }
+    }
+
+    val activeComplectation = resolveActiveComplectation(
+        selectedId = selectedId,
+        resource = resource,
+        linkedDocuments = linkedDocuments,
+    )
+
+    val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
+        val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
+        if (token.isBlank()) {
+            showSnackbar(s("work_order_ukazhite_drugoe_znachenie_harakteristiki_dlya_poiska"))
+        } else {
+            scope.launch {
+                isResolvingLinkedByCharacteristic = true
+                try {
+                    when (val res = component.searchComplectationsByKitCharacteristicToken(token)) {
+                        is Resource.Success -> {
+                            val list = res.data.orEmpty()
+                            when {
+                                list.isEmpty() -> showSnackbar(s("work_order_komplektatsii_ne_naydeny"))
+                                list.size == 1 -> linkedDocuments.add(
+                                    TreeRootResolvedDocument.Complectation(list.first())
+                                )
+                                else -> {
+                                    characteristicMatches = list
+                                }
+                            }
+                        }
+                        is Resource.Error -> showSnackbar(
+                            res.causes ?: friendlyError(res.exception, s("work_order_oshibka_poiska_komplektatsii"))
+                        )
+                        is Resource.Loading -> Unit
+                    }
+                } finally {
+                    isResolvingLinkedByCharacteristic = false
+                }
+            }
+        }
+    }
+
+    val applySearch: () -> Unit = {
+        val normalizedQuery = searchQueryDraft.trim()
+        component.setRefineState(
+            refineState.copy(
+                searchQuery = normalizedQuery,
+                searchQueryType = searchTypeDraft.toRefineSearchType()
+            )
+        )
+    }
+    val hideSearchForm: () -> Unit = {
+        isSearchMode = false
+        searchQueryDraft = refineState.searchQuery
+        searchTypeDraft = refineToComplectationSearchModeType(refineState.searchQueryType)
+    }
+    val clearSearchAndClose: () -> Unit = {
+        isSearchMode = false
+        component.setRefineState(refineState.copy(searchQuery = ""))
+    }
+    val handleDetailsBack: () -> Unit = {
+        if (linkedDocuments.isNotEmpty()) {
+            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+        } else {
+            component.selectItemFromList(null)
+            component.changePanel(MasterPanel.List)
+        }
+    }
+    if (isQrScannerOpen) {
+        ComplectationQrScannerView(
+            isResolving = isQrLookupInProgress,
+            errorText = qrLookupError,
+            onBack = { component.closeQrScanner() },
+            onScanned = { component.onQrScanned(it) },
+            onErrorConsumed = { component.consumeQrLookupError() }
+        )
+        return
+    }
+    if (isCameraOpen) {
+        val number = cameraDocumentNumber
+        if (number != null) {
+            DocumentCameraScreen(
+                documentNumber = number,
+                title = s("complectation_kamera_number", number),
+                documentType = ImageDocumentType.Complects,
+                initialQuota = cameraUploadQuota,
+                showUploadStatusBlock = false,
+                onBack = component::closeCamera,
+            )
+        }
+        return
+    }
+    if (isPhotosViewerOpen) {
+        val number = photosViewerDocumentNumber
+        if (number != null) {
+            DocumentPhotosViewerScreen(
+                documentNumber = number,
+                documentType = ImageDocumentType.Complects,
+                onBack = component::closePhotosViewer,
+            )
+        }
+        return
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        MasterScreen(
+            title = s("nav_komplektatsiya"),
+            resource = resource,
+            errorText = s("complectation_ne_udalos_zagruzit_komplektatsii"),
+        notFoundText = s("work_order_komplektatsii_ne_naydeny"),
+        refineState = refineState,
+        onRefresh = { component.fullRefresh() },
+        onLoadMore = { component.loadMore() },
+        onFilterChanged = { component.setRefineState(it) },
+
+        itemId = { it.guid.toString() },
+        isItemChanged = { old, new -> old.messages.size != new.messages.size },
+
+        listItem = { order, isChanged, onClick ->
+            ComplectationCard(
+                order = order,
+                isChanged = isChanged,
+                onClick = onClick
+            )
+        },
+
+        // Full-screen details content (not bottom-sheet)
+        detailsContent = { order, onClose ->
+            val currentLinked = linkedDocuments.lastOrNull()
+            val detailsKey: String = if (currentLinked != null) {
+                currentLinked.stableStateKey()
+            } else {
+                complectationRootListStateKey(order)
+            }
+            val activeOrderNumber = (currentLinked as? TreeRootResolvedDocument.Complectation)?.value?.number
+                ?: order.number
+            LaunchedEffect(activeOrderNumber) {
+                activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+            }
+            val openDocumentPhotos: (() -> Unit)? =
+                if (!activeOrderNumber.isNullOrBlank()) {
+                    { component.requestOpenDocumentPhotos(activeOrderNumber) }
+                } else {
+                    null
+                }
+            val snapshot: StackedDocumentDetailsSnapshot = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot()
+            val detailsScroll: ScrollState = remember(detailsKey) {
+                ScrollState(snapshot.scroll)
+            }
+            LaunchedEffect(detailsKey) {
+                snapshotFlow { detailsScroll.value }
+                    .distinctUntilChanged()
+                    .collect { v ->
+                        val prev = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot()
+                        if (v != prev.scroll) {
+                            stackedDetails[detailsKey] = prev.withScroll(v)
+                        }
+                    }
+            }
+            val onStackedSnapshot: (StackedDocumentDetailsSnapshot) -> Unit = { s ->
+                stackedDetails[detailsKey] = s.withScroll(detailsScroll.value)
+            }
+            val complectationStackedUi: ComplectationTreeStackedUi = ComplectationTreeStackedUi(
+                detailsScroll = detailsScroll,
+                detailsSnapshot = stackedDetails[detailsKey] ?: StackedDocumentDetailsSnapshot(),
+                onDetailsSnapshot = onStackedSnapshot
+            )
+            val onOpenBaseDocument: (String) -> Unit = { rawBaseDocument ->
+                scope.launch {
+                    isResolvingBaseDocument = true
+                    try {
+                        when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
+                            is Resource.Success -> linkedDocuments.add(resolved.data)
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
+                            is Resource.Loading -> Unit
+                        }
+                    } finally {
+                        isResolvingBaseDocument = false
+                    }
+                }
+            }
+            val onNestedBack: () -> Unit = {
+                if (linkedDocuments.isNotEmpty()) linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                else onClose()
+            }
+            if (currentLinked != null) {
+                TreeRootDocumentDetailsSheet(
+                    document = currentLinked,
+                    onBack = onNestedBack,
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    complectationStacked = complectationStackedUi,
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    documentPhotoCount = documentPhotoCount,
+                    isDocumentPhotoCountLoading = isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
+                )
+            } else {
+                component.pickedComplectation = order
+                ComplectationDetailsSheet(
+                    order = order,
+                    onBack = onNestedBack,
+                    stackedDetailsSnapshot = complectationStackedUi.detailsSnapshot,
+                    onStackedDetailsSnapshotChange = complectationStackedUi.onDetailsSnapshot,
+                    detailsScrollState = complectationStackedUi.detailsScroll,
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    documentPhotoCount = documentPhotoCount,
+                    isDocumentPhotoCountLoading = isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
+                    onSendMessage = { message, onResult ->
+                        val number = order.number.orEmpty()
+                        val date = order.date.orEmpty()
+                        scope.launch {
+                            val err = component.sendMessage(number, date, message)
+                            if (err == null) {
+                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = s("events_ya"), text = message))
+                            }
+                            onResult(err)
+                        }
+                    },
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
+                )
+            }
+        },
+
+        // Full-screen filter screen (not dialog)
+        filterScreen = { current, onDismiss, onApply ->
+            RefineScreen(
+                current = current,
+                onBack = onDismiss,
+                sections = setOf(RefineSection.FILTER_VAL),
+                onApply = { newState ->
+                    onApply(
+                        newState.copy(
+                            status = Refiner.Status.OFF,
+                            orderBy = refineState.orderBy,
+                            orderDir = refineState.orderDir,
+                            searchQuery = refineState.searchQuery,
+                            searchQueryType = refineState.searchQueryType
+                        )
+                    )
+                }
+            )
+        },
+
+        panel = panel,
+        onPanelChange = {
+            component.changePanel(it)
+
+        },
+
+        selectedItemId = selectedId,
+        onSelectedItemChange = { id -> component.selectItemFromList(id) },
+
+        topBarNavigationIcon = if (panel == MasterPanel.List && isSearchMode) {
+            {
+                Row {
+                    IconButton(
+                        onClick = hideSearchForm,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
+                    }
+                    IconButton(
+                        onClick = clearSearchAndClose,
+                        enabled = !isTopBarLoading
+                    ) {
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
+                    }
+                }
+            }
+        } else {
+            null
+        },
+        topBarTitleContent = when {
+            panel == MasterPanel.List && isSearchMode -> {
+                {
+                    OutlinedTextField(
+                        value = searchQueryDraft,
+                        onValueChange = { searchQueryDraft = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp),
+                        placeholder = { Text(searchTypeDraft.searchFieldPlaceholder()) },
+                        singleLine = true,
+                        enabled = !isTopBarLoading,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { applySearch() })
+                    )
+                }
+            }
+            panel == MasterPanel.Details && linkedDocuments.isNotEmpty() -> {
+                {
+                    Text(
+                        text = linkedDocuments.last().linkTabLabel(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            else -> null
+        },
+        topBarActionsContent = { isLoadingTopBar ->
+            if (panel == MasterPanel.Details) {
+                val cameraNumber = activeComplectation?.number.orEmpty()
+                if (activeComplectation != null && cameraNumber.isNotBlank()) {
+                    ComplectationAddPhotoTopBarAction(
+                        enabled = !isCameraPrecheckInProgress,
+                        onClick = { component.requestOpenCamera(cameraNumber) },
+                    )
+                }
+            } else if (panel == MasterPanel.List) {
+                if (isSearchMode) {
+                    if (isLoadingTopBar) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(onClick = applySearch) {
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
+                        }
+                    }
+                } else {
+                    IconButton(onClick = { component.openQrScanner() }) {
+                        Icon(LineAwesomeIcons.QrcodeSolid, contentDescription = s("complectation_skanirovat_qr"))
+                    }
+                    IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
+                    }
+                    SearchIconButtonWithIndicator(
+                        showIndicator = refineState.searchQuery.isNotBlank(),
+                        enabled = !isLoadingTopBar,
+                        onClick = {
+                            searchQueryDraft = refineState.searchQuery
+                            searchTypeDraft = refineToComplectationSearchModeType(refineState.searchQueryType)
+                            isSearchMode = true
+                        }
+                    )
+
+                    if (isLoadingTopBar) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        IconButton(onClick = { component.fullRefresh() }) {
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
+                        }
+                    }
+                }
+            }
+        },
+        topBarTopContent = if (panel == MasterPanel.Details && selectedId != null && linkedDocuments.isNotEmpty()) {
+            {
+                val rows = (resource as? Resource.Success)?.data.orEmpty()
+                val rootOrder = rows.firstOrNull { it.guid.toString() == selectedId }
+                val rootLabel = rootOrder?.let { o ->
+                    linkTabCaptionForListRow(o.link, TreeRootDocumentKind.COMPLECTATION, o.number)
+                }.orEmpty()
+                LinkedDocumentStackTabStrip(
+                    tabLabels = listOf(rootLabel) + linkedDocuments.map { it.linkTabLabel() },
+                    selectedIndex = linkedDocuments.size,
+                    onTabClick = { idx ->
+                        if (idx == 0) linkedDocuments.clear()
+                        else while (linkedDocuments.size > idx) {
+                            linkedDocuments.removeAt(linkedDocuments.lastIndex)
+                        }
+                    },
+                )
+            }
+        } else null,
+        topBarBottomContent = if (panel == MasterPanel.List && isSearchMode) {
+            {
+                ComplectationSearchTypeRow(
+                    selected = searchTypeDraft,
+                    onSelected = { searchTypeDraft = it }
+                )
+            }
+        } else {
+            null
+        },
+        onDetailsBack = handleDetailsBack,
+        compactDetailsTopBar = true,
+        modifier = Modifier.fillMaxSize(),
+    )
+
+        SnackbarHost(
+            hostState = cameraErrorSnackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = if (cameraSnackbarIsError) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseSurface
+                },
+                contentColor = if (cameraSnackbarIsError) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseOnSurface
+                },
+            )
+        }
+    }
+
+    if (isCameraPrecheckInProgress) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("complectation_proverka_vozmozhnosti_zagruzki")) },
+            confirmButton = {},
+        )
+    }
+
+
+...
+private fun ComplectationAddPhotoTopBarAction(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .alpha(if (enabled) 1f else 0.45f)
+            .clip(MaterialTheme.shapes.small)
+            .clickable(enabled = enabled, onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = s("complectation_dobavit_foto"),
+                style = MaterialTheme.typography.labelMedium,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
+            Icon(
+                FeatherIcons.Camera,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+    }
+}

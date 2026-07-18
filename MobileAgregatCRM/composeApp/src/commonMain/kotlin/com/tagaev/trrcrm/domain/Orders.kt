@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.domain
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -148,7 +150,7 @@ fun OrderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Настройка показа", fontWeight = FontWeight.SemiBold) },
+        title = { Text(s("main_nastroyka_pokaza"), fontWeight = FontWeight.SemiBold) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -180,7 +182,7 @@ fun OrderDialog(
                 )
 
                 Text(
-                    "Направление",
+                    s("list_napravlenie"),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -193,10 +195,10 @@ fun OrderDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(selByOrder, selByOrderDir, selectByFilterVal) }) { Text("Применить") }
+            TextButton(onClick = { onApply(selByOrder, selByOrderDir, selectByFilterVal) }) { Text(s("list_primenit")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) { Text(s("settings_otmena")) }
         }
     )
 }

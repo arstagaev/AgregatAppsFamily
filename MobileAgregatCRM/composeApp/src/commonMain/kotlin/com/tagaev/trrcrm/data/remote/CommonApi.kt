@@ -30,6 +30,7 @@ import com.tagaev.trrcrm.models.CoreSessionHeartbeatResponse
 import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
 import com.tagaev.trrcrm.models.CoreSessionLogoutResponse
 import com.tagaev.trrcrm.models.HealthResponse
+import com.tagaev.trrcrm.models.MobileFeatureTogglesResponse
 import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateRequest
 import com.tagaev.trrcrm.models.CoreNotificationStatusUpdateResponse
 import com.tagaev.trrcrm.models.CoreDeviceMuteStateRequest
@@ -424,6 +425,13 @@ class EventsApi(
             path = "/core/session/heartbeat",
             body = request,
             includeApiKey = true
+        )
+    }
+
+    suspend fun coreMobileFeatureTogglesGet(): Resource<MobileFeatureTogglesResponse> = resourceify {
+        coreGet<MobileFeatureTogglesResponse>(
+            path = "/feature-toggles/mobile",
+            includeApiKey = true,
         )
     }
 

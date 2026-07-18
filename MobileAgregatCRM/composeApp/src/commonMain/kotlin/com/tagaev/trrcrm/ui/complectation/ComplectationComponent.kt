@@ -1,20 +1,22 @@
 package com.tagaev.trrcrm.ui.complectation
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
+import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.models.UploadAvailability
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.models.WorkOrderMessageDto
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
-import com.tagaev.trrcrm.developer.ComplectationPhotosViewerFeatureState
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.EventsApi.Companion.json
+import com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore
 import com.tagaev.trrcrm.domain.RefineState
 import com.tagaev.trrcrm.domain.Refiner
-import com.tagaev.trrcrm.domain.isValidDocumentNumber
-import com.tagaev.trrcrm.domain.normalizeDocumentNumber
 import com.tagaev.trrcrm.domain.withOrderByMigratedFromDateLastModificationIfNeeded
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.messages.normalizedPushRecipients
@@ -22,6 +24,7 @@ import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
+import com.tagaev.trrcrm.ui.photos.DocumentPhotoSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +54,14 @@ class ComplectationComponent(
     private val appScope: CoroutineScope by inject()
     private val repository: MainRepository by inject()
     private val appSettings: AppSettings by inject()
+    private val mobileFeatureFlags: MobileFeatureFlagsStore by inject()
+
+    private val photoSession = DocumentPhotoSession(
+        documentType = ImageDocumentType.Complects,
+        repository = repository,
+        featureFlags = mobileFeatureFlags,
+        appScope = appScope,
+    )
 
     private val _complectations =
         MutableStateFlow<Resource<List<WorkOrderDto>>>(Resource.Loading)
@@ -75,27 +86,16 @@ class ComplectationComponent(
     private val _qrLookupError = MutableStateFlow<String?>(null)
     val qrLookupError: StateFlow<String?> = _qrLookupError
 
-    private val _isCameraOpen = MutableStateFlow(false)
-    val isCameraOpen: StateFlow<Boolean> = _isCameraOpen
-    private val _isCameraPrecheckInProgress = MutableStateFlow(false)
-    val isCameraPrecheckInProgress: StateFlow<Boolean> = _isCameraPrecheckInProgress
-    private val _cameraDocumentNumber = MutableStateFlow<String?>(null)
-    val cameraDocumentNumber: StateFlow<String?> = _cameraDocumentNumber
-    private val _cameraPrecheckError = MutableStateFlow<String?>(null)
-    val cameraPrecheckError: StateFlow<String?> = _cameraPrecheckError
-
-    private val _documentPhotoCount = MutableStateFlow(0)
-    val documentPhotoCount: StateFlow<Int> = _documentPhotoCount
-    private val _isDocumentPhotoCountLoading = MutableStateFlow(false)
-    val isDocumentPhotoCountLoading: StateFlow<Boolean> = _isDocumentPhotoCountLoading
-    private val _documentPhotoCountLoaded = MutableStateFlow(false)
-    val documentPhotoCountLoaded: StateFlow<Boolean> = _documentPhotoCountLoaded
-    private var documentPhotoCountRequestId = 0
-
-    private val _isPhotosViewerOpen = MutableStateFlow(false)
-    val isPhotosViewerOpen: StateFlow<Boolean> = _isPhotosViewerOpen
-    private val _photosViewerDocumentNumber = MutableStateFlow<String?>(null)
-    val photosViewerDocumentNumber: StateFlow<String?> = _photosViewerDocumentNumber
+    val isCameraOpen: StateFlow<Boolean> = photoSession.isCameraOpen
+    val isCameraPrecheckInProgress: StateFlow<Boolean> = photoSession.isCameraPrecheckInProgress
+    val cameraDocumentNumber: StateFlow<String?> = photoSession.cameraDocumentNumber
+    val cameraPrecheckError: StateFlow<String?> = photoSession.cameraPrecheckError
+    val cameraUploadQuota: StateFlow<UploadAvailability?> = photoSession.cameraUploadQuota
+    val documentPhotoCount: StateFlow<Int> = photoSession.documentPhotoCount
+    val isDocumentPhotoCountLoading: StateFlow<Boolean> = photoSession.isDocumentPhotoCountLoading
+    val documentPhotoCountLoaded: StateFlow<Boolean> = photoSession.documentPhotoCountLoaded
+    val isPhotosViewerOpen: StateFlow<Boolean> = photoSession.isPhotosViewerOpen
+    val photosViewerDocumentNumber: StateFlow<String?> = photoSession.photosViewerDocumentNumber
 
     override fun selectItemFromList(guid: String?) {
         _selectedOrderGuid.value = guid
@@ -114,92 +114,19 @@ class ComplectationComponent(
         _qrLookupError.value = null
     }
 
-    fun requestOpenCamera(rawNumber: String) {
-        if (_isCameraPrecheckInProgress.value) return
+    fun requestOpenCamera(rawNumber: String) = photoSession.requestOpenCamera(rawNumber)
 
-        val normalized = normalizeDocumentNumber(rawNumber.filter { it.isDigit() })
-        if (!isValidDocumentNumber(normalized)) {
-            _cameraPrecheckError.value = "Некорректный номер документа"
-            return
-        }
+    fun closeCamera() = photoSession.closeCamera()
 
-        appScope.launch {
-            _isCameraPrecheckInProgress.value = true
-            _cameraPrecheckError.value = null
-            when (val result = repository.checkCanUploadFixatorPhotos(normalized, "Комплектация")) {
-                is Resource.Success -> {
-                    _cameraDocumentNumber.value = normalized
-                    _isCameraOpen.value = true
-                }
-                is Resource.Error -> {
-                    _cameraPrecheckError.value = result.causes
-                        ?: friendlyError(result.exception, "Не удалось проверить возможность загрузки")
-                }
-                is Resource.Loading -> Unit
-            }
-            _isCameraPrecheckInProgress.value = false
-        }
-    }
+    fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
 
-    fun closeCamera() {
-        val documentNumber = _cameraDocumentNumber.value
-        _isCameraOpen.value = false
-        _cameraDocumentNumber.value = null
-        documentNumber?.let(::refreshDocumentPhotoCount)
-    }
+    fun refreshDocumentPhotoCount(documentNumber: String) =
+        photoSession.refreshDocumentPhotoCount(documentNumber)
 
-    fun consumeCameraPrecheckError() {
-        _cameraPrecheckError.value = null
-    }
+    fun requestOpenDocumentPhotos(documentNumber: String) =
+        photoSession.requestOpenDocumentPhotos(documentNumber)
 
-    fun refreshDocumentPhotoCount(documentNumber: String) {
-        val normalized = normalizeDocumentNumber(documentNumber.filter { it.isDigit() })
-        if (!isValidDocumentNumber(normalized)) {
-            _documentPhotoCount.value = 0
-            _documentPhotoCountLoaded.value = true
-            _isDocumentPhotoCountLoading.value = false
-            return
-        }
-        val requestId = ++documentPhotoCountRequestId
-        _documentPhotoCountLoaded.value = false
-        _isDocumentPhotoCountLoading.value = true
-        appScope.launch {
-            try {
-                when (val result = repository.getFixatorDocumentPhotoCount(normalized)) {
-                    is Resource.Success -> {
-                        if (requestId != documentPhotoCountRequestId) return@launch
-                        _documentPhotoCount.value = result.data
-                    }
-                    else -> {
-                        if (requestId != documentPhotoCountRequestId) return@launch
-                        _documentPhotoCount.value = 0
-                    }
-                }
-            } finally {
-                if (requestId == documentPhotoCountRequestId) {
-                    _documentPhotoCountLoaded.value = true
-                    _isDocumentPhotoCountLoading.value = false
-                }
-            }
-        }
-    }
-
-    fun requestOpenDocumentPhotos(documentNumber: String) {
-        if (!ComplectationPhotosViewerFeatureState.isEnabled(appSettings)) return
-
-        val normalized = normalizeDocumentNumber(documentNumber.filter { it.isDigit() })
-        if (!isValidDocumentNumber(normalized)) return
-
-        _photosViewerDocumentNumber.value = normalized
-        _isPhotosViewerOpen.value = true
-    }
-
-    fun closePhotosViewer() {
-        val documentNumber = _photosViewerDocumentNumber.value
-        _isPhotosViewerOpen.value = false
-        _photosViewerDocumentNumber.value = null
-        documentNumber?.let(::refreshDocumentPhotoCount)
-    }
+    fun closePhotosViewer() = photoSession.closePhotosViewer()
 
     fun onQrScanned(raw: String) {
         if (_isQrLookupInProgress.value) return
@@ -212,7 +139,7 @@ class ComplectationComponent(
                 val resolvedNumber = when (val res = repository.getTRSData(code)) {
                     is Resource.Success -> res.data.completionNumber.trim()
                     is Resource.Error -> {
-                        _qrLookupError.value = res.causes ?: friendlyError(res.exception, "Не удалось получить данные QR")
+                        _qrLookupError.value = res.causes ?: friendlyError(res.exception, tr("complectation_ne_udalos_poluchit_dannye_qr"))
                         ""
                     }
                     is Resource.Loading -> ""
@@ -220,7 +147,7 @@ class ComplectationComponent(
 
                 if (resolvedNumber.isBlank()) {
                     if (_qrLookupError.value.isNullOrBlank()) {
-                        _qrLookupError.value = "В QR нет номера комплектации"
+                        _qrLookupError.value = tr("complectation_v_qr_net_nomera_komplektatsii")
                     }
                     return@launch
                 }
@@ -230,7 +157,7 @@ class ComplectationComponent(
                     _isQrScannerOpen.value = false
                     _qrLookupError.value = null
                 } else {
-                    _qrLookupError.value = "Комплектация №$resolvedNumber не найдена"
+                    _qrLookupError.value = tr("complectation_komplektatsiya_resolvednumber_ne_naydena", resolvedNumber)
                 }
             } finally {
                 _isQrLookupInProgress.value = false
@@ -394,7 +321,7 @@ class ComplectationComponent(
      */
     suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
         val trimmed = token.trim()
-        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        if (trimmed.isEmpty()) return Resource.Error(causes = tr("work_order_pustoy_zapros"))
         val searchState = _refineState.value.copy(
             searchQuery = trimmed,
             searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
@@ -403,7 +330,7 @@ class ComplectationComponent(
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return tr("events_net_nomera_ili_daty_dokumenta")
         val res = repository.sendMessageToComplectation(
             itemNumber,
             itemDate.substringBefore(' '),
@@ -418,7 +345,7 @@ class ComplectationComponent(
                     println("PUSH_SERVICE: recipients_resolved doc_type=complectation recipient_count=${users.size} recipients=$users")
                     when (val pushRes = repository.sendMessageEventPUSH(
                         docId = co?.guid ?: co?.number ?: itemNumber,
-                        docTitle = "Комплектация ${co?.complectationCharacteristic ?: itemNumber} (${co?.branch.orEmpty()})",
+                        docTitle = tr("complectation_komplektatsiya_co_complectationcharacteristic_itemnu", co?.complectationCharacteristic ?: itemNumber, co?.branch.orEmpty()),
                         authorName = author,
                         recipientNames = users,
                         message = "${author}:\n${message}",
@@ -426,17 +353,17 @@ class ComplectationComponent(
                         rawMessage = message
                     )) {
                         is Resource.Error -> {
-                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, "Не удалось отправить уведомление")
+                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, tr("events_ne_udalos_otpravit_uvedomlenie"))
                             println("PUSH_SERVICE: Complectation push intent failed after message save: $reason")
-                            _transientWarning.value = "Комментарий сохранён, уведомление не отправлено"
+                            _transientWarning.value = tr("work_order_comment_saved_no_push")
                         }
                         else -> Unit
                     }
                 }
                 null
             }
-            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
-            else -> "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, tr("events_oshibka_otpravki_soobscheniya"))
+            else -> tr("events_oshibka_otpravki_soobscheniya")
         }
     }
 
@@ -661,9 +588,9 @@ class ComplectationComponent(
                 filteredPrimary.forEach { mergedMatches[it.key()] = it }
             }
             is Resource.Error -> return@withLock DeepLinkOpenResult.Failed(
-                primaryResult.causes ?: friendlyError(primaryResult.exception, "Ошибка поиска комплектации")
+                primaryResult.causes ?: friendlyError(primaryResult.exception, tr("work_order_oshibka_poiska_komplektatsii"))
             )
-            is Resource.Loading -> return@withLock DeepLinkOpenResult.Failed("Поиск комплектации не завершён")
+            is Resource.Loading -> return@withLock DeepLinkOpenResult.Failed(tr("complectation_poisk_komplektatsii_ne_zavershen"))
         }
 
         val canFallbackToNumber = identifier.trim().all { it.isDigit() }
@@ -679,9 +606,9 @@ class ComplectationComponent(
                         .forEach { mergedMatches[it.key()] = it }
                 }
                 is Resource.Error -> return@withLock DeepLinkOpenResult.Failed(
-                    numberResult.causes ?: friendlyError(numberResult.exception, "Ошибка поиска комплектации")
+                    numberResult.causes ?: friendlyError(numberResult.exception, tr("work_order_oshibka_poiska_komplektatsii"))
                 )
-                is Resource.Loading -> return@withLock DeepLinkOpenResult.Failed("Поиск комплектации не завершён")
+                is Resource.Loading -> return@withLock DeepLinkOpenResult.Failed(tr("complectation_poisk_komplektatsii_ne_zavershen"))
             }
         }
 

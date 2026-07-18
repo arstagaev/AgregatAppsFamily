@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.feed
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
@@ -25,9 +27,9 @@ import org.koin.core.component.inject
 private const val PAGE_SIZE = 25
 
 enum class FeedStatusFilter(val wire: String, val label: String) {
-    ALL("all", "Все"),
-    UNREAD("unread", "Непрочитанные"),
-    READ("read", "Прочитанные");
+    ALL("all", tr("feed_vse")),
+    UNREAD("unread", tr("feed_neprochitannye")),
+    READ("read", tr("feed_prochitannye"));
 
     companion object {
         fun fromWire(raw: String?): FeedStatusFilter {
@@ -211,10 +213,10 @@ class FeedComponent(
                     _items.value = _items.value.map { it.copy(status = "read", readAt = it.readAt ?: it.createdAt) }
                     updateUnreadCount(0)
                     UnreadCountSync.refreshAsync(reason = "feed_read_all", force = true)
-                    _transientMessage.value = "Все уведомления отмечены как прочитанные"
+                    _transientMessage.value = tr("feed_vse_uvedomleniya_otmecheny_kak_prochitannye")
                 }
                 is Resource.Error -> {
-                    val mapped = res.exception.toCoreApiError(res.causes ?: "Не удалось отметить уведомления")
+                    val mapped = res.exception.toCoreApiError(res.causes ?: tr("feed_ne_udalos_otmetit_uvedomleniya"))
                     println("PUSH_SERVICE: feed_read_all_failed kind=${mapped.kind} status=${mapped.statusCode} reason=${mapped.message}")
                     if (mapped.kind == CoreApiErrorKind.NotFound && recoverSessionForFeed("read_all")) {
                         val retrySession = requireSessionId(reason = "read_all_retry") ?: return@launch
@@ -224,10 +226,10 @@ class FeedComponent(
                                 _items.value = _items.value.map { it.copy(status = "read", readAt = it.readAt ?: it.createdAt) }
                                 updateUnreadCount(0)
                                 UnreadCountSync.refreshAsync(reason = "feed_read_all_retry", force = true)
-                                _transientMessage.value = "Все уведомления отмечены как прочитанные"
+                                _transientMessage.value = tr("feed_vse_uvedomleniya_otmecheny_kak_prochitannye")
                             }
                             is Resource.Error -> {
-                                val retryMapped = retry.exception.toCoreApiError(retry.causes ?: "Не удалось отметить уведомления")
+                                val retryMapped = retry.exception.toCoreApiError(retry.causes ?: tr("feed_ne_udalos_otmetit_uvedomleniya"))
                                 _transientMessage.value = actionableFeedError(retryMapped)
                             }
                             is Resource.Loading -> Unit
@@ -283,7 +285,7 @@ class FeedComponent(
                     }
                     is Resource.Error -> {
                         if (expectedGeneration != requestGeneration) return
-                        val mapped = response.exception.toCoreApiError(response.causes ?: "Ошибка загрузки уведомлений")
+                        val mapped = response.exception.toCoreApiError(response.causes ?: tr("feed_oshibka_zagruzki_uvedomleniy"))
                         println("PUSH_SERVICE: feed_fetch_failed page=$targetPage kind=${mapped.kind} status=${mapped.statusCode} reason=${mapped.message}")
                         if (mapped.kind == CoreApiErrorKind.NotFound && recoverSessionForFeed("feed_page_$targetPage")) {
                             val retrySession = requireSessionId(reason = "feed_page_retry_$targetPage") ?: return
@@ -303,7 +305,7 @@ class FeedComponent(
                                 }
                                 is Resource.Error -> {
                                     if (expectedGeneration != requestGeneration) return
-                                    val retryMapped = retry.exception.toCoreApiError(retry.causes ?: "Ошибка загрузки уведомлений")
+                                    val retryMapped = retry.exception.toCoreApiError(retry.causes ?: tr("feed_oshibka_zagruzki_uvedomleniy"))
                                     if (replace) {
                                         _firstPageError.value = actionableFeedError(retryMapped)
                                     } else {
@@ -353,7 +355,7 @@ class FeedComponent(
                 UnreadCountSync.refreshAsync(reason = "feed_status_update", force = false)
             }
             is Resource.Error -> {
-                val mapped = result.exception.toCoreApiError(result.causes ?: "Не удалось обновить статус уведомления")
+                val mapped = result.exception.toCoreApiError(result.causes ?: tr("feed_ne_udalos_obnovit_status_uvedomleniya"))
                 println("PUSH_SERVICE: feed_status_update_failed notification_id=$numericNotificationId kind=${mapped.kind} status=${mapped.statusCode} reason=${mapped.message}")
                 if (mapped.kind == CoreApiErrorKind.NotFound && recoverSessionForFeed("status_update")) {
                     val retrySession = requireSessionId(reason = "status_update_retry") ?: return
@@ -370,7 +372,7 @@ class FeedComponent(
                             return
                         }
                         is Resource.Error -> {
-                            val retryMapped = retry.exception.toCoreApiError(retry.causes ?: "Не удалось обновить статус уведомления")
+                            val retryMapped = retry.exception.toCoreApiError(retry.causes ?: tr("feed_ne_udalos_obnovit_status_uvedomleniya"))
                             _transientMessage.value = actionableFeedError(retryMapped)
                             return
                         }
@@ -416,7 +418,7 @@ class FeedComponent(
         val bootstrapPending = appSettings.getBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
         if (bootstrapPending) {
             println("PUSH_SERVICE: feed_session_pending reason=$reason waiting_for_bootstrap")
-            _firstPageError.value = "Инициализируем сессию уведомлений..."
+            _firstPageError.value = tr("feed_initsializiruem_sessiyu_uvedomleniy")
             scheduleAwaitSessionAndRefresh(reason)
             return null
         }
@@ -430,7 +432,7 @@ class FeedComponent(
             }
         }
 
-        _firstPageError.value = "Сессия не инициализирована. Перезайдите в приложение."
+        _firstPageError.value = tr("feed_sessiya_ne_initsializirovana_perezaydite_v_prilozhen")
         return null
     }
 
@@ -454,7 +456,7 @@ class FeedComponent(
             forceRebootstrap = forceRebootstrap
         )
         if (!recovered) {
-            _transientMessage.value = "Сессия истекла. Перезайдите в приложение."
+            _transientMessage.value = tr("feed_sessiya_istekla_perezaydite_v_prilozhenie")
         }
         return recovered
     }
@@ -483,11 +485,11 @@ class FeedComponent(
 
     private fun actionableFeedError(error: com.tagaev.trrcrm.data.remote.CoreApiError): String = when (error.kind) {
         CoreApiErrorKind.Unauthorized, CoreApiErrorKind.Forbidden ->
-            "Ошибка авторизации. Перезайдите в приложение."
+            tr("settings_oshibka_avtorizatsii_perezaydite_v_prilozhenie")
         CoreApiErrorKind.NotFound ->
-            "Сессия не найдена или истекла. Перезайдите в приложение."
+            tr("settings_sessiya_ne_naydena_ili_istekla_perezaydite_v_prilozh")
         CoreApiErrorKind.Validation ->
-            "Сервер отклонил запрос. Проверьте параметры и повторите."
-        else -> error.message.ifBlank { "Ошибка загрузки уведомлений" }
+            tr("feed_server_otklonil_zapros_proverte_parametry_i_povtorit")
+        else -> error.message.ifBlank { tr("feed_oshibka_zagruzki_uvedomleniy") }
     }
 }

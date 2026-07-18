@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -173,7 +175,7 @@ fun <T, Id> LiveListWrapper(
                 ) {
                     Icon(
                         imageVector = FeatherIcons.ChevronsUp,
-                        contentDescription = "Наверх"
+                        contentDescription = s("list_naverh")
                     )
                 }
             }
@@ -207,7 +209,7 @@ private fun LiveListFooter(
                     if (onRetry != null) {
                         Spacer(modifier = Modifier.height(8.dp))
                         TextButton(onClick = onRetry) {
-                            Text("Повторить")
+                            Text(s("login_povtorit"))
                         }
                     }
                 }

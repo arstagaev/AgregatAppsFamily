@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.complaints
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -88,13 +90,13 @@ private val COMPLAINTS_TOPBAR_SEARCH_OPTIONS = listOf(
 )
 
 private fun Refiner.SearchQueryType.complaintsSearchLabel(): String = when (this) {
-    Refiner.SearchQueryType.CODE -> "Номер"
-    Refiner.SearchQueryType.TOPIC -> "Тема"
-    Refiner.SearchQueryType.AUTHOR -> "Автор"
-    Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
+    Refiner.SearchQueryType.CODE -> s("filter_nomer")
+    Refiner.SearchQueryType.TOPIC -> s("filter_tema")
+    Refiner.SearchQueryType.AUTHOR -> s("events_avtor")
+    Refiner.SearchQueryType.COUNTERPARTY -> s("events_kontragent")
     Refiner.SearchQueryType.AUTO -> "Автомобиль"
-    Refiner.SearchQueryType.MANAGER -> "Менеджер"
-    Refiner.SearchQueryType.MASTER -> "Мастер"
+    Refiner.SearchQueryType.MANAGER -> s("filter_menedzher")
+    Refiner.SearchQueryType.MASTER -> s("filter_master")
     Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
     Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
     Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
@@ -102,7 +104,7 @@ private fun Refiner.SearchQueryType.complaintsSearchLabel(): String = when (this
     Refiner.SearchQueryType.CLIENT -> "Заказчик"
     Refiner.SearchQueryType.ROUTE -> "Маршрут"
     Refiner.SearchQueryType.CARRIER -> "Перевозчик"
-    Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
+    Refiner.SearchQueryType.SUBJECT_MATTER -> s("incoming_sut_obrascheniya")
     Refiner.SearchQueryType.PHONE -> "Телефон"
     Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
@@ -113,7 +115,7 @@ private fun Refiner.SearchQueryType.complaintsSearchLabel(): String = when (this
     Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
     Refiner.SearchQueryType.PURPOSE,
-    -> "Калькуляция"
+    -> s("nav_kalkulyatsiya")
 }
 
 @Composable
@@ -155,7 +157,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
         val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
         if (token.isBlank()) {
-            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+            showSnackbar(s("work_order_ukazhite_drugoe_znachenie_harakteristiki_dlya_poiska"))
         } else {
             scope.launch {
                 isResolvingLinkedByCharacteristic = true
@@ -164,13 +166,13 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                         is Resource.Success -> {
                             val list = res.data.orEmpty()
                             when {
-                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.isEmpty() -> showSnackbar(s("work_order_komplektatsii_ne_naydeny"))
                                 list.size == 1 -> linkedDocuments.add(TreeRootResolvedDocument.Complectation(list.first()))
                                 else -> characteristicMatches = list
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
+                            res.causes ?: friendlyError(res.exception, s("work_order_oshibka_poiska_komplektatsii"))
                         )
                         is Resource.Loading -> Unit
                     }
@@ -211,10 +213,10 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
         }
     }
     MasterScreen(
-        title = "Рекламации",
+        title = s("nav_reklamatsii"),
         resource = resource,
-        errorText = "Не удалось загрузить рекламации",
-        notFoundText = "Рекламации не найдены",
+        errorText = s("complaints_ne_udalos_zagruzit_reklamatsii"),
+        notFoundText = s("complaints_reklamatsii_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -292,7 +294,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
 //                }
 //                if (complaint.messages.lastOrNull() == null) {
 //                    Text(
-//                        text = "Сообщений нет",
+//                        text = s("work_order_soobscheniy_net"),
 //                        style = TextStyle(fontSize = 9.sp),
 //                        color = MaterialTheme.colorScheme.onSurfaceVariant
 //                    )
@@ -311,9 +313,9 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -360,7 +362,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
-                messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                messageForUser = s("complaints_korrektno_rabotaet_tolko_sortirovka_po_date_ostalnye"),
                 orderByOptions = Refiner.OrderBy.allForUi,
                 sections = setOf(
                     RefineSection.STATUS,
@@ -394,13 +396,13 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                         onClick = hideSearchForm,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(
                         onClick = clearSearchAndClose,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -414,7 +416,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 6.dp),
-                        placeholder = { Text("Поиск рекламации") },
+                        placeholder = { Text(s("complaints_poisk_reklamatsii")) },
                         singleLine = true,
                         enabled = !isTopBarLoading,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
@@ -439,12 +441,12 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -468,7 +470,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -507,8 +509,8 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
     if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("ищем документ основание....") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("events_ischem_dokument_osnovanie")) },
             confirmButton = {}
         )
     }
@@ -516,7 +518,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
     if (characteristicMatches.size >= 2) {
         AlertDialog(
             onDismissRequest = { characteristicMatches = emptyList() },
-            title = { Text("Найдено несколько комплектаций") },
+            title = { Text(s("complectation_naydeno_neskolko_komplektatsiy")) },
             text = {
                 Column(
                     modifier = Modifier
@@ -528,7 +530,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
                     characteristicMatches.forEach { item ->
                         val title = item.link?.takeIf { it.isNotBlank() }
                             ?: item.number?.takeIf { it.isNotBlank() }
-                            ?: "Без номера"
+                            ?: s("events_bez_nomera")
                         val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—"
                         Surface(
                             modifier = Modifier
@@ -563,7 +565,7 @@ fun ComplaintsScreen(component: IComplaintsComponent) {
             confirmButton = {},
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { characteristicMatches = emptyList() }) {
-                    Text("Отмена")
+                    Text(s("settings_otmena"))
                 }
             }
         )
@@ -587,7 +589,7 @@ private fun ComplaintsSearchTypeRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Поиск по:",
+                text = s("events_poisk_po"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -759,7 +761,7 @@ private fun ComplaintCard(
                 Row(modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalAlignment = Alignment.CenterVertically,) {
                     TextC(
-                        text = complaint.number?.let { "$it" } ?: "Без номера",
+                        text = complaint.number?.let { "$it" } ?: s("events_bez_nomera"),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -844,7 +846,7 @@ private fun ComplaintCard(
                     }
                     if (complaint.messages.lastOrNull() == null) {
                         Text(
-                            text = "Сообщений нет",
+                            text = s("work_order_soobscheniy_net"),
                             style = TextStyle(fontSize = 9.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -863,7 +865,7 @@ private fun ComplaintCard(
 //                Row(modifier = Modifier.fillMaxWidth().weight(1f),
 //                    verticalAlignment = Alignment.CenterVertically,) {
 //                    TextC(
-//                        text = complaint.number?.let { "$it" } ?: "Без номера",
+//                        text = complaint.number?.let { "$it" } ?: s("events_bez_nomera"),
 //                        style = MaterialTheme.typography.titleMedium,
 //                        fontWeight = FontWeight.SemiBold
 //                    )
@@ -952,7 +954,7 @@ private fun ComplaintCard(
 //                }
 //                if (complaint.messages.lastOrNull() == null) {
 //                    Text(
-//                        text = "Сообщений нет",
+//                        text = s("work_order_soobscheniy_net"),
 //                        style = TextStyle(fontSize = 9.sp),
 //                        color = MaterialTheme.colorScheme.onSurfaceVariant
 //                    )

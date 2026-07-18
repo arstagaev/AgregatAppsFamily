@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.common
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -27,10 +29,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.ChevronDown
+import compose.icons.feathericons.ChevronLeft
+import compose.icons.feathericons.ChevronRight
+import compose.icons.feathericons.ChevronUp
 import compose.icons.feathericons.Minus
 import compose.icons.feathericons.Plus
 import compose.icons.feathericons.X
@@ -38,6 +46,20 @@ import compose.icons.feathericons.X
 private const val MIN_ZOOM = 1f
 private const val MAX_ZOOM = 5f
 private const val ZOOM_STEP = 0.25f
+private const val PAN_STEP = 80f
+
+/** Scale that makes ContentScale.Fit content fill the viewport width. */
+private fun fitWidthScale(bitmap: ImageBitmap, viewport: IntSize): Float {
+    if (viewport.width <= 0 || viewport.height <= 0) return MIN_ZOOM
+    if (bitmap.width <= 0 || bitmap.height <= 0) return MIN_ZOOM
+    val vw = viewport.width.toFloat()
+    val vh = viewport.height.toFloat()
+    val imageAspect = bitmap.width.toFloat() / bitmap.height.toFloat()
+    val viewAspect = vw / vh
+    val fittedWidth = if (viewAspect > imageAspect) vh * imageAspect else vw
+    if (fittedWidth <= 0f) return MIN_ZOOM
+    return (vw / fittedWidth).coerceIn(MIN_ZOOM, MAX_ZOOM)
+}
 
 @Composable
 fun ZoomableImagePreview(
@@ -46,9 +68,10 @@ fun ZoomableImagePreview(
 ) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
+    var viewportSize by remember { mutableStateOf(IntSize.Zero) }
 
-    fun resetTransform() {
-        scale = 1f
+    fun fitToWidth() {
+        scale = fitWidthScale(bitmap, viewportSize)
         offset = Offset.Zero
     }
 
@@ -77,6 +100,7 @@ fun ZoomableImagePreview(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(48.dp)
+                    .onSizeChanged { viewportSize = it }
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
@@ -84,9 +108,9 @@ fun ZoomableImagePreview(
                         translationY = offset.y
                     }
                     .transformable(state = transformableState)
-                    .pointerInput(Unit) {
+                    .pointerInput(bitmap, viewportSize) {
                         detectTapGestures(
-                            onDoubleTap = { resetTransform() },
+                            onDoubleTap = { fitToWidth() },
                         )
                     },
                 contentScale = ContentScale.Fit,
@@ -100,7 +124,7 @@ fun ZoomableImagePreview(
             ) {
                 Icon(
                     FeatherIcons.X,
-                    contentDescription = "Закрыть",
+                    contentDescription = tr("camera_zakryt"),
                     tint = Color.White,
                 )
             }
@@ -118,6 +142,24 @@ fun ZoomableImagePreview(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(
+                        onClick = { offset = Offset(offset.x, offset.y + PAN_STEP) },
+                    ) {
+                        Icon(
+                            FeatherIcons.ChevronUp,
+                            contentDescription = tr("common_vverh"),
+                            tint = Color.White,
+                        )
+                    }
+                    IconButton(
+                        onClick = { offset = Offset(offset.x, offset.y - PAN_STEP) },
+                    ) {
+                        Icon(
+                            FeatherIcons.ChevronDown,
+                            contentDescription = tr("common_vniz"),
+                            tint = Color.White,
+                        )
+                    }
+                    IconButton(
                         onClick = {
                             scale = (scale - ZOOM_STEP).coerceIn(MIN_ZOOM, MAX_ZOOM)
                             if (scale == MIN_ZOOM) offset = Offset.Zero
@@ -126,7 +168,7 @@ fun ZoomableImagePreview(
                     ) {
                         Icon(
                             FeatherIcons.Minus,
-                            contentDescription = "Уменьшить",
+                            contentDescription = tr("common_umenshit"),
                             tint = Color.White,
                         )
                     }
@@ -138,7 +180,25 @@ fun ZoomableImagePreview(
                     ) {
                         Icon(
                             FeatherIcons.Plus,
-                            contentDescription = "Увеличить",
+                            contentDescription = tr("common_uvelichit"),
+                            tint = Color.White,
+                        )
+                    }
+                    IconButton(
+                        onClick = { offset = Offset(offset.x + PAN_STEP, offset.y) },
+                    ) {
+                        Icon(
+                            FeatherIcons.ChevronLeft,
+                            contentDescription = tr("common_vlevo"),
+                            tint = Color.White,
+                        )
+                    }
+                    IconButton(
+                        onClick = { offset = Offset(offset.x - PAN_STEP, offset.y) },
+                    ) {
+                        Icon(
+                            FeatherIcons.ChevronRight,
+                            contentDescription = tr("common_vpravo"),
                             tint = Color.White,
                         )
                     }

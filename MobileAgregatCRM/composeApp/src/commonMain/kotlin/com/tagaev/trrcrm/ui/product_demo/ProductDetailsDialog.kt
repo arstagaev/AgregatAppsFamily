@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,10 +60,10 @@ fun ProductDetailsDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onAdd) { Text("Добавить к заявке") }
+            Button(onClick = onAdd) { Text(s("product_demo_dobavit_k_zayavke")) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Закрыть") }
+            TextButton(onClick = onDismiss) { Text(s("camera_zakryt")) }
         }
     )
 }

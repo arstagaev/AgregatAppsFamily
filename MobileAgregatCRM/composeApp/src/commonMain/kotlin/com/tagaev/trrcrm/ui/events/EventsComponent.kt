@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.events
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.secrets.Secrets
@@ -47,6 +49,36 @@ class EventsComponent(
     private val appScope: CoroutineScope by inject()
     private val repository: MainRepository by inject()
     private val appSettings: AppSettings by inject()
+    private val mobileFeatureFlags: com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore by inject()
+
+    private val photoSession = com.tagaev.trrcrm.ui.photos.DocumentPhotoSession(
+        documentType = com.tagaev.trrcrm.models.ImageDocumentType.Event,
+        repository = repository,
+        featureFlags = mobileFeatureFlags,
+        appScope = appScope,
+    )
+
+    val isCameraOpen = photoSession.isCameraOpen
+    val isCameraPrecheckInProgress = photoSession.isCameraPrecheckInProgress
+    val cameraDocumentNumber = photoSession.cameraDocumentNumber
+    val cameraPrecheckError = photoSession.cameraPrecheckError
+    val cameraUploadQuota = photoSession.cameraUploadQuota
+    val documentPhotoCount = photoSession.documentPhotoCount
+    val isDocumentPhotoCountLoading = photoSession.isDocumentPhotoCountLoading
+    val documentPhotoCountLoaded = photoSession.documentPhotoCountLoaded
+    val isPhotosViewerOpen = photoSession.isPhotosViewerOpen
+    val photosViewerDocumentNumber = photoSession.photosViewerDocumentNumber
+
+    fun requestOpenCamera(rawNumber: String) = photoSession.requestOpenCamera(rawNumber)
+    fun closeCamera() = photoSession.closeCamera()
+    fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
+    fun refreshDocumentPhotoCount(documentNumber: String) =
+        photoSession.refreshDocumentPhotoCount(documentNumber)
+    fun requestOpenDocumentPhotos(documentNumber: String) =
+        photoSession.requestOpenDocumentPhotos(documentNumber)
+    fun closePhotosViewer() = photoSession.closePhotosViewer()
+    suspend fun isPhotosUploadEnabled() = photoSession.isUploadEnabled()
+    suspend fun isPhotosDownloadEnabled() = photoSession.isDownloadEnabled()
 
     private val _events =
         MutableStateFlow<Resource<List<EventItemDto>>>(Resource.Loading)
@@ -164,7 +196,7 @@ class EventsComponent(
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return tr("events_net_nomera_ili_daty_dokumenta")
         val res = repository.sendMessageEvent(
             itemNumber,
             itemDate.substringBefore(' '),
@@ -179,7 +211,7 @@ class EventsComponent(
                     println("PUSH_SERVICE: recipients_resolved doc_type=events recipient_count=${users.size} recipients=$users")
                     when (val pushRes = repository.sendMessageEventPUSH(
                         docId = pickedEvent?.guid ?: pickedEvent?.number ?: itemNumber,
-                        docTitle = "Событие ${pickedEvent?.number} (${pickedEvent?.companyDepartment})",
+                        docTitle = tr("events_sobytie_pickedevent_number_pickedevent_companydepart", pickedEvent?.number.orEmpty(), pickedEvent?.companyDepartment.orEmpty()),
                         authorName = author,
                         recipientNames = users,
                         message = "${author}:\n${message}",
@@ -187,7 +219,7 @@ class EventsComponent(
                         rawMessage = message
                     )) {
                         is Resource.Error -> {
-                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, "Не удалось отправить уведомление")
+                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, tr("events_ne_udalos_otpravit_uvedomlenie"))
                             println("PUSH_SERVICE: Events push intent failed after message save: $reason")
                         }
                         else -> Unit
@@ -195,8 +227,8 @@ class EventsComponent(
                 }
                 null
             }
-            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
-            else -> "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, tr("events_oshibka_otpravki_soobscheniya"))
+            else -> tr("events_oshibka_otpravki_soobscheniya")
         }
     }
 
@@ -376,9 +408,9 @@ class EventsComponent(
                 }
             }
             is Resource.Error -> DeepLinkOpenResult.Failed(
-                remote.causes ?: friendlyError(remote.exception, "Ошибка поиска события")
+                remote.causes ?: friendlyError(remote.exception, tr("events_oshibka_poiska_sobytiya"))
             )
-            is Resource.Loading -> DeepLinkOpenResult.Failed("Поиск события не завершён")
+            is Resource.Loading -> DeepLinkOpenResult.Failed(tr("events_poisk_sobytiya_ne_zavershen"))
         }
     }
 

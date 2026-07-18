@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.utils
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import com.tagaev.trrcrm.models.UserPermissionEntryDto
@@ -42,7 +44,7 @@ object SessionPermissions {
         "Редактирование все",
         "Просмотр по подразделению в карточке пользователя",
         "Возможность чтения",
-        "Да",
+        tr("settings_da"),
     )
 }
 

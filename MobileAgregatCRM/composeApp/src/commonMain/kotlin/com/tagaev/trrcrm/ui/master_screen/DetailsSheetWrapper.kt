@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -66,15 +68,15 @@ fun <T> DetailsWithMessagesSheet(
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {},
     isSendEnabled: (draft: String, item: T) -> Boolean = { draft, _ -> draft.isNotBlank() },
-    historyTitle: String = "Комментарии:",
-    historyEmptyText: String = "Нет комментариев",
+    historyTitle: String = s("list_kommentarii"),
+    historyEmptyText: String = s("list_net_kommentariev"),
     historyPagerDescription: (showAll: Boolean, total: Int) -> String = { showAll, total ->
-        if (showAll) "Показаны все $total комментариев"
-        else "Показаны последние 10 из $total"
+        if (showAll) s("list_pokazany_vse_total_kommentariev", total)
+        else s("list_pokazany_poslednie_10_iz_total", total)
     },
-    addCommentTitle: String = "Добавить комментарий",
-    composerPlaceholder: String = "Комментарий по работам…",
-    sendingDialogTitle: String = "Отправка комментария",
+    addCommentTitle: String = s("list_dobavit_kommentariy"),
+    composerPlaceholder: String = s("list_kommentariy_po_rabotam"),
+    sendingDialogTitle: String = s("list_otpravka_kommentariya"),
     /** When non-null, hide composer after this many rows exist in history (e.g. 1 for complectation). */
     maxMessagesInHistory: Int? = null,
     showComposer: Boolean = true,
@@ -84,7 +86,7 @@ fun <T> DetailsWithMessagesSheet(
      */
     scrollState: ScrollState? = null,
     /**
-     * When both non-null, "Показать все" for the history list (>10) is owned by the caller. Otherwise internal state.
+     * When both non-null, s("list_pokazat_vse") for the history list (>10) is owned by the caller. Otherwise internal state.
      */
     showAllHistory: Boolean? = null,
     onShowAllHistoryChange: ((Boolean) -> Unit)? = null,
@@ -119,14 +121,14 @@ fun <T> DetailsWithMessagesSheet(
         onSendMessage(draft) { err ->
             isSendingMessage = false
             if (err == null) {
-                internalMessages.add(MessageModel(author = "я", text = draft))
+                internalMessages.add(MessageModel(author = s("events_ya"), text = draft))
                 removeDraftIfMatches(guid = guid, message = draft)
                 messageDraft = ""
                 onDraftChanged("")
                 lastFailedDraft = null
                 errorMessage = null
             } else {
-                errorMessage = err.ifBlank { "Ошибка отправки сообщения" }
+                errorMessage = err.ifBlank { s("events_oshibka_otpravki_soobscheniya") }
             }
         }
     }
@@ -144,7 +146,7 @@ fun <T> DetailsWithMessagesSheet(
                             .width(24.dp)
                     )
                     Spacer(Modifier.width(12.dp))
-                    Text("Пожалуйста, подождите…")
+                    Text(s("list_pozhaluysta_podozhdite"))
                 }
             },
             confirmButton = {}
@@ -156,7 +158,7 @@ fun <T> DetailsWithMessagesSheet(
     if (currentError != null) {
         AlertDialog(
             onDismissRequest = { errorMessage = null; lastFailedDraft = null },
-            title = { Text("Ошибка отправки") },
+            title = { Text(s("list_oshibka_otpravki")) },
             text = { Text(currentError) },
             confirmButton = {
                 val retryDraft = lastFailedDraft
@@ -164,12 +166,12 @@ fun <T> DetailsWithMessagesSheet(
                     TextButton(onClick = {
                         errorMessage = null
                         doSend(retryDraft)
-                    }) { Text("Повторить") }
+                    }) { Text(s("login_povtorit")) }
                 }
             },
             dismissButton = {
                 TextButton(onClick = { errorMessage = null; lastFailedDraft = null }) {
-                    Text("Закрыть")
+                    Text(s("camera_zakryt"))
                 }
             }
         )
@@ -220,7 +222,7 @@ fun <T> DetailsWithMessagesSheet(
                             contentColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        Text(if (showAllMessages) "Скрыть часть" else "Показать все")
+                        Text(if (showAllMessages) s("list_skryt_chast") else s("list_pokazat_vse"))
                     }
                 }
             }
@@ -297,7 +299,7 @@ fun <T> DetailsWithMessagesSheet(
                     onClick = onBack,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Закрыть")
+                    Text(s("camera_zakryt"))
                 }
 
                 Button(
@@ -310,7 +312,7 @@ fun <T> DetailsWithMessagesSheet(
                     modifier = Modifier.weight(1f),
                     enabled = isSendEnabled(messageDraft, item) && !isSendingMessage
                 ) {
-                    Text("Отправить")
+                    Text(s("camera_otpravit"))
                 }
             }
         } else {
@@ -319,7 +321,7 @@ fun <T> DetailsWithMessagesSheet(
                 onClick = onBack,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Закрыть")
+                Text(s("camera_zakryt"))
             }
         }
 

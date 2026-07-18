@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.inner_orders
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import androidx.compose.runtime.remember
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
@@ -42,6 +44,36 @@ class InnerOrdersComponent(
     private val appScope: CoroutineScope by inject()
     private val repository: MainRepository by inject()
     private val appSettings: AppSettings by inject()
+    private val mobileFeatureFlags: com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore by inject()
+
+    private val photoSession = com.tagaev.trrcrm.ui.photos.DocumentPhotoSession(
+        documentType = com.tagaev.trrcrm.models.ImageDocumentType.InnerOrder,
+        repository = repository,
+        featureFlags = mobileFeatureFlags,
+        appScope = appScope,
+    )
+
+    val isCameraOpen = photoSession.isCameraOpen
+    val isCameraPrecheckInProgress = photoSession.isCameraPrecheckInProgress
+    val cameraDocumentNumber = photoSession.cameraDocumentNumber
+    val cameraPrecheckError = photoSession.cameraPrecheckError
+    val cameraUploadQuota = photoSession.cameraUploadQuota
+    val documentPhotoCount = photoSession.documentPhotoCount
+    val isDocumentPhotoCountLoading = photoSession.isDocumentPhotoCountLoading
+    val documentPhotoCountLoaded = photoSession.documentPhotoCountLoaded
+    val isPhotosViewerOpen = photoSession.isPhotosViewerOpen
+    val photosViewerDocumentNumber = photoSession.photosViewerDocumentNumber
+
+    fun requestOpenCamera(rawNumber: String) = photoSession.requestOpenCamera(rawNumber)
+    fun closeCamera() = photoSession.closeCamera()
+    fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
+    fun refreshDocumentPhotoCount(documentNumber: String) =
+        photoSession.refreshDocumentPhotoCount(documentNumber)
+    fun requestOpenDocumentPhotos(documentNumber: String) =
+        photoSession.requestOpenDocumentPhotos(documentNumber)
+    fun closePhotosViewer() = photoSession.closePhotosViewer()
+    suspend fun isPhotosUploadEnabled() = photoSession.isUploadEnabled()
+    suspend fun isPhotosDownloadEnabled() = photoSession.isDownloadEnabled()
 
     private val _innerOrders =
         MutableStateFlow<Resource<List<InnerOrderDto>>>(Resource.Loading)
@@ -170,7 +202,7 @@ class InnerOrdersComponent(
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return tr("events_net_nomera_ili_daty_dokumenta")
         val res = repository.sendMessageInnerOrder(
             itemNumber,
             itemDate.substringBefore(' '),
@@ -178,8 +210,8 @@ class InnerOrdersComponent(
         )
         return when (res) {
             is Resource.Success -> null
-            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
-            else -> "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, tr("events_oshibka_otpravki_soobscheniya"))
+            else -> tr("events_oshibka_otpravki_soobscheniya")
         }
     }
 
@@ -189,7 +221,7 @@ class InnerOrdersComponent(
 
     override suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
         val trimmed = token.trim()
-        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        if (trimmed.isEmpty()) return Resource.Error(causes = tr("work_order_pustoy_zapros"))
         val searchState = _refineState.value.copy(
             searchQuery = trimmed,
             searchQueryType = com.tagaev.trrcrm.domain.Refiner.SearchQueryType.KIT_CHARACTERISTIC
@@ -257,8 +289,8 @@ enum class InnerOrderStatus(val value: String) {
     PROPOSAL("Заявка"),
     SENT("Отправлено"),
     RECEIVED("Получено"),
-    IN_WORK("В работе.Поиск Перевозчика"),
+    IN_WORK(tr("inner_order_v_rabote_poisk_perevozchika")),
     PROPOSAL_FOR_GET_CARGO("Заявка на забор груза"),
     SENT_TO_MAIN_DEPT("Отправлено в УК"),
-    WAIT_FOR_LOAD_CAR_FOUND("Авто Найден.Ожидается Загрузка"),
+    WAIT_FOR_LOAD_CAR_FOUND(tr("inner_order_avto_nayden_ozhidaetsya_zagruzka")),
 }

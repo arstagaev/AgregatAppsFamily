@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.data
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 // AppSettings.kt (common)
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.serialization.removeValue
@@ -86,10 +88,11 @@ object AppSettingsKeys {
     const val NOTIFICATIONS_STATUS_FILTER = "NOTIFICATIONS_STATUS_FILTER_"+VERSION_CODE
     const val NOTIFICATIONS_UNREAD_COUNT = "NOTIFICATIONS_UNREAD_COUNT_"+VERSION_CODE
     const val BOTTOM_NAV_LAYOUT = "BOTTOM_NAV_LAYOUT_" + VERSION_CODE
-    const val DEVELOPER_MODE_ENABLED = "DEVELOPER_MODE_ENABLED_" + VERSION_CODE
-    const val DEV_COMPLECTATION_PHOTOS_VIEWER_ENABLED =
-        "DEV_COMPLECTATION_PHOTOS_VIEWER_ENABLED_" + VERSION_CODE
-
+    /** Bumped independently of VERSION_CODE so an update can hide developer menu for existing users. */
+    private const val DEV_MODE_STORAGE_REV = "v3"
+    const val DEVELOPER_MODE_ENABLED = "DEVELOPER_MODE_ENABLED_" + DEV_MODE_STORAGE_REV
+    const val MOBILE_FEATURE_FLAGS_JSON = "MOBILE_FEATURE_FLAGS_JSON"
+    const val MOBILE_FEATURE_FLAGS_REVISION = "MOBILE_FEATURE_FLAGS_REVISION"
 //    const val EVENTS_REFINE_STATE = "EVENTS_REFINE_STATE"
 //    const val WORK_ORDERS_REFINE_STATE = "WORK_ORDERS_REFINE_STATE"
 //    const val CARGO_REFINE_STATE = "CARGO_REFINE_STATE"
@@ -102,7 +105,7 @@ object AppSettingsKeys {
 //    const val FILTER_N_COUNT: Int = 0
 //    const val FILTER_BY: String = "ПодразделениеКомпании"
 //    const val FILTER_VAL: String = "Казань"
-//    const val ORDER_BY: String = "Дата"
+//    const val ORDER_BY: String = tr("filter_data")
 //    const val ORDER_DIR: String = "desc"
 //    const val SHOW_TOP: Boolean = true
 //"username": "Ivan.a.a@my.Ivan.ru",
@@ -242,6 +245,8 @@ class AppSettings(
         val preservedIosApnsReady = getBool(AppSettingsKeys.IOS_APNS_READY, false)
         val preservedPushToggleEnabled = getBool(AppSettingsKeys.PUSH_FEATURE_TOGGLE_ENABLED, true)
         val preservedPushToggleUpdatedAt = getLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, 0L)
+        val preservedMobileFlagsJson = getStringOrNull(AppSettingsKeys.MOBILE_FEATURE_FLAGS_JSON)
+        val preservedMobileFlagsRevision = getStringOrNull(AppSettingsKeys.MOBILE_FEATURE_FLAGS_REVISION)
 
         clearAll()
 
@@ -252,5 +257,7 @@ class AppSettings(
         if (preservedPushToggleUpdatedAt > 0L) {
             setLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, preservedPushToggleUpdatedAt)
         }
+        preservedMobileFlagsJson?.let { setString(AppSettingsKeys.MOBILE_FEATURE_FLAGS_JSON, it) }
+        preservedMobileFlagsRevision?.let { setString(AppSettingsKeys.MOBILE_FEATURE_FLAGS_REVISION, it) }
     }
 }

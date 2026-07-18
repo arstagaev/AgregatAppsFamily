@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.work_order
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.models.WorkOrderDto
@@ -45,6 +47,36 @@ class WorkOrdersComponent(
     private val appScope: CoroutineScope by inject()
     private val repository: MainRepository by inject()
     private val appSettings: AppSettings by inject()
+    private val mobileFeatureFlags: com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore by inject()
+
+    private val photoSession = com.tagaev.trrcrm.ui.photos.DocumentPhotoSession(
+        documentType = com.tagaev.trrcrm.models.ImageDocumentType.WorkOrder,
+        repository = repository,
+        featureFlags = mobileFeatureFlags,
+        appScope = appScope,
+    )
+
+    val isCameraOpen = photoSession.isCameraOpen
+    val isCameraPrecheckInProgress = photoSession.isCameraPrecheckInProgress
+    val cameraDocumentNumber = photoSession.cameraDocumentNumber
+    val cameraPrecheckError = photoSession.cameraPrecheckError
+    val cameraUploadQuota = photoSession.cameraUploadQuota
+    val documentPhotoCount = photoSession.documentPhotoCount
+    val isDocumentPhotoCountLoading = photoSession.isDocumentPhotoCountLoading
+    val documentPhotoCountLoaded = photoSession.documentPhotoCountLoaded
+    val isPhotosViewerOpen = photoSession.isPhotosViewerOpen
+    val photosViewerDocumentNumber = photoSession.photosViewerDocumentNumber
+
+    fun requestOpenCamera(rawNumber: String) = photoSession.requestOpenCamera(rawNumber)
+    fun closeCamera() = photoSession.closeCamera()
+    fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
+    fun refreshDocumentPhotoCount(documentNumber: String) =
+        photoSession.refreshDocumentPhotoCount(documentNumber)
+    fun requestOpenDocumentPhotos(documentNumber: String) =
+        photoSession.requestOpenDocumentPhotos(documentNumber)
+    fun closePhotosViewer() = photoSession.closePhotosViewer()
+    suspend fun isPhotosUploadEnabled() = photoSession.isUploadEnabled()
+    suspend fun isPhotosDownloadEnabled() = photoSession.isDownloadEnabled()
 
     private val _workOrders =
         MutableStateFlow<Resource<List<WorkOrderDto>>>(Resource.Loading)
@@ -169,7 +201,7 @@ class WorkOrdersComponent(
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return tr("events_net_nomera_ili_daty_dokumenta")
         val res = repository.sendMessageToWorkOrder(
             itemNumber,
             itemDate.substringBefore(' '),
@@ -184,7 +216,7 @@ class WorkOrdersComponent(
                     println("PUSH_SERVICE: recipients_resolved doc_type=work_orders recipient_count=${users.size} recipients=$users")
                     when (val pushRes = repository.sendMessageEventPUSH(
                         docId = wo?.guid ?: wo?.number ?: itemNumber,
-                        docTitle = "Заказ-Наряд ${wo?.number ?: itemNumber} (${wo?.branch.orEmpty()})",
+                        docTitle = tr("work_order_zakaz_naryad_wo_number_itemnumber_wo_branch_orempty", wo?.number ?: itemNumber, wo?.branch.orEmpty()),
                         authorName = author,
                         recipientNames = users,
                         message = "${author}:\n${message}",
@@ -192,17 +224,17 @@ class WorkOrdersComponent(
                         rawMessage = message
                     )) {
                         is Resource.Error -> {
-                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, "Не удалось отправить уведомление")
+                            val reason = pushRes.causes ?: friendlyError(pushRes.exception, tr("events_ne_udalos_otpravit_uvedomlenie"))
                             println("PUSH_SERVICE: WorkOrder push intent failed after message save: $reason")
-                            _transientWarning.value = "Комментарий сохранён, уведомление не отправлено"
+                            _transientWarning.value = tr("work_order_comment_saved_no_push")
                         }
                         else -> Unit
                     }
                 }
                 null
             }
-            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
-            else -> "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, tr("events_oshibka_otpravki_soobscheniya"))
+            else -> tr("events_oshibka_otpravki_soobscheniya")
         }
     }
 
@@ -216,7 +248,7 @@ class WorkOrdersComponent(
 
     override suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
         val trimmed = token.trim()
-        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        if (trimmed.isEmpty()) return Resource.Error(causes = tr("work_order_pustoy_zapros"))
         val searchState = _refineState.value.copy(
             searchQuery = trimmed,
             searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC
@@ -311,9 +343,9 @@ class WorkOrdersComponent(
                 }
             }
             is Resource.Error -> DeepLinkOpenResult.Failed(
-                remote.causes ?: friendlyError(remote.exception, "Ошибка поиска заказ-наряда")
+                remote.causes ?: friendlyError(remote.exception, tr("work_order_oshibka_poiska_zakaz_naryada"))
             )
-            is Resource.Loading -> DeepLinkOpenResult.Failed("Поиск заказ-наряда не завершён")
+            is Resource.Loading -> DeepLinkOpenResult.Failed(tr("work_order_poisk_zakaz_naryada_ne_zavershen"))
         }
     }
 

@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.navigation
 
+import com.tagaev.trrcrm.ui.i18n.tr
 import com.tagaev.trrcrm.ui.root.IRootComponent
 import com.tagaev.trrcrm.utils.KnownPermission
 
@@ -20,19 +21,19 @@ enum class BottomNavItemId(val wire: String) {
 
     val label: String
         get() = when (this) {
-            EVENTS -> "События"
-            WORK_ORDER -> "Заказ-Наряды"
-            COMPLECTATION -> "Комплектация"
-            CARGO -> "Доставки"
-            BUYER_ORDER -> "Заказы покуп."
-            SUPPLIER_ORDER -> "Заказы пост."
-            COMPLAINT -> "Рекламации"
-            INNER_ORDER -> "Внутр. заказы"
-            INCOMING_APPLICATIONS -> "Входящие Заявки"
-            REPAIR_TEMPLATE_CATALOG -> "Калькуляция"
-            EXPENSE_REQUESTS -> "Заявки расход ДС"
-            QR_SCANNER -> "QR Сканер"
-            MENU -> "Меню"
+            EVENTS -> tr("nav_sobytiya")
+            WORK_ORDER -> tr("nav_zakaz_naryady")
+            COMPLECTATION -> tr("nav_komplektatsiya")
+            CARGO -> tr("nav_dostavki")
+            BUYER_ORDER -> tr("nav_zakazy_pokup")
+            SUPPLIER_ORDER -> tr("nav_zakazy_post")
+            COMPLAINT -> tr("nav_reklamatsii")
+            INNER_ORDER -> tr("nav_vnutr_zakazy")
+            INCOMING_APPLICATIONS -> tr("nav_vhodyaschie_zayavki")
+            REPAIR_TEMPLATE_CATALOG -> tr("nav_kalkulyatsiya")
+            EXPENSE_REQUESTS -> tr("nav_zayavki_rashod_ds")
+            QR_SCANNER -> tr("nav_qr_skaner")
+            MENU -> tr("menu_menyu")
         }
 
     val permission: KnownPermission?

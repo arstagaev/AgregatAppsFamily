@@ -30,11 +30,21 @@ class ImageMediatorApiContractTest {
                 content = """
                     {
                       "allowed": true,
+                      "api_version": "1.5",
                       "document_number": "0000549041",
+                      "document_type": "Complects",
                       "resolved_year": 2026,
                       "resolved_month": 7,
                       "folder_found": true,
-                      "folder_path": "/2026/7/0000549041"
+                      "folder_path": "/2026/7/0000549041",
+                      "limits": {
+                        "max_photos_per_document": 15,
+                        "photos_in_folder": 4,
+                        "remaining": 11,
+                        "max_files_per_request": 10,
+                        "max_photos_per_user_30_min": 15,
+                        "used_last_30_min": 4
+                      }
                     }
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
@@ -53,13 +63,21 @@ class ImageMediatorApiContractTest {
         assertTrue(success.data.allowed)
         assertTrue(success.data.folderFound)
         assertEquals("0000549041", success.data.documentNumber)
+        assertEquals("1.5", success.data.apiVersion)
+        assertEquals("Complects", success.data.documentType)
+        assertEquals(15, success.data.limits?.effectiveMaxPhotos())
+        assertEquals(4, success.data.limits?.effectivePhotosInFolder())
+        assertEquals(11, success.data.limits?.effectiveRemaining())
+        assertEquals(10, success.data.limits?.effectiveMaxFilesPerRequest())
     }
 
     @Test
     fun `uploadPhotos sends multipart with files field`() = runTest {
         var authHeader: String? = null
+        var idempotencyHeader: String? = null
         val engine = MockEngine { request ->
             authHeader = request.headers[HttpHeaders.Authorization]
+            idempotencyHeader = request.headers["Idempotency-Key"]
             assertEquals(HttpMethod.Post, request.method)
             assertTrue(request.url.encodedPath.endsWith("/api/v1/uploads/photos"))
             respond(
@@ -90,10 +108,12 @@ class ImageMediatorApiContractTest {
             agrToken = "test-token",
             documentNumber = "0000549041",
             files = listOf(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte())),
+            idempotencyKey = "11111111-2222-3333-4444-555555555555",
         )
         val success = assertIs<Resource.Success<ImageMediatorUploadResponse>>(result)
 
         assertEquals("Bearer test-token", authHeader)
+        assertEquals("11111111-2222-3333-4444-555555555555", idempotencyHeader)
         assertEquals("0000549041", success.data.documentNumber)
         assertEquals("photo.jpg", success.data.uploadedFiles.first().storedFilename)
     }
@@ -112,7 +132,7 @@ class ImageMediatorApiContractTest {
             client = HttpClientFactory.create(engine = engine, loggingEnabled = false),
             baseUrl = "http://trrservice.agregatka.ru:8777",
         )
-        val result = api.uploadPhotos("bad-token", "0000549041", listOf(byteArrayOf(1, 2, 3)))
+        val result = api.uploadPhotos("bad-token", "0000549041", listOf(byteArrayOf(1, 2, 3)), idempotencyKey = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
         val error = assertIs<Resource.Error<ImageMediatorUploadResponse>>(result)
 
         assertContains(error.causes.orEmpty(), "Войдите заново")
@@ -125,6 +145,7 @@ class ImageMediatorApiContractTest {
             authHeader = request.headers[HttpHeaders.Authorization]
             assertEquals(HttpMethod.Get, request.method)
             assertTrue(request.url.encodedPath.endsWith("/api/v1/documents/0000549041/images/count"))
+            assertEquals("Complects", request.url.parameters["document_name"])
             respond(
                 content = """
                     {
@@ -156,6 +177,7 @@ class ImageMediatorApiContractTest {
             assertEquals(HttpMethod.Get, request.method)
             assertTrue(request.url.encodedPath.endsWith("/api/v1/documents/0000549041/images"))
             assertEquals("1", request.url.parameters["page"])
+            assertEquals("Complects", request.url.parameters["document_name"])
             respond(
                 content = """
                     {
@@ -241,5 +263,48 @@ class ImageMediatorApiContractTest {
         val error = assertIs<Resource.Error<Int>>(result)
 
         assertContains(error.causes.orEmpty(), "Войдите заново")
+    }
+
+    @Test
+    fun `WorkOrder document_name on count and list`() = runTest {
+        val seenNames = mutableListOf<String?>()
+        val engine = MockEngine { request ->
+            seenNames += request.url.parameters["document_name"]
+            when {
+                request.url.encodedPath.endsWith("/images/count") -> respond(
+                    content = """{"document_number":"0000549041","count":2}""",
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+                else -> respond(
+                    content = """
+                        {
+                          "document_number": "0000549041",
+                          "resolved_year": 2026,
+                          "resolved_month": 7,
+                          "page": 1,
+                          "page_size": 10,
+                          "total_count": 0,
+                          "total_pages": 0,
+                          "has_next": false,
+                          "has_previous": false,
+                          "images": []
+                        }
+                    """.trimIndent(),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            }
+        }
+        val api = ImageMediatorApi(
+            client = HttpClientFactory.create(engine = engine, loggingEnabled = false),
+            baseUrl = "http://trrservice.agregatka.ru:8777",
+        )
+        val type = com.tagaev.trrcrm.models.ImageDocumentType.WorkOrder
+        val countResult = api.getDocumentPhotoCount("t", "0000549041", type)
+        val listResult = api.listDocumentImages("t", "0000549041", page = 1, documentType = type)
+        assertIs<Resource.Success<Int>>(countResult)
+        assertIs<Resource.Success<ImageMediatorImageListResponse>>(listResult)
+        assertEquals(listOf<String?>("WorkOrder", "WorkOrder"), seenNames)
     }
 }

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.master_screen
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import androidx.compose.runtime.Composable
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.ui.buyer_order.BuyerOrderDetailsSheet
@@ -30,18 +32,24 @@ fun TreeRootDocumentDetailsSheet(
         is TreeRootResolvedDocument.Event -> EventDetailsSheet(
             event = document.value,
             onBack = onBack,
-            onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
-            onOpenBaseDocument = onOpenBaseDocument
+            onSendMessage = { _, onResult -> onResult(tr("list_otpravka_soobscheniy_v_svyazannom_dokumente_nedostup")) },
+            onOpenBaseDocument = onOpenBaseDocument,
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
         is TreeRootResolvedDocument.WorkOrder -> WorkOrderDetailsSheet(
             order = document.value,
             onBack = onBack,
-            onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
+            onSendMessage = { _, onResult -> onResult(tr("list_otpravka_soobscheniy_v_svyazannom_dokumente_nedostup")) },
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
         is TreeRootResolvedDocument.Complectation -> ComplectationDetailsSheet(
             order = document.value,
             onBack = onBack,
-            onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
+            onSendMessage = { _, onResult -> onResult(tr("list_otpravka_soobscheniy_v_svyazannom_dokumente_nedostup")) },
             stackedDetailsSnapshot = complectationStacked?.detailsSnapshot,
             onStackedDetailsSnapshotChange = complectationStacked?.onDetailsSnapshot,
             detailsScrollState = complectationStacked?.detailsScroll,
@@ -54,19 +62,22 @@ fun TreeRootDocumentDetailsSheet(
         is TreeRootResolvedDocument.Complaint -> ComplaintDetailsSheetWithMessages(
             complaint = document.value,
             onBack = onBack,
-            onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
+            onSendMessage = { _, onResult -> onResult(tr("list_otpravka_soobscheniy_v_svyazannom_dokumente_nedostup")) },
             onOpenBaseDocument = onOpenBaseDocument,
         )
         is TreeRootResolvedDocument.InnerOrder -> InnerOrderDetailsSheetWithMessages(
             complaint = document.value,
             onBack = onBack,
-            onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
-            onOpenBaseDocument = onOpenBaseDocument
+            onSendMessage = { _, onResult -> onResult(tr("list_otpravka_soobscheniy_v_svyazannom_dokumente_nedostup")) },
+            onOpenBaseDocument = onOpenBaseDocument,
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
         is TreeRootResolvedDocument.BuyerOrder -> BuyerOrderDetailsSheet(
             order = document.value,
             onBack = onBack,
-            onSendMessage = { _, onResult -> onResult("Отправка сообщений в связанном документе недоступна") },
+            onSendMessage = { _, onResult -> onResult(tr("list_otpravka_soobscheniy_v_svyazannom_dokumente_nedostup")) },
             onOpenBaseDocument = onOpenBaseDocument
         )
         is TreeRootResolvedDocument.SupplierOrder -> SupplierOrderDetailsSheet(
@@ -78,6 +89,9 @@ fun TreeRootDocumentDetailsSheet(
             cargo = document.value,
             onClose = onBack,
             onOpenBaseDocument = onOpenBaseDocument,
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
         is TreeRootResolvedDocument.ExpenseRequest -> ExpenseRequestDetailsSheet(
             item = document.value,

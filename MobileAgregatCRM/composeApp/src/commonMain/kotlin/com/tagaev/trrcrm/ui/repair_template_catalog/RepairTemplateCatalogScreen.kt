@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.repair_template_catalog
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -124,10 +126,10 @@ fun RepairTemplateCatalogScreen(
     }
 
     MasterScreen(
-        title = "Калькуляция",
+        title = s("nav_kalkulyatsiya"),
         resource = resource,
-        errorText = "Не удалось загрузить шаблоны ремонта",
-        notFoundText = "Шаблоны не найдены",
+        errorText = s("repair_template_ne_udalos_zagruzit_shablony_remonta"),
+        notFoundText = s("repair_template_shablony_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -169,7 +171,7 @@ fun RepairTemplateCatalogScreen(
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
-                messageForUser = "Сортировка справочника — по наименованию; меняется только направление (и подразделение при доступе).",
+                messageForUser = s("repair_template_sortirovka_spravochnika_po_naimenovaniyu_menyaetsya"),
                 sections = setOf(
                     RefineSection.FILTER_VAL,
                     RefineSection.DIRECTION,
@@ -192,10 +194,10 @@ fun RepairTemplateCatalogScreen(
             {
                 Row {
                     IconButton(onClick = hideSearchForm, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(onClick = clearSearchAndClose, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -233,12 +235,12 @@ fun RepairTemplateCatalogScreen(
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -263,7 +265,7 @@ fun RepairTemplateCatalogScreen(
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -340,7 +342,7 @@ private fun RepairTemplateSearchModeRow(
 }
 
 private fun RepairTemplateSearchMode.placeholder(): String = when (this) {
-    RepairTemplateSearchMode.MODEL -> "Модель…"
+    RepairTemplateSearchMode.MODEL -> s("repair_template_model")
     RepairTemplateSearchMode.YEAR_FROM -> "Год от…"
     RepairTemplateSearchMode.YEAR_TO -> "Год до…"
     RepairTemplateSearchMode.TRANSMISSION -> "Тип КПП…"

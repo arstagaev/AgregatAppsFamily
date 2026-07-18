@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.qrscanner
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.background
@@ -37,7 +39,7 @@ fun QRScannerScreen(component: IQRScannerComponent) {
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Show error from state (like "Некорректный QR-код")
+    // Show error from state (like s("qr_nekorrektnyy_qr_kod"))
     LaunchedEffect(state.lastError) {
         state.lastError?.let { snackbarHostState.showSnackbar(userFacingMessage(it, it)) }
     }
@@ -51,7 +53,7 @@ fun QRScannerScreen(component: IQRScannerComponent) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("QR-сканер") },
+                title = { Text(s("qr_qr_skaner")) },
                 actions = {
                     // Optional: add flashlight toggle back when ready
                     // IconButton(onClick = { component.toggleFlash() }) { ... }
@@ -83,13 +85,13 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "QR-сканер пока недоступен на desktop",
+                                text = s("complectation_qr_skaner_poka_nedostupen_na_desktop"),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = Color.White
                             )
                         }
                     } else {
-                        CameraPermissionGate(rationaleText = "Для сканирования нужен доступ к камере.") {
+                        CameraPermissionGate(rationaleText = s("complectation_dlya_skanirovaniya_nuzhen_dostup_k_kamere")) {
                             CameraView(
                                 decodedString = { decodedString ->
                                     component.onScanned(decodedString)
@@ -102,7 +104,7 @@ fun QRScannerScreen(component: IQRScannerComponent) {
 
                 // BOTTOM: attempts list
                 Text(
-                    "История сканирования",
+                    s("qr_istoriya_skanirovaniya"),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
@@ -129,7 +131,7 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                 AlertDialog(
                     onDismissRequest = { /* block close during loading */ },
                     confirmButton = {},
-                    title = { Text("Загрузка") },
+                    title = { Text(s("qr_zagruzka")) },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(
@@ -137,7 +139,7 @@ fun QRScannerScreen(component: IQRScannerComponent) {
                                 strokeWidth = 2.dp
                             )
                             Spacer(Modifier.width(12.dp))
-                            Text("Получение данных по QR…")
+                            Text(s("qr_poluchenie_dannyh_po_qr"))
                         }
                     }
                 )
@@ -169,9 +171,9 @@ private fun AttemptRow(
         headlineContent = {
             Text(
                 when (attempt.status) {
-                    AttemptStatus.Loading -> "Запрос…"
-                    AttemptStatus.Success -> attempt.response?.nomenclature ?: "Успех"
-                    AttemptStatus.Error -> "Ошибка сканирования"
+                    AttemptStatus.Loading -> s("qr_zapros")
+                    AttemptStatus.Success -> attempt.response?.nomenclature ?: s("qr_uspeh")
+                    AttemptStatus.Error -> s("qr_oshibka_skanirovaniya")
                 }
             )
         },
@@ -230,9 +232,9 @@ private fun AttemptDetailsDialog(
                             strokeWidth = 2.dp
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("Открытие...")
+                        Text(s("qr_otkrytie"))
                     } else {
-                        Text("Открыть Комплектацию")
+                        Text(s("qr_otkryt_komplektatsiyu"))
                     }
                 }
             }
@@ -240,9 +242,9 @@ private fun AttemptDetailsDialog(
         title = {
             Text(
                 when (attempt.status) {
-                    AttemptStatus.Success -> "Данные TRS"
-                    AttemptStatus.Error -> "Ошибка сканирования"
-                    AttemptStatus.Loading -> "Запрос…"
+                    AttemptStatus.Success -> s("qr_dannye_trs")
+                    AttemptStatus.Error -> s("qr_oshibka_skanirovaniya")
+                    AttemptStatus.Loading -> s("qr_zapros")
                 }
             )
         },
@@ -252,28 +254,28 @@ private fun AttemptDetailsDialog(
                     AttemptStatus.Success -> {
                         val r = attempt.response
                         if (r != null) {
-                            item { InfoCopy("Гарантийный номер", r.warrantyNumber, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Подразделение", r.department, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Номенклатура", r.nomenclature, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Статус", r.status, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Срок гарантии", r.warrantyPeriod, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Гравер", r.graver, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Комплектация", r.completion, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Компл. №", r.completionNumber, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Компл. дата", r.completionDate, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Дата", r.date, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Комментарий", r.comment, clipboard, snackbarHostState, scope) }
-                            item { InfoCopy("Характеристика", r.characteristicNomenclature, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_garantiynyy_nomer"), r.warrantyNumber, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("events_podrazdelenie"), r.department, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_nomenklatura"), r.nomenclature, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("list_status"), r.status, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_srok_garantii"), r.warrantyPeriod, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_graver"), r.graver, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("nav_komplektatsiya"), r.completion, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_kompl"), r.completionNumber, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_kompl_data"), r.completionDate, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("filter_data"), r.date, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("complectation_kommentariy"), r.comment, clipboard, snackbarHostState, scope) }
+                            item { InfoCopy(s("qr_harakteristika"), r.characteristicNomenclature, clipboard, snackbarHostState, scope) }
                         } else {
-                            item { Text("Нет данных по TRS.") }
+                            item { Text(s("qr_net_dannyh_po_trs")) }
                         }
                     }
 
                     AttemptStatus.Error -> {
-                        val shortError = attempt.error ?: "Неизвестная ошибка"
+                        val shortError = attempt.error ?: s("main_neizvestnaya_oshibka")
                         item {
                             InfoCopy(
-                                label = "Ошибка",
+                                label = s("qr_oshibka"),
                                 value = shortError,
                                 clipboard = clipboard,
                                 snackbarHostState = snackbarHostState,
@@ -293,7 +295,7 @@ private fun AttemptDetailsDialog(
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Запрос выполняется…")
+                                Text(s("qr_zapros_vypolnyaetsya"))
                             }
                         }
                     }

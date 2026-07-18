@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.ui.permissions
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -7,11 +8,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
-private const val MAX_GALLERY_PICK_ITEMS = 10
+/** Absolute upper bound for multi-select registration (platform min of this and request). */
+private val AbsoluteMaxPickItems: Int = MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN.coerceAtLeast(2)
 
 @Composable
 actual fun rememberGalleryPhotoPicker(
@@ -20,14 +24,14 @@ actual fun rememberGalleryPhotoPicker(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val callback = remember(onResult) { onResult }
+    val pendingMaxItems = remember { AtomicInteger(AbsoluteMaxPickItems) }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(MAX_GALLERY_PICK_ITEMS),
-    ) { uris ->
-        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+    fun deliverUris(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val limit = pendingMaxItems.get().coerceAtLeast(1)
         scope.launch {
             val bytesList = withContext(Dispatchers.IO) {
-                uris.mapNotNull { uri ->
+                uris.take(limit).mapNotNull { uri ->
                     runCatching {
                         context.contentResolver.openInputStream(uri)?.use { stream ->
                             stream.readBytes()
@@ -39,11 +43,34 @@ actual fun rememberGalleryPhotoPicker(
         }
     }
 
-    return remember(launcher) {
-        { _: Int ->
-            launcher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
+    val multipleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(AbsoluteMaxPickItems),
+    ) { uris ->
+        deliverUris(uris)
+    }
+
+    val singleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) deliverUris(listOf(uri))
+    }
+
+    return remember(multipleLauncher, singleLauncher) {
+        { maxItems: Int ->
+            val limit = maxItems.coerceAtMost(AbsoluteMaxPickItems)
+            if (limit <= 0) return@remember
+            pendingMaxItems.set(limit)
+            when (limit) {
+                1 -> singleLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                )
+                else -> multipleLauncher.launch(
+                    PickVisualMediaRequest(
+                        mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
+                        maxItems = limit,
+                    ),
+                )
+            }
         }
     }
 }

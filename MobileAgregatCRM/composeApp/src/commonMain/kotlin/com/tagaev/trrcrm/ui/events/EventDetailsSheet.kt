@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.events
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -58,7 +60,10 @@ import org.koin.compose.koinInject
 @Composable
 fun EventsHeader(
     event: EventItemDto,
-    onOpenBaseDocument: (String) -> Unit = {}
+    onOpenBaseDocument: (String) -> Unit = {},
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     val appSettings = koinInject<AppSettings>()
     val personalData = remember { appSettings.getString(AppSettingsKeys.PERSONAL_DATA, "") }
@@ -76,7 +81,7 @@ fun EventsHeader(
         Box(Modifier.fillMaxSize()) {
             Text(
                 modifier = Modifier.align(Alignment.Center),
-                text = "Событие не выбрано",
+                text = s("events_sobytie_ne_vybrano"),
                 fontSize = 44.sp,
                 textAlign = TextAlign.Center
             )
@@ -92,15 +97,15 @@ fun EventsHeader(
         }
 
         val fields = buildList {
-            add("Ссылка" to (e.link ?: ""))
-            add("Организация" to (e.organization ?: ""))
-            add("Подразделение" to (e.companyDepartment ?: ""))
-            add("Вид события" to (e.eventType ?: ""))
-            add("Состояние" to (e.state ?: ""))
-            add("Дата создания" to (e.date?.format(formatDDMMYYYY) ?: ""))
-            add("Дата начала" to (e.startDate ?: ""))
-            add("Дата изменения" to (e.modifiedDate ?: ""))
-            add("Дата окончания" to (e.endDate ?: ""))
+            add(s("buyer_order_ssylka") to (e.link ?: ""))
+            add(s("events_organizatsiya") to (e.organization ?: ""))
+            add(s("events_podrazdelenie") to (e.companyDepartment ?: ""))
+            add(s("events_vid_sobytiya") to (e.eventType ?: ""))
+            add(s("work_order_sostoyanie") to (e.state ?: ""))
+            add(s("events_data_sozdaniya") to (e.date?.format(formatDDMMYYYY) ?: ""))
+            add(s("events_data_nachala") to (e.startDate ?: ""))
+            add(s("events_data_izmeneniya") to (e.modifiedDate ?: ""))
+            add(s("events_data_okonchaniya") to (e.endDate ?: ""))
         }.filter { it.second.isNotBlank() }
 
         Column(
@@ -112,14 +117,14 @@ fun EventsHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: "Событие не выбрано"),
+                    text = e.subject?.takeIf { it.isNotBlank() } ?: (e.eventType ?: s("events_sobytie_ne_vybrano")),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-//                    TextButton(onClick = onRequestRefresh) { Text("Обновить") }
+//                    TextButton(onClick = onRequestRefresh) { Text(s("menu_obnovit")) }
             }
             Spacer(Modifier.height(8.dp))
             Card {
@@ -132,7 +137,7 @@ fun EventsHeader(
             }
             e.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
                 Text(
-                    text = "Документ-основание",
+                    text = s("events_dokument_osnovanie_2"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -146,20 +151,28 @@ fun EventsHeader(
                 )
             }
 
+            if (onOpenDocumentPhotos != null) {
+                com.tagaev.trrcrm.ui.complectation.ComplectationOpenPhotosButton(
+                    photoCount = documentPhotoCount,
+                    isLoading = isDocumentPhotoCountLoading,
+                    onClick = onOpenDocumentPhotos,
+                )
+            }
+
             // Пользователи
             Section(
-                title = "Пользователи",
+                title = s("events_polzovateli"),
                 expanded = usersExpanded,
                 onToggle = { usersExpanded = !usersExpanded }
             ) {
                 if (e.users.isEmpty()) {
-                    MutedText("Нет пользователей")
+                    MutedText(s("events_net_polzovateley"))
                 } else {
-                    // Optional: if your model has a boolean like isResponsible / Ответственный == "Да",
+                    // Optional: if your model has a boolean like isResponsible / Ответственный == s("settings_da"),
                     // upgrade the role for sorting only:
                     fun effectiveRole(u: UserRowDto): String? =
                         when {
-                            (u.isResponsible == true) -> "ответственный"
+                            (u.isResponsible == true) -> s("events_otvetstvennyy")
                             else -> u.role // e.g. "Делаю", "Помогаю", "Наблюдаю"
                         }
 
@@ -177,13 +190,13 @@ fun EventsHeader(
 
             // tasks (+)
             Section(
-                title = "Задачи (кол-во: ${e.tasks.size})",
+                title = s("events_zadachi_kol_vo", e.tasks.size),
                 expanded = tasksExpanded,
                 onToggle = { tasksExpanded = !tasksExpanded },
                 trailing = { }
             ) {
                 if (e.tasks.isEmpty()) {
-                    MutedText("Нет задач")
+                    MutedText(s("events_net_zadach"))
                 } else {
                     e.tasks.forEach { TaskItem(it) }
                 }
@@ -192,13 +205,13 @@ fun EventsHeader(
                 p.sum?.replace(SPACE_RX, "")?.replace(',', '.')?.toDoubleOrNull() ?: 0.0
             }
             Section(
-                title = "Товары (Шт: ${e.products.size}, Сумма: ${total} руб.)",
+                title = s("events_tovary_sht_summa", e.products.size, total),
                 expanded = productsExpanded,
                 onToggle = { productsExpanded = !productsExpanded },
                 //trailing = { TextButton(onClick = { component.addTask("TEST") }) { Text("+") } }
             ) {
                 if (e.products.isEmpty()) {
-                    MutedText("Нет товаров")
+                    MutedText(s("events_net_tovarov"))
                 } else {
                     e.products.forEach { ProductItem(it) }
                 }
@@ -313,11 +326,11 @@ private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
         name.isNotEmpty() && target.isNotEmpty() && name.equals(target, ignoreCase = true)
     }
     val nameWeight = if (isHighlighted) FontWeight.Bold else FontWeight.SemiBold
-    val displayName = (u.user ?: "—") + if (isHighlighted) " (я)" else ""
+    val displayName = (u.user ?: "—") + if (isHighlighted) s("events_ya_suffix") else ""
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text(displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = nameWeight)
         val details = listOfNotNull(
-            u.role?.takeIf { it.isNotBlank() }?.let { "Роль: $it" },
+            u.role?.takeIf { it.isNotBlank() }?.let { s("events_rol_it", it) },
             //u.responsible?.takeIf { it.isNotBlank() }?.let { "Ответственный: $it" }
         ).joinToString("  •  ")
         if (details.isNotBlank()) {
@@ -330,11 +343,11 @@ private fun UserItem(u: UserRowDto, highlightFullName: String? = null) {
 @Composable
 private fun TaskItem(t: TaskDto) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(t.document ?: "Задача", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+        Text(t.document ?: s("events_zadacha"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.workDate?.takeIf { it.isNotBlank() }?.let { add(it) }
-            t.author?.takeIf { it.isNotBlank() }?.let { add("Автор: $it") }
-            t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
+            t.author?.takeIf { it.isNotBlank() }?.let { add(s("events_avtor_it", it)) }
+            t.price?.takeIf { it.isNotBlank() }?.let { add(s("events_tsena_it", it)) }
         }.joinToString("  •  ")
         if (line.isNotBlank()) {
             Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -349,15 +362,15 @@ private fun TaskItem(t: TaskDto) {
 @Composable
 private fun ProductItem(t: ProductsItem) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        TextCLinkPreview(t.itemName ?: "Товар ${t.rowNo}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        TextCLinkPreview(t.itemName ?: s("events_tovar_row", t.rowNo.orEmpty()), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         val line = buildList {
             t.itemFeature?.takeIf { it.isNotBlank() }?.let { add(it) }
             formatProductQuantityWithUnit(t.quantity, t.unit)?.let { add(it) }
 //            t.unit?.takeIf { it.isNotBlank() }?.let { add("Ед. Измерения: $it") }
-            t.price?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
-            t.sum?.takeIf { it.isNotBlank() }?.let { add("Сумма: $it") }
+            t.price?.takeIf { it.isNotBlank() }?.let { add(s("events_tsena_it", it)) }
+            t.sum?.takeIf { it.isNotBlank() }?.let { add(s("events_summa_it", it)) }
 
-//            t.rowNo?.takeIf { it.isNotBlank() }?.let { add("Цена: $it") }
+//            t.rowNo?.takeIf { it.isNotBlank() }?.let { add(s("events_tsena_it", it)) }
         }.joinToString("  •  ")
         if (line.isNotBlank()) {
             Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -373,7 +386,7 @@ private fun ProductItem(t: ProductsItem) {
 private fun MessageItem(m: MessageDto) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(m.author ?: "Сообщение", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(m.author ?: s("events_soobschenie_fallback"), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             m.workDate?.takeIf { it.isNotBlank() }?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -405,7 +418,7 @@ private fun Section(
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 trailing?.invoke()
-                //TextButton(onClick = onToggle) { Text(if (expanded) "Скрыть" else "Показать") }
+                //TextButton(onClick = onToggle) { Text(if (expanded) s("login_skryt") else s("login_pokazat")) }
             }
             AnimatedVisibility(visible = expanded) {
                 Column(Modifier.fillMaxWidth().padding(top = 8.dp, start = 8.dp, end = 8.dp)) { content() }
@@ -421,7 +434,10 @@ fun EventDetailsSheet(
     onSendMessage: (String, (String?) -> Unit) -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
     initialDraft: String? = null,
-    onDraftChanged: (String) -> Unit = {}
+    onDraftChanged: (String) -> Unit = {},
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     DetailsWithMessagesSheet(
         item = event,
@@ -439,7 +455,10 @@ fun EventDetailsSheet(
     ) { ev ->
         EventsHeader(
             event = ev,
-            onOpenBaseDocument = onOpenBaseDocument
+            onOpenBaseDocument = onOpenBaseDocument,
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
     }
 }

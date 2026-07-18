@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,12 +79,12 @@ fun CatalogSignUpDialog(
         },
         confirmButton = {
             Button(onClick = onSubmit, enabled = !form.isSubmitting) {
-                Text(if (form.isSubmitting) "Отправляем..." else "Отправить запрос")
+                Text(if (form.isSubmitting) "Отправляем..." else s("product_demo_otpravit_zapros"))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена")
+                Text(s("settings_otmena"))
             }
         }
     )

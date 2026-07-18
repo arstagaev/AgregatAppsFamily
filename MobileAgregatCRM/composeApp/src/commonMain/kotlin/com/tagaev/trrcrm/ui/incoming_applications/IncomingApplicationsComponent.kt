@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.incoming_applications
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -134,7 +136,7 @@ class IncomingApplicationsComponent(
         itemNumber: String,
         itemDate: String,
         message: String,
-    ): String? = "Отправка сообщений для входящих заявок не поддерживается"
+    ): String? = tr("incoming_otpravka_soobscheniy_dlya_vhodyaschih_zayavok_ne_pod")
 
     override fun addLocalMessage(orderGuid: String?, message: MessageModel) {
         // read-only screen

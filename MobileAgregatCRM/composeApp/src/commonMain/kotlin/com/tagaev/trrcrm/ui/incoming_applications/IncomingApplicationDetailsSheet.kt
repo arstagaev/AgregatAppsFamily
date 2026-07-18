@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.incoming_applications
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,7 +47,7 @@ fun IncomingApplicationDetailsSheet(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
+                Icon(FeatherIcons.ArrowLeft, contentDescription = s("settings_nazad"))
             }
             Text(
                 text = title,

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.login
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
@@ -12,6 +14,7 @@ import com.tagaev.trrcrm.data.remote.toCoreApiError
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
 import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
+import com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsSync
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.push.UnreadCountSync
 import com.tagaev.trrcrm.push.triggerPostLoginPushPermissionCheck
@@ -44,7 +47,7 @@ object CrmAuthUseCase : KoinComponent {
                 val data = tokenRes.data
                 val token = data.token.orEmpty()
                 if (token.isBlank()) {
-                    Resource.Error(causes = "Пустой токен от сервера")
+                    Resource.Error(causes = tr("login_pustoy_token_ot_servera"))
                 } else {
                     appSettings.setString(AppSettingsKeys.EMAIL, user)
                     appSettings.setString(AppSettingsKeys.PASS, passHash)
@@ -56,14 +59,14 @@ object CrmAuthUseCase : KoinComponent {
                 }
             }
             is Resource.Error -> {
-                Resource.Error(tokenRes.exception, tokenRes.causes ?: friendlyError(tokenRes.exception, "Ошибка авторизации"))
+                Resource.Error(tokenRes.exception, tokenRes.causes ?: friendlyError(tokenRes.exception, tr("login_oshibka_avtorizatsii")))
             }
             is Resource.Loading -> Resource.Loading
         }
     }
 
     suspend fun loginWithToken(token: String): Resource<Unit> {
-        if (token.isBlank()) return Resource.Error(causes = "Пустой токен")
+        if (token.isBlank()) return Resource.Error(causes = tr("login_pustoy_token"))
         appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
         runCatching { apiConfig.token = token }
         return authenticateWithTokenAndFinalize()
@@ -80,7 +83,7 @@ object CrmAuthUseCase : KoinComponent {
             is Resource.Error -> {
                 Resource.Error(
                     permissions.exception,
-                    permissions.causes ?: friendlyError(permissions.exception, "Не удалось загрузить права доступа")
+                    permissions.causes ?: friendlyError(permissions.exception, tr("login_ne_udalos_zagruzit_prava_dostupa"))
                 )
             }
             is Resource.Loading -> Resource.Loading
@@ -92,6 +95,7 @@ object CrmAuthUseCase : KoinComponent {
         triggerPostLoginPushPermissionCheck()
         appScope.launch {
             repo.refreshPushFeatureToggleIfNeeded(force = true)
+            MobileFeatureFlagsSync.refreshNow(reason = "login", force = true)
             bootstrapCoreSessionAndStartHeartbeat()
         }
         PushRegistrationCoordinator.registerIfReady(preferredPlatform = pushPlatformId())

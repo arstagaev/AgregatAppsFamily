@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.data.remote
 
+import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorCanUploadRequest
 import com.tagaev.trrcrm.models.ImageMediatorCanUploadResponse
 import com.tagaev.trrcrm.models.ImageMediatorImageCountResponse
@@ -23,6 +24,7 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
+import kotlin.random.Random
 
 class ImageMediatorApi(
     private val client: HttpClient,
@@ -32,7 +34,7 @@ class ImageMediatorApi(
     suspend fun canUpload(
         agrToken: String,
         documentNumber: String,
-        documentName: String? = "Camera fixator",
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<ImageMediatorCanUploadResponse> = resourceify {
         val response = client.post(buildUrl("/api/v1/uploads/can-upload")) {
             expectSuccess = false
@@ -41,7 +43,7 @@ class ImageMediatorApi(
             setBody(
                 ImageMediatorCanUploadRequest(
                     documentNumber = documentNumber,
-                    documentName = documentName,
+                    documentName = documentType.wireName,
                 )
             )
         }
@@ -51,9 +53,10 @@ class ImageMediatorApi(
     suspend fun getDocumentPhotoCount(
         agrToken: String,
         documentNumber: String,
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<Int> = resourceify {
         val response = client.get(
-            buildUrl("/api/v1/documents/$documentNumber/images/count"),
+            buildUrl("/api/v1/documents/$documentNumber/images/count?document_name=${documentType.wireName}"),
         ) {
             expectSuccess = false
             bearerAuth(agrToken)
@@ -71,9 +74,12 @@ class ImageMediatorApi(
         agrToken: String,
         documentNumber: String,
         page: Int,
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<ImageMediatorImageListResponse> = resourceify {
         val response = client.get(
-            buildUrl("/api/v1/documents/$documentNumber/images?page=$page"),
+            buildUrl(
+                "/api/v1/documents/$documentNumber/images?page=$page&document_name=${documentType.wireName}",
+            ),
         ) {
             expectSuccess = false
             bearerAuth(agrToken)
@@ -96,19 +102,23 @@ class ImageMediatorApi(
         agrToken: String,
         documentNumber: String,
         files: List<ByteArray>,
-        documentName: String? = "Camera fixator",
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
+        idempotencyKey: String,
     ): Resource<ImageMediatorUploadResponse> = resourceify {
         require(files.isNotEmpty()) { "No files to upload" }
         val totalBytes = files.sumOf { it.size.toLong() }
-        CameraFixatorLog.d("upload_request files=${files.size} totalBytes=$totalBytes document=$documentNumber")
+        CameraFixatorLog.d(
+            "upload_request files=${files.size} totalBytes=$totalBytes document=$documentNumber type=${documentType.wireName}",
+        )
         val response = client.post(buildUrl("/api/v1/uploads/photos")) {
             expectSuccess = false
             bearerAuth(agrToken)
+            header("Idempotency-Key", idempotencyKey)
             setBody(
                 MultiPartFormDataContent(
                     formData {
                         append("document_number", documentNumber)
-                        documentName?.let { append("document_name", it) }
+                        append("document_name", documentType.wireName)
                         files.forEachIndexed { index, bytes ->
                             append(
                                 key = "files[]",
@@ -157,6 +167,10 @@ class ImageMediatorApi(
     }
 
     private fun buildUrl(path: String): String {
+        // Preserve absolute content_url paths and any query params from the server.
+        if (path.startsWith("http://") || path.startsWith("https://")) {
+            return path
+        }
         val normalizedPath = if (path.startsWith("/")) path else "/$path"
         return "${baseUrl.trimEnd('/')}$normalizedPath"
     }
@@ -170,5 +184,25 @@ class ImageMediatorApi(
             throw ImageMediatorException(statusCode, url, raw)
         }
         return decodeOrWarning(json, raw.cleanJsonStart())
+    }
+
+    companion object {
+        fun generateIdempotencyKey(): String {
+            val bytes = Random.Default.nextBytes(16)
+            val hex = bytes.joinToString(separator = "") { b ->
+                (b.toInt() and 0xFF).toString(16).padStart(2, '0')
+            }
+            return buildString {
+                append(hex.substring(0, 8))
+                append('-')
+                append(hex.substring(8, 12))
+                append('-')
+                append(hex.substring(12, 16))
+                append('-')
+                append(hex.substring(16, 20))
+                append('-')
+                append(hex.substring(20, 32))
+            }
+        }
     }
 }

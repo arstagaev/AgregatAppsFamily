@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.events
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +24,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,11 +53,15 @@ import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
 import com.tagaev.trrcrm.domain.TreeRootDocumentKind
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
+import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
+import com.tagaev.trrcrm.ui.complectation.ComplectationAddPhotoTopBarAction
+import com.tagaev.trrcrm.ui.complectation.DocumentPhotosViewerScreen
 import com.tagaev.trrcrm.ui.custom.SessionTrrImage
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.TextC
@@ -68,6 +77,7 @@ import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatDDMMYYYY
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Camera
 import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
@@ -90,22 +100,22 @@ private val EVENTS_TOPBAR_SEARCH_OPTIONS = listOf(
 )
 
 private fun Refiner.SearchQueryType.eventsSearchLabel(): String = when (this) {
-    Refiner.SearchQueryType.TOPIC -> "Тема"
-    Refiner.SearchQueryType.CODE -> "Номер"
-    Refiner.SearchQueryType.AUTHOR -> "Автор"
-    Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
-    Refiner.SearchQueryType.AUTO -> "Автомобиль"
-    Refiner.SearchQueryType.MANAGER -> "Менеджер"
-    Refiner.SearchQueryType.MASTER -> "Мастер"
-    Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
-    Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
+    Refiner.SearchQueryType.TOPIC -> s("filter_tema")
+    Refiner.SearchQueryType.CODE -> s("filter_nomer")
+    Refiner.SearchQueryType.AUTHOR -> s("events_avtor")
+    Refiner.SearchQueryType.COUNTERPARTY -> s("events_kontragent")
+    Refiner.SearchQueryType.AUTO -> s("search_label_avtomobil")
+    Refiner.SearchQueryType.MANAGER -> s("filter_menedzher")
+    Refiner.SearchQueryType.MASTER -> s("filter_master")
+    Refiner.SearchQueryType.KIT_CHARACTERISTIC -> s("search_label_har_komplekta")
+    Refiner.SearchQueryType.LICENSE_PLATE -> s("search_label_gosnomer")
     Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
-    Refiner.SearchQueryType.FIX_TYPE -> "Вид ремонта"
-    Refiner.SearchQueryType.CLIENT -> "Заказчик"
-    Refiner.SearchQueryType.ROUTE -> "Маршрут"
-    Refiner.SearchQueryType.CARRIER -> "Перевозчик"
-    Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
-    Refiner.SearchQueryType.PHONE -> "Телефон"
+    Refiner.SearchQueryType.FIX_TYPE -> s("search_label_vid_remonta")
+    Refiner.SearchQueryType.CLIENT -> s("search_label_zakazchik")
+    Refiner.SearchQueryType.ROUTE -> s("search_label_marshrut")
+    Refiner.SearchQueryType.CARRIER -> s("search_label_perevozchik")
+    Refiner.SearchQueryType.SUBJECT_MATTER -> s("incoming_sut_obrascheniya")
+    Refiner.SearchQueryType.PHONE -> s("search_label_telefon")
     Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_CODE,
@@ -115,12 +125,12 @@ private fun Refiner.SearchQueryType.eventsSearchLabel(): String = when (this) {
     Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
     Refiner.SearchQueryType.PURPOSE,
-    -> "Калькуляция"
+    -> s("nav_kalkulyatsiya")
 }
 
 @Composable
 fun EventsScreen(
-    component: IEventsComponent,
+    component: EventsComponent,
     modifier: Modifier = Modifier
 ) {
     val resource by component.events.collectAsState()
@@ -131,6 +141,22 @@ fun EventsScreen(
     var searchQueryDraft by rememberSaveable { mutableStateOf(refineState.searchQuery) }
     var searchTypeDraft by rememberSaveable { mutableStateOf(refineState.searchQueryType) }
 
+    val isCameraOpen by component.isCameraOpen.collectAsState()
+    val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
+    val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
+    val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val documentPhotoCount by component.documentPhotoCount.collectAsState()
+    val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
+    val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
+    val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
+    val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
+    val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    var photosUploadEnabled by remember { mutableStateOf(true) }
+    var photosDownloadEnabled by remember { mutableStateOf(true) }
+    val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
+    var cameraSnackbarIsError by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
     val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
@@ -139,9 +165,24 @@ fun EventsScreen(
         rememberNotificationPermissionRequester { granted ->
 
             if (!granted) {
-                showSnackbar("Необходимо разрешение на уведомления")
+                showSnackbar(s("events_neobhodimo_razreshenie_na_uvedomleniya"))
             }
         }
+
+    LaunchedEffect(Unit) {
+        photosUploadEnabled = component.isPhotosUploadEnabled()
+        photosDownloadEnabled = component.isPhotosDownloadEnabled()
+    }
+    LaunchedEffect(cameraPrecheckError) {
+        val error = cameraPrecheckError
+        if (!error.isNullOrBlank()) {
+            cameraSnackbarIsError = true
+            cameraErrorSnackbarHostState.showSnackbar(
+                com.tagaev.trrcrm.data.remote.userFacingMessage(error, error),
+            )
+            component.consumeCameraPrecheckError()
+        }
+    }
 
     LaunchedEffect(selectedId) {
         linkedDocuments.clear()
@@ -241,12 +282,38 @@ fun EventsScreen(
         }
     }
 
+    if (isCameraOpen) {
+        val number = cameraDocumentNumber
+        if (number != null) {
+            DocumentCameraScreen(
+                documentNumber = number,
+                title = s("complectation_kamera_number", number),
+                documentType = ImageDocumentType.Event,
+                initialQuota = cameraUploadQuota,
+                showUploadStatusBlock = false,
+                onBack = component::closeCamera,
+            )
+        }
+        return
+    }
+    if (isPhotosViewerOpen) {
+        val number = photosViewerDocumentNumber
+        if (number != null) {
+            DocumentPhotosViewerScreen(
+                documentNumber = number,
+                documentType = ImageDocumentType.Event,
+                onBack = component::closePhotosViewer,
+            )
+        }
+        return
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         MasterScreen(
-            title = "События",
+            title = s("nav_sobytiya"),
             resource = resource,
-            errorText = "Не удалось загрузить события",
-            notFoundText = "События не найдены",
+            errorText = s("events_ne_udalos_zagruzit_sobytiya"),
+            notFoundText = s("events_sobytiya_ne_naydeny"),
             refineState = refineState,
             onRefresh = { component.fullRefresh() },
             onLoadMore = { component.loadMore() },
@@ -269,9 +336,9 @@ fun EventsScreen(
                         isResolvingBaseDocument = true
                         try {
                             when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                                .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                                .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                                 is Resource.Success -> linkedDocuments.add(resolved.data)
-                                is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                                is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                                 is Resource.Loading -> Unit
                             }
                         } finally {
@@ -285,17 +352,36 @@ fun EventsScreen(
                 }
 
                 val currentLinked = linkedDocuments.lastOrNull()
+                val activeEventNumber = (currentLinked as? TreeRootResolvedDocument.Event)?.value?.number
+                    ?: ev.number
+                LaunchedEffect(activeEventNumber, photosDownloadEnabled) {
+                    if (photosDownloadEnabled) {
+                        activeEventNumber?.let { component.refreshDocumentPhotoCount(it) }
+                    }
+                }
+                val openDocumentPhotos: (() -> Unit)? =
+                    if (photosDownloadEnabled && !activeEventNumber.isNullOrBlank()) {
+                        { component.requestOpenDocumentPhotos(activeEventNumber) }
+                    } else {
+                        null
+                    }
                 if (currentLinked != null) {
                     TreeRootDocumentDetailsSheet(
                         document = currentLinked,
                         onBack = onNestedBack,
-                        onOpenBaseDocument = onOpenBaseDocument
+                        onOpenBaseDocument = onOpenBaseDocument,
+                        documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                        isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                        onOpenDocumentPhotos = openDocumentPhotos,
                     )
                 } else {
                     EventDetailsSheet(
                         event = ev,
                         onBack = onNestedBack,
                         onOpenBaseDocument = onOpenBaseDocument,
+                        documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                        isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                        onOpenDocumentPhotos = openDocumentPhotos,
                         onSendMessage = { message, onResult ->
                             val number = ev.number.orEmpty()
                             val date = ev.date?.format(formatDDMMYYYY).orEmpty()
@@ -303,7 +389,7 @@ fun EventsScreen(
                                 component.pickedEvent = ev
                                 val err = component.sendMessage(itemNumber = number, itemDate = date, message = message)
                                 if (err == null) {
-                                    component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = "я", text = message))
+                                    component.addLocalMessage(ev.guid.toString(), message = MessageModel(author = s("events_ya"), text = message))
                                 }
                                 onResult(err)
                             }
@@ -347,13 +433,13 @@ fun EventsScreen(
                             onClick = hideSearchForm,
                             enabled = !isTopBarLoading
                         ) {
-                            Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                            Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                         }
                         IconButton(
                             onClick = clearSearchAndClose,
                             enabled = !isTopBarLoading
                         ) {
-                            Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                            Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                         }
                     }
                 }
@@ -367,7 +453,7 @@ fun EventsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 6.dp),
-                            placeholder = { Text("Поиск события") },
+                            placeholder = { Text(s("events_poisk_sobytiya")) },
                             singleLine = true,
                             enabled = !isTopBarLoading,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
@@ -381,7 +467,16 @@ fun EventsScreen(
                 else -> null
             },
             topBarActionsContent = { isLoadingTopBar ->
-                if (panel == MasterPanel.List) {
+                if (panel == MasterPanel.Details && photosUploadEnabled) {
+                    val active = resolveActiveEvent(selectedId, resource, linkedDocuments)
+                    val cameraNumber = active?.number.orEmpty()
+                    if (active != null && cameraNumber.isNotBlank()) {
+                        ComplectationAddPhotoTopBarAction(
+                            enabled = !isCameraPrecheckInProgress,
+                            onClick = { component.requestOpenCamera(cameraNumber) },
+                        )
+                    }
+                } else if (panel == MasterPanel.List) {
                     if (isSearchMode) {
                         if (isLoadingTopBar) {
                             CircularProgressIndicator(
@@ -392,12 +487,12 @@ fun EventsScreen(
                             )
                         } else {
                             IconButton(onClick = applySearch) {
-                                Icon(FeatherIcons.Search, contentDescription = "Искать")
+                                Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                             }
                         }
                     } else {
                         IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                            Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                            Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                         }
                         SearchIconButtonWithIndicator(
                             showIndicator = refineState.searchQuery.isNotBlank(),
@@ -421,7 +516,7 @@ fun EventsScreen(
                             )
                         } else {
                             IconButton(onClick = { component.fullRefresh() }) {
-                                Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                                Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                             }
                         }
                     }
@@ -462,8 +557,8 @@ fun EventsScreen(
         if (isResolvingBaseDocument) {
             AlertDialog(
                 onDismissRequest = {},
-                title = { Text("Пожалуйста, подождите") },
-                text = { Text("ищем документ основание....") },
+                title = { Text(s("events_pozhaluysta_podozhdite")) },
+                text = { Text(s("events_ischem_dokument_osnovanie")) },
                 confirmButton = {}
             )
         }
@@ -474,7 +569,38 @@ fun EventsScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
+
+        SnackbarHost(
+            hostState = cameraErrorSnackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) { data ->
+            Snackbar(
+                snackbarData = data,
+                containerColor = if (cameraSnackbarIsError) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseSurface
+                },
+                contentColor = if (cameraSnackbarIsError) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseOnSurface
+                },
+            )
+        }
     }
+}
+
+private fun resolveActiveEvent(
+    selectedId: String?,
+    resource: Resource<List<EventItemDto>>,
+    linkedDocuments: List<TreeRootResolvedDocument>,
+): EventItemDto? {
+    linkedDocuments.lastOrNull()?.let { linked ->
+        if (linked is TreeRootResolvedDocument.Event) return linked.value
+    }
+    val list = (resource as? Resource.Success)?.data.orEmpty()
+    return list.firstOrNull { it.guid.toString() == selectedId }
 }
 
 @Composable
@@ -488,7 +614,7 @@ private fun EventsLoadingImageOverlay(
     ) {
         Image(
             painter = painterResource(image),
-            contentDescription = "Загрузка событий",
+            contentDescription = s("events_zagruzka_sobytiy"),
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
@@ -511,7 +637,7 @@ private fun EventsSearchTypeRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Поиск по:",
+                text = s("events_poisk_po"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -550,7 +676,7 @@ fun EventCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextC(
-                    text = ev.number?.let { "№ $it" } ?: "Без номера",
+                    text = ev.number?.let { "№ $it" } ?: s("events_bez_nomera"),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     allowLinkTap = false,
@@ -603,23 +729,23 @@ fun EventCard(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         EventMetaColumn(
-                            label = "Организация",
+                            label = s("events_organizatsiya"),
                             value = ev.organization ?: "undefined",
                             modifier = Modifier.weight(1f, fill = true)
                         )
                         EventMetaColumn(
-                            label = "Подразделение",
+                            label = s("events_podrazdelenie"),
                             value = ev.companyDepartment?: "undefined",
                             modifier = Modifier.weight(1f, fill = true)
                         )
 
                         EventMetaColumn(
-                            label = "Документ основание",
+                            label = s("events_dokument_osnovanie"),
                             value = ev.baseDocument?: "undefined",
                             modifier = Modifier.weight(1f, fill = true)
                         )
                         EventMetaColumn(
-                            label = "Вид события",
+                            label = s("events_vid_sobytiya"),
                             value = ev.eventType?: "undefined",
                             modifier = Modifier.weight(1f, fill = true)
                         )
@@ -634,7 +760,7 @@ fun EventCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         EventMetaColumn(
-                            label = "Автор",
+                            label = s("events_avtor"),
                             value = ev.author,
                             modifier = Modifier.weight(1f, fill = true)
                         )
@@ -642,13 +768,13 @@ fun EventCard(
                         ev.counterparty?.takeIf { it.isNotBlank() }?.let { counterparty ->
 //                            Spacer(Modifier.height(1.dp))
                             EventMetaColumn(
-                                label = "Контрагент",
+                                label = s("events_kontragent"),
                                 value = counterparty,
                                 modifier = Modifier.weight(1f, fill = true)
                             )
                         }
                         EventMetaColumn(
-                            label = "Количество участников",
+                            label = s("events_kolichestvo_uchastnikov"),
                             value = "${ev.users.size}",
                             modifier = Modifier.weight(1f, fill = true)
                         )
@@ -674,14 +800,14 @@ fun EventCard(
                 ) {
                     createdText?.let {
                         Text(
-                            text = "Создано: $it",
+                            text = s("events_sozdano_it", it),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     modifiedText?.takeIf { it.isNotBlank() }?.let {
                         Text(
-                            text = "Изм.: $it",
+                            text = s("events_izm_it", it),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.buyer_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -144,10 +146,10 @@ fun BuyerOrdersScreen(
         }
     }
     MasterScreen(
-        title = "Заказ покупателя",
+        title = s("buyer_order_zakaz_pokupatelya"),
         resource = resource,
-        errorText = "Не удалось загрузить заказы покупателя",
-        notFoundText = "Заказы покупателя не найдены",
+        errorText = s("buyer_order_ne_udalos_zagruzit_zakazy_pokupatelya"),
+        notFoundText = s("buyer_order_zakazy_pokupatelya_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -163,9 +165,9 @@ fun BuyerOrdersScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -234,10 +236,10 @@ fun BuyerOrdersScreen(
             {
                 Row {
                     IconButton(onClick = hideSearchForm, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(onClick = clearSearchAndClose, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -253,7 +255,7 @@ fun BuyerOrdersScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 6.dp),
-                        placeholder = { Text("Поиск заказа покупателя") },
+                        placeholder = { Text(s("buyer_order_poisk_zakaza_pokupatelya")) },
                         singleLine = true,
                         enabled = !isTopBarLoading,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -278,12 +280,12 @@ fun BuyerOrdersScreen(
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -303,7 +305,7 @@ fun BuyerOrdersScreen(
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -348,8 +350,8 @@ fun BuyerOrdersScreen(
     if (isResolvingBaseDocument) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("ищем документ основание....") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("events_ischem_dokument_osnovanie")) },
             confirmButton = {}
         )
     }
@@ -368,17 +370,17 @@ private fun BuyerOrderSearchRow(
         FilterChip(
             selected = selected == BuyerOrderSearchMode.NUMBER,
             onClick = { onSelect(BuyerOrderSearchMode.NUMBER) },
-            label = { Text("По номеру") }
+            label = { Text(s("complectation_po_nomeru")) }
         )
         FilterChip(
             selected = selected == BuyerOrderSearchMode.MANAGER,
             onClick = { onSelect(BuyerOrderSearchMode.MANAGER) },
-            label = { Text("По менеджеру") }
+            label = { Text(s("filter_po_menedzheru")) }
         )
         FilterChip(
             selected = selected == BuyerOrderSearchMode.AUTHOR,
             onClick = { onSelect(BuyerOrderSearchMode.AUTHOR) },
-            label = { Text("По автору") }
+            label = { Text(s("filter_po_avtoru")) }
         )
     }
 }
@@ -389,7 +391,7 @@ private fun BuyerOrderCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val number = order.number.orEmpty().ifBlank { "Без номера" }
+    val number = order.number.orEmpty().ifBlank { s("events_bez_nomera") }
     val status = order.status.orEmpty().ifBlank { "—" }
     val manager = order.manager.orEmpty().ifBlank { "—" }
     val author = order.author.orEmpty().ifBlank { "—" }

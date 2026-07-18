@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.complaints
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -146,7 +148,7 @@ class ComplaintsComponent(
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
-        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return "Нет номера или даты документа"
+        if (itemNumber.isBlank() || itemDate.isBlank() || message.isBlank()) return tr("events_net_nomera_ili_daty_dokumenta")
         val res = repository.sendMessageComplaint(
             itemNumber,
             itemDate.substringBefore(' '),
@@ -154,8 +156,8 @@ class ComplaintsComponent(
         )
         return when (res) {
             is Resource.Success -> null
-            is Resource.Error -> res.causes ?: friendlyError(res.exception, "Ошибка отправки сообщения")
-            else -> "Ошибка отправки сообщения"
+            is Resource.Error -> res.causes ?: friendlyError(res.exception, tr("events_oshibka_otpravki_soobscheniya"))
+            else -> tr("events_oshibka_otpravki_soobscheniya")
         }
     }
 
@@ -165,7 +167,7 @@ class ComplaintsComponent(
 
     override suspend fun searchComplectationsByKitCharacteristicToken(token: String): Resource<List<WorkOrderDto>> {
         val trimmed = token.trim()
-        if (trimmed.isEmpty()) return Resource.Error(causes = "Пустой запрос")
+        if (trimmed.isEmpty()) return Resource.Error(causes = tr("work_order_pustoy_zapros"))
         val searchState = _refineState.value.copy(
             searchQuery = trimmed,
             searchQueryType = Refiner.SearchQueryType.KIT_CHARACTERISTIC

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,7 +47,7 @@ fun OrderRequestScreen(
                 onClick = onBack,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Назад")
+                Text(s("settings_nazad"))
             }
 
             Text(
@@ -127,7 +129,7 @@ fun OrderRequestScreen(
                 enabled = !form.isSubmitting,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (form.isSubmitting) "Отправляем..." else "Отправить заявку")
+                Text(if (form.isSubmitting) "Отправляем..." else s("product_demo_otpravit_zayavku"))
             }
         }
     }

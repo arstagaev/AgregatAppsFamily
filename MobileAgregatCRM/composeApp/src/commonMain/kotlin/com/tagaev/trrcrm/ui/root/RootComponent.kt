@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.root
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.*
 import com.tagaev.trrcrm.ui.details.DefaultDetailsComponent
@@ -533,7 +535,7 @@ class DefaultRootComponent(
         val resolutionContext = DeepLinkResolutionContext(
             requestId = requestId,
             screen = normalizedScreen,
-            docTypeLabel = context.docTypeLabel ?: "Документ",
+            docTypeLabel = context.docTypeLabel ?: tr("root_dokument"),
             identifier = normalizedDocId,
             messageHint = context.messageHint,
             searchQueryType = resolveSearchTypeForScreen(normalizedScreen),
@@ -591,7 +593,7 @@ class DefaultRootComponent(
                 processDeepLinkResolution(masterComponent, resolutionContext)
             }.onFailure {
                 println("PUSH_SERVICE DEEPLINK: onDeepLink failed requestId=$requestId reason=${it.message}")
-                _notFoundDialogMessage.value = "Не удалось открыть документ из уведомления"
+                _notFoundDialogMessage.value = tr("root_ne_udalos_otkryt_dokument_iz_uvedomleniya")
             }
         }
     }
@@ -666,8 +668,8 @@ class DefaultRootComponent(
             "work_orders", "workorders", "work_order", "workorder" -> IRootComponent.Config.WorkOrder
             "complectation", "complectations", "complectation_orders" -> IRootComponent.Config.Complectation
             "cargo", "cargos" -> IRootComponent.Config.Cargo
-            "buyer_orders", "buyerorders", "buyer_order", "buyerorder", "заказпокупателя" -> IRootComponent.Config.BuyerOrder
-            "supplier_orders", "supplierorders", "supplier_order", "supplierorder", "заказпоставщику" -> IRootComponent.Config.SupplierOrder
+            "buyer_orders", "buyerorders", "buyer_order", "buyerorder", tr("root_zakazpokupatelya") -> IRootComponent.Config.BuyerOrder
+            "supplier_orders", "supplierorders", "supplier_order", "supplierorder", tr("root_zakazpostavschiku") -> IRootComponent.Config.SupplierOrder
             "complaints", "complaint" -> IRootComponent.Config.Complaint
             "inner_orders", "innerorders", "inner_order", "innerorder" -> IRootComponent.Config.InnerOrder
             "incoming_applications",
@@ -675,25 +677,25 @@ class DefaultRootComponent(
             "incoming_application",
             "incomingapplication",
             "incoming_orders",
-            "входящиезаявки",
-            "входящие_заказы",
+            tr("root_vhodyaschiezayavki"),
+            tr("root_vhodyaschie_zakazy"),
             -> IRootComponent.Config.IncomingApplications
             "calculation",
             "repair_templates",
             "repair_template_catalog",
-            "шаблоныремонта",
-            "шаблоны_ремонта",
-            "калькуляция",
+            tr("root_shablonyremonta"),
+            tr("root_shablony_remonta"),
+            tr("root_kalkulyatsiya"),
             -> IRootComponent.Config.RepairTemplateCatalog
             "expense_requests",
             "expense_request",
             "expenserequests",
             "expenserequest",
-            "заявканарасход",
-            "заявканарасходдс",
-            "заявки_на_расход",
-            "заявки_на_расход_дс",
-            "заявкирасход",
+            tr("root_zayavkanarashod"),
+            tr("root_zayavkanarashodds"),
+            tr("root_zayavki_na_rashod"),
+            tr("root_zayavki_na_rashod_ds"),
+            tr("root_zayavkirashod"),
             -> IRootComponent.Config.ExpenseRequests
             else -> null
         }

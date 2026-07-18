@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.login
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.secrets.Secrets
@@ -224,7 +226,7 @@ class LoginComponent(
                         }
                     }
                     is Resource.Error -> {
-                        val msg = res.causes ?: friendlyError(res.exception, "Ошибка авторизации")
+                        val msg = res.causes ?: friendlyError(res.exception, tr("login_oshibka_avtorizatsii"))
                         tokenRefreshAttemptedThisLogin = false
                         withContext(Dispatchers.Main.immediate) {
                             _uiState.value = LoginUiState.Error(msg)
@@ -237,7 +239,7 @@ class LoginComponent(
             } catch (t: Throwable) {
                 tokenRefreshAttemptedThisLogin = false
                 withContext(Dispatchers.Main.immediate) {
-                    _uiState.value = LoginUiState.Error(friendlyError(t, "Ошибка авторизации"))
+                    _uiState.value = LoginUiState.Error(friendlyError(t, tr("login_oshibka_avtorizatsii")))
                 }
             }
         }
@@ -267,7 +269,7 @@ class LoginComponent(
                         is Resource.Loading -> Unit
                         is Resource.Error -> {
                             val msg = permissions.causes
-                                ?: friendlyError(permissions.exception, "Не удалось загрузить права доступа")
+                                ?: friendlyError(permissions.exception, tr("login_ne_udalos_zagruzit_prava_dostupa"))
                             val shouldFallbackToCredentials = !tokenRefreshAttemptedThisLogin &&
                                 isTokenAuthenticationError(msg) &&
                                 hasSavedCredentials()
@@ -288,7 +290,7 @@ class LoginComponent(
             } catch (t: Throwable) {
                 withContext(Dispatchers.Main.immediate) {
                     tokenRefreshAttemptedThisLogin = false
-                    _uiState.value = LoginUiState.Error(friendlyError(t, "Ошибка авторизации"))
+                    _uiState.value = LoginUiState.Error(friendlyError(t, tr("login_oshibka_avtorizatsii")))
                 }
             }
         }

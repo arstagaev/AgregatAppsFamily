@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.details
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.ApiConfig
@@ -69,7 +71,7 @@ class DefaultDetailsComponent(
                     val cur = TARGET_EVENT.value
                     val appended = try {
                         val newMsg = MessageDto(
-                            author = "Вы",
+                            author = tr("details_vy"),
                             workDate = date,
                             comment = message
                         )
@@ -83,7 +85,7 @@ class DefaultDetailsComponent(
                     _events.tryEmit(MessageEvent.Sent)
                 }
                 is Resource.Error -> {
-                    val msg = res.causes ?: friendlyError(res.exception, "Ошибка отправки")
+                    val msg = res.causes ?: friendlyError(res.exception, tr("list_oshibka_otpravki"))
                     _sendState.value = SendMessageUiState.Error(msg)
                 }
                 Resource.Loading -> Unit

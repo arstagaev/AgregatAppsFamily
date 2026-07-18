@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.root
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -42,6 +44,8 @@ import com.tagaev.trrcrm.ui.details.DetailsScreen
 import com.tagaev.trrcrm.ui.favorites.FavoritesScreen
 import com.tagaev.trrcrm.ui.login.LoginScreen
 import com.tagaev.trrcrm.ui.settings.SettingsScreen
+import com.tagaev.trrcrm.ui.i18n.AppLocaleProvider
+import com.tagaev.trrcrm.ui.i18n.LanguageController
 import com.tagaev.trrcrm.ui.style.AppTheme
 import com.tagaev.trrcrm.ui.style.ThemeController
 import compose.icons.FeatherIcons
@@ -98,11 +102,13 @@ fun AppRoot(root: IRootComponent) {
     val searchDiagnosticMessage by root.searchDiagnosticMessage.subscribeAsState()
     val activeChild = stack.active.instance
     val themeController = koinInject<ThemeController>()
+    val languageController = koinInject<LanguageController>()
     val appSettings = koinInject<AppSettings>()
     val desktopUpdateService = koinInject<DesktopUpdateService>()
     val unreadNotificationsCount by NotificationsUnreadState.count.collectAsState()
     val desktopUpdateState by desktopUpdateService.state.collectAsState()
     AppTheme(controller = themeController) {
+        AppLocaleProvider(controller = languageController) {
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
 
@@ -199,7 +205,7 @@ fun AppRoot(root: IRootComponent) {
             if (notFoundMessage.isNotBlank()) {
                 AlertDialog(
                     onDismissRequest = root::consumeNotFoundDialog,
-                    title = { Text("Документ не найден") },
+                    title = { Text(s("root_dokument_ne_nayden")) },
                     text = { Text(userFacingMessage(notFoundMessage, notFoundMessage)) },
                     confirmButton = {
                         TextButton(onClick = root::consumeNotFoundDialog) {
@@ -213,11 +219,11 @@ fun AppRoot(root: IRootComponent) {
             if (desktopUpdateState.supported && mandatoryRelease != null) {
                 AlertDialog(
                     onDismissRequest = {},
-                    title = { Text("Требуется обновление") },
+                    title = { Text(s("root_trebuetsya_obnovlenie")) },
                     text = {
                         Text(
                             "Доступна обязательная версия ${mandatoryRelease.version}. " +
-                                "Для продолжения работы установите обновление."
+                                s("root_dlya_prodolzheniya_raboty_ustanovite_obnovlenie")
                         )
                     },
                     confirmButton = {
@@ -227,11 +233,12 @@ fun AppRoot(root: IRootComponent) {
                             },
                             enabled = !desktopUpdateState.isBusy
                         ) {
-                            Text(if (desktopUpdateState.isBusy) "Подождите..." else "Установить")
+                            Text(if (desktopUpdateState.isBusy) s("root_podozhdite") else s("menu_ustanovit"))
                         }
                     }
                 )
             }
+        }
         }
     }
 }
@@ -266,7 +273,7 @@ fun AppBottomNavBar2(
                 selected = activeChild is IRootComponent.Child.MainHome,
                 onClick = onMainHome,
                 icon = { Icon(FeatherIcons.Inbox, contentDescription = null) },
-                label = "Главная",
+                label = s("root_glavnaya"),
                 badgeCount = mainHomeUnreadCount
             )
 
@@ -384,35 +391,35 @@ fun AppBottomNavBar(
                 selected = activeChild is IRootComponent.Child.Events,
                 onClick = onEvents,
                 icon = { Icon(LineAwesomeIcons.ToolsSolid, null) },
-                label = { Text("События") }
+                label = { Text(s("nav_sobytiya")) }
             )
 
             NavigationBarItem(
                 selected = activeChild is IRootComponent.Child.WorkOrder,
                 onClick = onWorkOrder,
                 icon = { Icon(LineAwesomeIcons.CarSideSolid, null) },
-                label = { Text("Заказ-Наряды", fontSize = 10.sp) }
+                label = { Text(s("nav_zakaz_naryady"), fontSize = 10.sp) }
             )
 
             NavigationBarItem(
                 selected = activeChild is IRootComponent.Child.Cargo,
                 onClick = onCargo,
                 icon = { Icon(FeatherIcons.Truck, null) },
-                label = { Text("Доставки") }
+                label = { Text(s("nav_dostavki")) }
             )
 
             NavigationBarItem(
                 selected = activeChild is IRootComponent.Child.QRScanner,
                 onClick = onQRScanner,
                 icon = { Icon(LineAwesomeIcons.QrcodeSolid, null) },
-                label = { Text("QR Сканер") }
+                label = { Text(s("nav_qr_skaner")) }
             )
 
             NavigationBarItem(
                 selected = activeChild is IRootComponent.Child.Menu,
                 onClick = onMenu,
                 icon = { Icon(FeatherIcons.Grid, null) },
-                label = { Text("Меню") }
+                label = { Text(s("menu_menyu")) }
             )
 
 //            NavigationBarItem(
@@ -426,7 +433,7 @@ fun AppBottomNavBar(
 //                selected = activeChild is IRootComponent.Child.Settings,
 //                onClick = onSettings,
 //                icon = { Icon(FeatherIcons.Settings, null) },
-//                label = { Text("Настройки") }
+//                label = { Text(s("menu_nastroyki")) }
 //            )
         }
     }

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.inner_orders
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
@@ -50,6 +52,9 @@ fun InnerOrderDetailsSheetTopPart(
     onBack: () -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
     onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
@@ -78,13 +83,13 @@ fun InnerOrderDetailsSheetTopPart(
             !innerOrder.operationType.isNullOrBlank() ||
             !innerOrder.posted.isNullOrBlank()
         ) {
-            SectionTitle("Статус документа:")
+            SectionTitle(s("inner_order_status_dokumenta"))
             DetailThreeColumnRow(
-                firstTitle = "Состояние:",
+                firstTitle = s("complaints_sostoyanie"),
                 firstValue = innerOrder.state,
-                secondTitle = "Операция:",
+                secondTitle = s("inner_order_operatsiya"),
                 secondValue = innerOrder.operationType,
-                thirdTitle = "Проведен:",
+                thirdTitle = s("inner_order_proveden"),
                 thirdValue = innerOrder.posted
             )
             Spacer(Modifier.height(4.dp))
@@ -93,9 +98,9 @@ fun InnerOrderDetailsSheetTopPart(
         // 2. Организация + Подразделение
         if (!innerOrder.organization.isNullOrBlank() || !innerOrder.branch.isNullOrBlank()) {
             DetailTwoColumnRow(
-                firstTitle = "Организация:",
+                firstTitle = s("work_order_organizatsiya"),
                 firstValue = innerOrder.organization,
-                secondTitle = "Подразделение:",
+                secondTitle = s("work_order_podrazdelenie"),
                 secondValue = innerOrder.branch
             )
             Spacer(Modifier.height(2.dp))
@@ -103,11 +108,11 @@ fun InnerOrderDetailsSheetTopPart(
 
         // 3. Склад / получатель
         if (!innerOrder.companyWarehouse.isNullOrBlank() || !innerOrder.receiverBranch.isNullOrBlank()) {
-            SectionTitle("Склад и получатель:")
+            SectionTitle(s("inner_order_sklad_i_poluchatel"))
             DetailTwoColumnRow(
-                firstTitle = "Склад компании:",
+                firstTitle = s("inner_order_sklad_kompanii"),
                 firstValue = innerOrder.companyWarehouse,
-                secondTitle = "Подразделение-получатель:",
+                secondTitle = s("inner_order_podrazdelenie_poluchatel"),
                 secondValue = innerOrder.receiverBranch
             )
             Spacer(Modifier.height(2.dp))
@@ -118,13 +123,13 @@ fun InnerOrderDetailsSheetTopPart(
             !innerOrder.author.isNullOrBlank() ||
             !innerOrder.myRole.isNullOrBlank()
         ) {
-            SectionTitle("Ответственные:")
+            SectionTitle(s("inner_order_otvetstvennye"))
             DetailThreeColumnRow(
-                firstTitle = "Менеджер:",
+                firstTitle = s("inner_order_menedzher"),
                 firstValue = innerOrder.manager,
-                secondTitle = "Автор:",
+                secondTitle = s("complectation_avtor"),
                 secondValue = innerOrder.author,
-                thirdTitle = "Моя роль:",
+                thirdTitle = s("inner_order_moya_rol"),
                 thirdValue = innerOrder.myRole
             )
             Spacer(Modifier.height(4.dp))
@@ -132,7 +137,7 @@ fun InnerOrderDetailsSheetTopPart(
 
         // 5. Документы-основания
         if (!innerOrder.workOrderNumber.isNullOrBlank() || !innerOrder.baseDocument.isNullOrBlank()) {
-            SectionTitle("Документы-основания:")
+            SectionTitle(s("inner_order_dokumenty_osnovaniya"))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -141,7 +146,7 @@ fun InnerOrderDetailsSheetTopPart(
                     val zn = innerOrder.workOrderNumber.orEmpty()
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Номер ЗН:",
+                            text = s("inner_order_nomer_zn"),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -161,7 +166,7 @@ fun InnerOrderDetailsSheetTopPart(
                 innerOrder.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Документ-основание:",
+                            text = s("complectation_dokument_osnovanie"),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -186,7 +191,7 @@ fun InnerOrderDetailsSheetTopPart(
             !innerOrder.rate.isNullOrBlank() ||
             !innerOrder.managementCurrencyRate.isNullOrBlank()
         ) {
-            SectionTitle("Финансы:")
+            SectionTitle(s("inner_order_finansy"))
             DetailFourColumnRow(
                 firstTitle = "Сумма:",
                 firstValue = innerOrder.documentAmount,
@@ -205,13 +210,13 @@ fun InnerOrderDetailsSheetTopPart(
             !innerOrder.operationDate.isNullOrBlank() ||
             !innerOrder.date.isNullOrBlank()
         ) {
-            SectionTitle("Даты:")
+            SectionTitle(s("inner_order_daty"))
             DetailThreeColumnRow(
                 firstTitle = "Создан:",
                 firstValue = innerOrder.creationDate,
-                secondTitle = "Дата операции:",
+                secondTitle = s("inner_order_data_operatsii"),
                 secondValue = innerOrder.operationDate,
-                thirdTitle = "Дата документа:",
+                thirdTitle = s("inner_order_data_dokumenta"),
                 thirdValue = innerOrder.date
             )
             Spacer(Modifier.height(4.dp))
@@ -239,12 +244,21 @@ fun InnerOrderDetailsSheetTopPart(
 
         // 10. Комментарий
         innerOrder.comment?.takeIf { it.isNotBlank() }?.let {
-            SectionTitle("Комментарий:")
+            SectionTitle(s("complectation_kommentariy_2"))
             TextC(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
+        }
+
+        if (onOpenDocumentPhotos != null) {
+            com.tagaev.trrcrm.ui.complectation.ComplectationOpenPhotosButton(
+                photoCount = documentPhotoCount,
+                isLoading = isDocumentPhotoCountLoading,
+                onClick = onOpenDocumentPhotos,
+            )
+            Spacer(Modifier.height(6.dp))
         }
 
         // 11. Участники (Пользователи)
@@ -287,7 +301,7 @@ fun InnerOrderDetailsSheetTopPart(
         val goods = innerOrder.goods
         if (goods.isNotEmpty()) {
             ExpandableListSection(
-                title = "Товары",
+                title = s("work_order_tovary"),
                 items = goods
             ) { g ->
                 WorkOrderProductLineRowCompact(
@@ -802,7 +816,10 @@ fun InnerOrderDetailsSheetWithMessages(
     onOpenBaseDocument: (String) -> Unit = {},
     onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
     initialDraft: String? = null,
-    onDraftChanged: (String) -> Unit = {}
+    onDraftChanged: (String) -> Unit = {},
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     DetailsWithMessagesSheet(
         item = complaint,
@@ -823,6 +840,9 @@ fun InnerOrderDetailsSheetWithMessages(
             onBack = onBack,
             onOpenBaseDocument = onOpenBaseDocument,
             onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+            documentPhotoCount = documentPhotoCount,
+            isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+            onOpenDocumentPhotos = onOpenDocumentPhotos,
         )
     }
 }

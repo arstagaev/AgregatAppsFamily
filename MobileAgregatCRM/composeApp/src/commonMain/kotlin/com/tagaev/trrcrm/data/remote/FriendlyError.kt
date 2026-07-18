@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.data.remote
 
+import com.tagaev.trrcrm.ui.i18n.tr
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.RedirectResponseException
 import io.ktor.client.plugins.ServerResponseException
@@ -12,16 +13,17 @@ import io.ktor.client.plugins.ServerResponseException
  * Russian phrase suitable for an alert/snackbar.
  */
 
-private const val MSG_NO_INTERNET = "Нет соединения с интернетом."
-private const val MSG_TIMEOUT = "Превышено время ожидания. Попробуйте ещё раз."
-private const val MSG_HOST_NOT_FOUND = "Сервер недоступен. Проверьте подключение."
-private const val MSG_CANNOT_CONNECT = "Не удалось подключиться к серверу."
-private const val MSG_CONNECTION_LOST = "Соединение потеряно. Повторите попытку."
-private const val MSG_SSL = "Ошибка защищённого соединения."
-private const val MSG_FORBIDDEN = "Доступ запрещён. Войдите заново."
-private const val MSG_NOT_FOUND = "Не найдено."
-private const val MSG_SERVER_DOWN = "Сервер временно недоступен."
-private const val MSG_BAD_REQUEST = "Ошибка запроса. Попробуйте позже."
+private fun msgNoInternet() = tr("error_net_soedineniya_s_internetom")
+private fun msgTimeout() = tr("error_prevysheno_vremya_ozhidaniya_poprobuyte_esche_raz")
+private fun msgHostNotFound() = tr("error_server_nedostupen_proverte_podklyuchenie")
+private fun msgCannotConnect() = tr("error_ne_udalos_podklyuchitsya_k_serveru")
+private fun msgConnectionLost() = tr("error_soedinenie_poteryano_povtorite_popytku")
+private fun msgSsl() = tr("error_oshibka_zaschischennogo_soedineniya")
+private fun msgForbidden() = tr("error_dostup_zapreschen_voydite_zanovo")
+private fun msgNotFound() = tr("error_ne_naydeno")
+private fun msgServerDown() = tr("error_server_vremenno_nedostupen")
+private fun msgBadRequest() = tr("error_oshibka_zaprosa_poprobuyte_pozzhe")
+private fun msgGeneric() = tr("error_proizoshla_oshibka")
 
 private val UNSAFE_DUMP_MARKERS = listOf(
     "nsurlerror",
@@ -71,7 +73,7 @@ fun sanitizeMessage(raw: String?): String {
     return cleaned
 }
 
-fun userFacingMessage(raw: String?, fallback: String = "Произошла ошибка"): String {
+fun userFacingMessage(raw: String?, fallback: String = msgGeneric()): String {
     val sanitized = sanitizeMessage(raw)
     return sanitized.ifBlank { fallback }
 }
@@ -122,7 +124,7 @@ fun friendlyError(throwable: Throwable?, fallback: String): String {
     }
 
     when (throwable) {
-        is RedirectResponseException -> return MSG_SERVER_DOWN
+        is RedirectResponseException -> return msgServerDown()
         is CoreApiException -> {
             val backendMessage = sanitizeMessage(throwable.errorMessage)
             if (backendMessage.isNotBlank()) return backendMessage
@@ -138,34 +140,34 @@ fun friendlyError(throwable: Throwable?, fallback: String): String {
     when {
         "-1009" in lower ||
             "appears to be offline" in lower ||
-            "not connected to the internet" in lower -> return MSG_NO_INTERNET
+            "not connected to the internet" in lower -> return msgNoInternet()
 
         "-1001" in lower ||
             "request timed out" in lower ||
             "sockettimeout" in lower ||
             "timed out" in lower ||
-            "timeout" in lower -> return MSG_TIMEOUT
+            "timeout" in lower -> return msgTimeout()
 
         "-1003" in lower ||
             "cannot find host" in lower ||
             "unknownhost" in lower ||
-            "unresolvedaddress" in lower -> return MSG_HOST_NOT_FOUND
+            "unresolvedaddress" in lower -> return msgHostNotFound()
 
         "-1004" in lower ||
             "could not connect" in lower ||
             "cannot connect to host" in lower ||
             "connectexception" in lower ||
             "connection refused" in lower ||
-            "failed to connect" in lower -> return MSG_CANNOT_CONNECT
+            "failed to connect" in lower -> return msgCannotConnect()
 
         "-1005" in lower ||
             "network connection was lost" in lower ||
-            "network is unreachable" in lower -> return MSG_CONNECTION_LOST
+            "network is unreachable" in lower -> return msgConnectionLost()
 
         "-1200" in lower ||
             "ssl" in lower ||
             "tls" in lower ||
-            "certificate" in lower -> return MSG_SSL
+            "certificate" in lower -> return msgSsl()
     }
 
     val httpFromMessage = HTTP_CODE_IN_CONTEXT_REGEX.find(raw)
@@ -187,10 +189,10 @@ private val HTTP_CODE_IN_CONTEXT_REGEX = Regex(
 )
 
 private fun mapHttpStatus(code: Int, fallback: String): String = when (code) {
-    in 500..599 -> MSG_SERVER_DOWN
-    401, 403 -> MSG_FORBIDDEN
-    404 -> MSG_NOT_FOUND
-    in 400..499 -> MSG_BAD_REQUEST
-    in 300..399 -> MSG_SERVER_DOWN
+    in 500..599 -> msgServerDown()
+    401, 403 -> msgForbidden()
+    404 -> msgNotFound()
+    in 400..499 -> msgBadRequest()
+    in 300..399 -> msgServerDown()
     else -> fallback
 }

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.complaints
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
@@ -96,7 +98,7 @@ fun ComplaintDetailsSheetTopPart(
         }
 
         complaint.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
-            SectionTitle("Документ-основание:")
+            SectionTitle(s("complectation_dokument_osnovanie"))
             TextC(
                 text = baseDocument,
                 style = MaterialTheme.typography.bodyMedium,
@@ -111,9 +113,9 @@ fun ComplaintDetailsSheetTopPart(
         // 1. Организация + Подразделение
         if (!complaint.organization.isNullOrBlank() || !complaint.branch.isNullOrBlank()) {
             DetailTwoColumnRow(
-                firstTitle = "Организация:",
+                firstTitle = s("work_order_organizatsiya"),
                 firstValue = complaint.organization,
-                secondTitle = "Подразделение:",
+                secondTitle = s("work_order_podrazdelenie"),
                 secondValue = complaint.branch
             )
             Spacer(Modifier.height(2.dp))
@@ -121,7 +123,7 @@ fun ComplaintDetailsSheetTopPart(
 
         // 2. Автомобиль
         complaint.car?.takeIf { it.isNotBlank() }?.let {
-            SectionTitle("Автомобиль:")
+            SectionTitle(s("work_order_avtomobil"))
             TextC(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium
@@ -134,13 +136,13 @@ fun ComplaintDetailsSheetTopPart(
             !complaint.engineType.isNullOrBlank() ||
             !complaint.priority.isNullOrBlank()
         ) {
-            SectionTitle("Характеристики:")
+            SectionTitle(s("complaints_harakteristiki"))
             DetailThreeColumnRow(
-                firstTitle = "Тип КПП:",
+                firstTitle = s("work_order_tip_kpp"),
                 firstValue = complaint.transmissionType,
-                secondTitle = "Тип двигателя:",
+                secondTitle = s("complaints_tip_dvigatelya"),
                 secondValue = complaint.engineType,
-                thirdTitle = "Приоритет:",
+                thirdTitle = s("complaints_prioritet"),
                 thirdValue = complaint.priority
             )
             Spacer(Modifier.height(2.dp))
@@ -151,13 +153,13 @@ fun ComplaintDetailsSheetTopPart(
             !complaint.eventType.isNullOrBlank() ||
             !complaint.infoSource.isNullOrBlank()
         ) {
-            SectionTitle("Статус обращения:")
+            SectionTitle(s("complaints_status_obrascheniya"))
             DetailThreeColumnRow(
-                firstTitle = "Состояние:",
+                firstTitle = s("complaints_sostoyanie"),
                 firstValue = complaint.state,
-                secondTitle = "Вид события:",
+                secondTitle = s("complaints_vid_sobytiya"),
                 secondValue = complaint.eventType,
-                thirdTitle = "Источник:",
+                thirdTitle = s("complaints_istochnik"),
                 thirdValue = complaint.infoSource
             )
             Spacer(Modifier.height(2.dp))
@@ -165,7 +167,7 @@ fun ComplaintDetailsSheetTopPart(
 
         // 5. Тема + Содержание (основной текст обращения)
         if (!complaint.topic.isNullOrBlank()) {
-            SectionTitle("Тема:")
+            SectionTitle(s("complaints_tema"))
             TextC(
                 text = complaint.topic.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium
@@ -174,7 +176,7 @@ fun ComplaintDetailsSheetTopPart(
         }
 
         if (!complaint.content.isNullOrBlank()) {
-            SectionTitle("Содержание обращения:")
+            SectionTitle(s("complaints_soderzhanie_obrascheniya"))
             TextC(
                 text = complaint.content.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium
@@ -184,7 +186,7 @@ fun ComplaintDetailsSheetTopPart(
 
         // 2. Ошибка (диагностические коды / текст)
         if (!complaint.error.isNullOrBlank()) {
-            SectionTitle("Ошибка / диагностическая информация:")
+            SectionTitle(s("complaints_oshibka_diagnosticheskaya_informatsiya"))
             // Здесь, как с кодами ошибок в WorkOrder, можно разбивать по \r при желании
             val lines = complaint.error
                 ?.split("\\r".toRegex())
@@ -211,9 +213,9 @@ fun ComplaintDetailsSheetTopPart(
         // 7. Ответственный / Автор
         if (!complaint.responsible.isNullOrBlank() || !complaint.author.isNullOrBlank()) {
             DetailTwoColumnRow(
-                firstTitle = "Ответственный:",
+                firstTitle = s("complaints_otvetstvennyy"),
                 firstValue = complaint.responsible,
-                secondTitle = "Автор обращения:",
+                secondTitle = s("complaints_avtor_obrascheniya"),
                 secondValue = complaint.author
             )
             Spacer(Modifier.height(2.dp))
@@ -273,7 +275,7 @@ fun ComplaintDetailsSheetTopPart(
 
         ExpandableListSection(
             title = buildGoodsTitle(
-                baseTitle = "Товары",
+                baseTitle = s("work_order_tovary"),
                 positionsCount = goods.size,
                 totalAmount = goodsTotal
             ),
@@ -756,7 +758,7 @@ private fun ComplaintChecklistItemRow(
     ) {
         Icon(
             imageVector = if (done) FeatherIcons.CheckCircle else FeatherIcons.Circle,
-            contentDescription = if (done) "Выполнено" else "Не выполнено",
+            contentDescription = if (done) s("complectation_vypolneno") else s("complectation_ne_vypolneno"),
             modifier = Modifier
                 .padding(top = 1.dp, end = 6.dp)
                 .size(16.dp),

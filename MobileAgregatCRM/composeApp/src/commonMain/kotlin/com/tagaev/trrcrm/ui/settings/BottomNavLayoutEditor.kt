@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.settings
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,10 +63,10 @@ fun BottomNavLayoutEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Панель навигации") },
+                title = { Text(s("settings_panel_navigatsii")) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
+                        Icon(FeatherIcons.ArrowLeft, contentDescription = s("settings_nazad"))
                     }
                 },
             )
@@ -89,7 +91,7 @@ fun BottomNavLayoutEditorScreen(
                         enabled = dirty,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Сохранить")
+                        Text(s("settings_sohranit"))
                     }
                 }
             }
@@ -104,7 +106,7 @@ fun BottomNavLayoutEditorScreen(
         ) {
             item {
                 Text(
-                    text = "«Главная» всегда первая. «События», «QR Сканер» и «Меню» нельзя скрыть. Используйте стрелки для смены порядка.",
+                    text = s("settings_glavnaya_vsegda_pervaya_sobytiya_qr_skaner_i_menyu_n"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -192,7 +194,7 @@ private fun BottomNavEditorRow(
                 ) {
                     Icon(
                         FeatherIcons.ChevronUp,
-                        contentDescription = "Выше",
+                        contentDescription = s("settings_vyshe"),
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -203,7 +205,7 @@ private fun BottomNavEditorRow(
                 ) {
                     Icon(
                         FeatherIcons.ChevronDown,
-                        contentDescription = "Ниже",
+                        contentDescription = s("settings_nizhe"),
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -212,7 +214,7 @@ private fun BottomNavEditorRow(
                 IconButton(onClick = onToggleVisible) {
                     Icon(
                         imageVector = if (visible) FeatherIcons.Eye else FeatherIcons.EyeOff,
-                        contentDescription = if (visible) "Скрыть из меню" else "Показать в меню",
+                        contentDescription = if (visible) s("settings_skryt_iz_menyu") else s("settings_pokazat_v_menyu"),
                     )
                 }
             }

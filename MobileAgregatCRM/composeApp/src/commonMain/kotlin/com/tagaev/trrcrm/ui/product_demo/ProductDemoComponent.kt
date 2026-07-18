@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
@@ -189,12 +191,12 @@ class ProductDemoComponent(
                     basketItems = state.basketItems.map {
                         if (it.product.id == product.id) it.copy(isSelected = true) else it
                     },
-                    transientMessage = "Товар уже добавлен в заявку"
+                    transientMessage = tr("product_demo_tovar_uzhe_dobavlen_v_zayavku")
                 )
             } else {
                 state.copy(
                     basketItems = state.basketItems + BasketItem(product = product, isSelected = true),
-                    transientMessage = "Товар добавлен в заявку"
+                    transientMessage = tr("product_demo_tovar_dobavlen_v_zayavku")
                 )
             }
         }
@@ -204,7 +206,7 @@ class ProductDemoComponent(
         _uiState.update { state ->
             state.copy(
                 basketItems = state.basketItems.filterNot { it.product.id == productId },
-                transientMessage = "Товар удален"
+                transientMessage = tr("product_demo_tovar_udalen")
             )
         }
     }
@@ -223,7 +225,7 @@ class ProductDemoComponent(
         _uiState.update { state ->
             val selectedCount = state.basketItems.count { it.isSelected }
             if (selectedCount == 0) {
-                state.copy(transientMessage = "Выберите товары для заявки")
+                state.copy(transientMessage = tr("product_demo_vyberite_tovary_dlya_zayavki"))
             } else {
                 val prefilledName = state.orderContactForm.name.ifBlank { state.profile.displayName }
                 val prefilledEmail = state.orderContactForm.email.ifBlank { state.profile.email }
@@ -266,7 +268,7 @@ class ProductDemoComponent(
         if (normalizedLogin.isBlank() || password.isBlank()) {
             _uiState.update { state ->
                 state.copy(
-                    profile = state.profile.copy(loginError = "Введите логин и пароль")
+                    profile = state.profile.copy(loginError = tr("product_demo_vvedite_login_i_parol"))
                 )
             }
             return
@@ -283,12 +285,12 @@ class ProductDemoComponent(
             when (val auth = CrmAuthUseCase.loginWithCredentials(normalizedLogin, password)) {
                 is Resource.Success -> {
                     _uiState.update { state ->
-                        state.copy(transientMessage = "Вход выполнен")
+                        state.copy(transientMessage = tr("product_demo_vhod_vypolnen"))
                     }
                     syncProfileFromSettings()
                 }
                 is Resource.Error -> {
-                    val message = auth.causes ?: friendlyError(auth.exception, "Ошибка авторизации")
+                    val message = auth.causes ?: friendlyError(auth.exception, tr("login_oshibka_avtorizatsii"))
                     _uiState.update { state ->
                         state.copy(
                             profile = state.profile.copy(
@@ -333,7 +335,7 @@ class ProductDemoComponent(
         _uiState.update { state ->
             state.copy(
                 profile = loadCrmProfileSnapshot(),
-                transientMessage = "Вы вышли из CRM профиля"
+                transientMessage = tr("product_demo_vy_vyshli_iz_crm_profilya")
             )
         }
     }
@@ -452,7 +454,7 @@ class ProductDemoComponent(
                 is Resource.Error -> {
                     val fieldErrors = extractCatalogFieldErrors(res.exception)
                     val message = fieldErrors.values.joinToString(separator = "\n")
-                        .ifBlank { res.causes ?: friendlyError(res.exception, "Не удалось отправить заявку") }
+                        .ifBlank { res.causes ?: friendlyError(res.exception, tr("product_demo_ne_udalos_otpravit_zayavku")) }
                     _uiState.update { state ->
                         state.copy(
                             signUpForm = state.signUpForm.copy(
@@ -628,7 +630,7 @@ class ProductDemoComponent(
                 is Resource.Error -> {
                     val fieldErrors = extractCatalogFieldErrors(res.exception)
                     val message = fieldErrors.values.joinToString(separator = "\n")
-                        .ifBlank { res.causes ?: friendlyError(res.exception, "Не удалось отправить заявку") }
+                        .ifBlank { res.causes ?: friendlyError(res.exception, tr("product_demo_ne_udalos_otpravit_zayavku")) }
                     _uiState.update { state ->
                         state.copy(
                             orderContactForm = state.orderContactForm.copy(
@@ -775,7 +777,7 @@ class ProductDemoComponent(
                 }
 
                 is Resource.Error -> {
-                    val message = res.causes ?: friendlyError(res.exception, "Не удалось загрузить каталог")
+                    val message = res.causes ?: friendlyError(res.exception, tr("product_demo_ne_udalos_zagruzit_katalog"))
                     val errorCode = (res.exception as? CoreApiException)?.normalizedErrorCode() ?: "transport_error"
                     println(
                         "CATALOG_UI: request_fail query='${query.orEmpty()}' brand='${brand.orEmpty()}' model='${model.orEmpty()}' category='${categoryId.orEmpty()}' page=$page error_code=$errorCode reason=$message"

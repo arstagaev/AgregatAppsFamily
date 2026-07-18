@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.expense_requests
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -55,7 +57,7 @@ fun ExpenseRequestDetailsSheet(
         if (supplementary.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Дополнительно",
+                text = s("expense_dopolnitelno"),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -159,7 +161,7 @@ private fun ExpenseRequestGridCell(
     onOpenBaseDocument: (String) -> Unit = {},
 ) {
     val isNavigableBaseDocument = remember(label, value) {
-        label == "Документ-основание" &&
+        label == s("events_dokument_osnovanie_2") &&
             value != "—" &&
             TreeRootDocument.parse(value) != null
     }

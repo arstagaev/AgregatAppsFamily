@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.repair_template_catalog
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -137,7 +139,7 @@ class RepairTemplateCatalogComponent(
         itemNumber: String,
         itemDate: String,
         message: String,
-    ): String? = "Справочник «Шаблоны ремонта» только для просмотра"
+    ): String? = tr("repair_template_spravochnik_shablony_remonta_tolko_dlya_prosmotra")
 
     override fun addLocalMessage(orderGuid: String?, message: MessageModel) {
         // read-only

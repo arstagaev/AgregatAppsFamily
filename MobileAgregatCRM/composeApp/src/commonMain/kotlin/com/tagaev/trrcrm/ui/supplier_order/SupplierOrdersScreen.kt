@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.supplier_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -146,10 +148,10 @@ fun SupplierOrdersScreen(
         }
     }
     MasterScreen(
-        title = "Заказ поставщику",
+        title = s("supplier_order_zakaz_postavschiku"),
         resource = resource,
-        errorText = "Не удалось загрузить заказы поставщику",
-        notFoundText = "Заказы поставщику не найдены",
+        errorText = s("supplier_order_ne_udalos_zagruzit_zakazy_postavschiku"),
+        notFoundText = s("supplier_order_zakazy_postavschiku_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -165,9 +167,9 @@ fun SupplierOrdersScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -224,10 +226,10 @@ fun SupplierOrdersScreen(
             {
                 Row {
                     IconButton(onClick = hideSearchForm, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(onClick = clearSearchAndClose, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -243,7 +245,7 @@ fun SupplierOrdersScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 6.dp),
-                        placeholder = { Text("Поиск заказа поставщику") },
+                        placeholder = { Text(s("supplier_order_poisk_zakaza_postavschiku")) },
                         singleLine = true,
                         enabled = !isTopBarLoading,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -268,12 +270,12 @@ fun SupplierOrdersScreen(
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -293,7 +295,7 @@ fun SupplierOrdersScreen(
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -338,8 +340,8 @@ fun SupplierOrdersScreen(
     if (isResolvingBaseDocument) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("ищем документ основание....") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("events_ischem_dokument_osnovanie")) },
             confirmButton = {}
         )
     }
@@ -358,22 +360,22 @@ private fun SupplierOrderSearchRow(
         FilterChip(
             selected = selected == SupplierOrderSearchMode.NUMBER,
             onClick = { onSelect(SupplierOrderSearchMode.NUMBER) },
-            label = { Text("По номеру") }
+            label = { Text(s("complectation_po_nomeru")) }
         )
         FilterChip(
             selected = selected == SupplierOrderSearchMode.COUNTERPARTY,
             onClick = { onSelect(SupplierOrderSearchMode.COUNTERPARTY) },
-            label = { Text("По контрагенту") }
+            label = { Text(s("filter_po_kontragentu")) }
         )
         FilterChip(
             selected = selected == SupplierOrderSearchMode.AUTHOR,
             onClick = { onSelect(SupplierOrderSearchMode.AUTHOR) },
-            label = { Text("По автору") }
+            label = { Text(s("filter_po_avtoru")) }
         )
         FilterChip(
             selected = selected == SupplierOrderSearchMode.MANAGER,
             onClick = { onSelect(SupplierOrderSearchMode.MANAGER) },
-            label = { Text("По менеджеру") }
+            label = { Text(s("filter_po_menedzheru")) }
         )
     }
 }
@@ -384,7 +386,7 @@ private fun SupplierOrderCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val number = order.number.orEmpty().ifBlank { "Без номера" }
+    val number = order.number.orEmpty().ifBlank { s("events_bez_nomera") }
     val status = order.status.orEmpty().ifBlank { "—" }
     val counterparty = order.counterparty.orEmpty().ifBlank { "—" }
     val manager = order.manager.orEmpty().ifBlank { "—" }

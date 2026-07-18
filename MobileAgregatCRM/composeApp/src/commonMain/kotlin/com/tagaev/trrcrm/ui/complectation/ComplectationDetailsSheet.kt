@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.complectation
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -79,16 +81,16 @@ private fun complectationQuantityWithUnit(wo: WorkOrderDto): String {
     val quantity = wo.complectationQuantity?.trim().orEmpty()
     if (quantity.isBlank()) return "—"
     val unit = wo.complectationUnit?.trim().orEmpty()
-    return if (unit.isNotBlank()) "$quantity $unit" else "$quantity шт"
+    return if (unit.isNotBlank()) "$quantity $unit" else s("complectation_qty_sht", quantity)
 }
 
 private fun planningWorkTitle(row: ComplectationPlanningRowDto): String {
     val work = row.autoWork?.trim().orEmpty()
     val duration = row.duration?.trim().orEmpty()
     return when {
-        work.isNotBlank() && duration.isNotBlank() -> "$work ($duration ч)"
+        work.isNotBlank() && duration.isNotBlank() -> s("complectation_work_duration_h", work, duration)
         work.isNotBlank() -> work
-        duration.isNotBlank() -> "Продолжительность: $duration ч"
+        duration.isNotBlank() -> s("complectation_duration_h", duration)
         else -> "—"
     }
 }
@@ -153,15 +155,15 @@ fun ComplectationDetailsSheet(
                 !wo.number.isNullOrBlank() &&
                 !wo.date.isNullOrBlank()
         },
-        historyTitle = "История",
-        historyEmptyText = "Записей нет",
+        historyTitle = s("complectation_istoriya"),
+        historyEmptyText = s("complectation_zapisey_net"),
         historyPagerDescription = { showAll, total ->
-            if (showAll) "Показаны все $total записей"
-            else "Показаны последние 10 из $total"
+            if (showAll) s("complectation_pokazany_vse_zapisey", total)
+            else s("complectation_pokazany_poslednie_10", total)
         },
-        addCommentTitle = "Добавить запись",
-        composerPlaceholder = "Текст записи…",
-        sendingDialogTitle = "Отправка записи",
+        addCommentTitle = s("complectation_dobavit_zapis"),
+        composerPlaceholder = s("complectation_tekst_zapisi"),
+        sendingDialogTitle = s("complectation_otpravka_zapisi"),
         scrollState = if (useStackedDetails) detailsScrollState else null,
         showAllHistory = if (useStackedDetails) {
             (stackedDetailsSnapshot ?: StackedDocumentDetailsSnapshot()).showAllHistory
@@ -246,7 +248,7 @@ private fun wireframeComplectationHeader(
         ) {
             if (!wo.organization.isNullOrBlank()) {
                 Column(modifier = Modifier.weight(1f)) {
-                    CompactSectionTitle("Организация:")
+                    CompactSectionTitle(s("work_order_organizatsiya"))
                     CompactBody(wo.organization.orEmpty())
                 }
             } else {
@@ -254,7 +256,7 @@ private fun wireframeComplectationHeader(
             }
             if (!wo.branch.isNullOrBlank()) {
                 Column(modifier = Modifier.weight(1f)) {
-                    CompactSectionTitle("Подразделение:")
+                    CompactSectionTitle(s("work_order_podrazdelenie"))
                     CompactBody(wo.branch.orEmpty())
                 }
             } else {
@@ -264,12 +266,12 @@ private fun wireframeComplectationHeader(
     }
 
     if (!wo.link.isNullOrBlank()) {
-        CompactSectionTitle("Ссылка:")
+        CompactSectionTitle(s("complectation_ssylka"))
         CompactBody(wo.link.orEmpty())
     }
 
     wo.baseDocument?.takeIf { it.isNotBlank() }?.let { baseDocument ->
-        CompactSectionTitle("Документ-основание:")
+        CompactSectionTitle(s("complectation_dokument_osnovanie"))
         if (onOpenBaseDocument != null) {
             val cleaned = normalizeRawDocumentLabel(baseDocument)
             TextC(
@@ -301,22 +303,22 @@ private fun wireframeComplectationHeader(
         CompactMuted(docSubtitle)
     }
 
-    CompactSectionTitle("Комплект:")
+    CompactSectionTitle(s("complectation_komplekt_2"))
     CompactBody(dashOr(wo.complectationKit))
 
-    CompactSectionTitle("Характеристика комплекта:")
+    CompactSectionTitle(s("complectation_harakteristika_komplekta"))
     CompactBody(wo.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—")
 
-    CompactSectionTitle("Количество комплектов:")
+    CompactSectionTitle(s("complectation_kolichestvo_komplektov"))
     CompactBody(complectationQuantityWithUnit(wo))
 
 //    CompactSectionTitle("Ед. изм. комплекта:")
 //    CompactBody(dashOr(wo.complectationUnit))
 
-    CompactSectionTitle("Цена комплекта:")
+    CompactSectionTitle(s("complectation_tsena_komplekta"))
     CompactBody(formatRubleAmount(wo.complectationPrice))
 
-    CompactSectionTitle("Сумма документа:")
+    CompactSectionTitle(s("complectation_summa_dokumenta_2"))
     CompactBody(formatRubleAmount(wo.documentAmount))
 
     val repairType = wo.repairType?.takeIf { it.isNotBlank() }
@@ -327,7 +329,7 @@ private fun wireframeComplectationHeader(
             verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                CompactSectionTitle("Вид ремонта:")
+                CompactSectionTitle(s("work_order_vid_remonta"))
                 if (repairType != null) {
                     Text(
                         text = repairType,
@@ -341,7 +343,7 @@ private fun wireframeComplectationHeader(
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
-                CompactSectionTitle("Состояние")
+                CompactSectionTitle(s("work_order_sostoyanie"))
                 Spacer(Modifier.height(2.dp))
                 if (!wo.status.isNullOrBlank()) {
                     ComplectationStatusBadge(wo.status.orEmpty())
@@ -359,7 +361,7 @@ private fun wireframeComplectationHeader(
         ) {
             if (!wo.author.isNullOrBlank()) {
                 Column(modifier = Modifier.weight(1f)) {
-                    CompactSectionTitle("Автор:")
+                    CompactSectionTitle(s("complectation_avtor"))
                     CompactBody(wo.author.orEmpty())
                 }
             } else {
@@ -367,7 +369,7 @@ private fun wireframeComplectationHeader(
             }
             if (!wo.master.isNullOrBlank()) {
                 Column(modifier = Modifier.weight(1f)) {
-                    CompactSectionTitle("Мастер:")
+                    CompactSectionTitle(s("complectation_master"))
                     CompactBody(wo.master.orEmpty())
                 }
             } else {
@@ -376,7 +378,7 @@ private fun wireframeComplectationHeader(
         }
     }
 
-    CompactSectionTitle("Комментарий:")
+    CompactSectionTitle(s("complectation_kommentariy_2"))
     CompactBody(wo.comment?.takeIf { it.isNotBlank() } ?: "—")
 
     if (onOpenDocumentPhotos != null) {
@@ -392,7 +394,7 @@ private fun wireframeComplectationHeader(
     val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
     ExpandableListSection(
         title = buildGoodsTitle(
-            baseTitle = "Товары",
+            baseTitle = s("work_order_tovary"),
             positionsCount = products.size,
             totalAmount = productsTotal
         ),
@@ -419,7 +421,7 @@ private fun wireframeComplectationHeader(
     val jobs = complectationJobsForDisplay(wo)
     val executors = wo.executors
     ExpandableListSection(
-        title = "Работы (поз. ${jobs.size})",
+        title = s("work_order_raboty_poz_jobs_size", jobs.size),
         items = jobs,
         initiallyExpanded = false,
         expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.JOBS) else null,
@@ -438,14 +440,14 @@ private fun wireframeComplectationHeader(
     Spacer(Modifier.height(6.dp))
 
     wo.defectSummary?.takeIf { it.isNotBlank() }?.let { summary ->
-        CompactSectionTitle("Дефектовка (текст):")
+        CompactSectionTitle(s("complectation_defektovka_tekst"))
         CompactBody(summary)
         Spacer(Modifier.height(4.dp))
     }
 
     val defectsNew = wo.defectsNew.filter { !it.author.isNullOrBlank() }
     ExpandableListSection(
-        title = "Дефектовка (поз. ${defectsNew.size})",
+        title = s("complectation_defektovka_poz_defectsnew_size", defectsNew.size),
         items = defectsNew,
         initiallyExpanded = false,
         expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.DEFECTS) else null,
@@ -465,7 +467,7 @@ private fun wireframeComplectationHeader(
 
     val planning = wo.planning
     ExpandableListSection(
-        title = "Планирование (поз. ${planning.size})",
+        title = s("complectation_planirovanie_poz_planning_size", planning.size),
         items = planning,
         initiallyExpanded = false,
         expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.PLANNING) else null,
@@ -485,7 +487,7 @@ private fun wireframeComplectationHeader(
 
     val checklist = wo.checklist
     ExpandableListSection(
-        title = "Чек лист (поз. ${checklist.size})",
+        title = s("complectation_chek_list_poz_checklist_size", checklist.size),
         items = checklist,
         initiallyExpanded = false,
         expanded = if (useStacked) stackedDetailsSnapshot!!.isSectionExpanded(ComplectationDetailsSection.CHECKLIST) else null,
@@ -583,7 +585,7 @@ private fun ComplectationDefectRowCompact(defect: WorkOrderDefectDto) {
             )
         }
         defect.author?.takeIf { it.isNotBlank() }?.let { author ->
-            CompactMuted("Автор: $author")
+            CompactMuted(s("complectation_avtor_it", author))
         }
         defect.decision?.takeIf { it.isNotBlank() }?.let { CompactMuted(it) }
         defect.action?.takeIf { it.isNotBlank() }?.let { CompactMuted(it) }
@@ -593,7 +595,7 @@ private fun ComplectationDefectRowCompact(defect: WorkOrderDefectDto) {
 private fun checklistItemComplete(state: String?): Boolean {
     val s = state?.trim()?.lowercase().orEmpty()
     if (s.isEmpty()) return false
-    val yes = setOf("да", "yes", "истина", "1", "выполнено", "готово", "ок", "ok", "+", "true")
+    val yes = setOf("да", "yes", "истина", "1", s("main_vypolneno"), "готово", "ок", "ok", "+", "true")
     val no = setOf("нет", "no", "ложь", "0", "-", "false")
     if (yes.contains(s)) return true
     if (no.contains(s)) return false
@@ -612,7 +614,7 @@ private fun ComplectationChecklistRowCompact(item: ComplectationChecklistItemDto
     ) {
         Icon(
             imageVector = if (done) FeatherIcons.CheckCircle else FeatherIcons.Circle,
-            contentDescription = if (done) "Выполнено" else "Не выполнено",
+            contentDescription = if (done) s("complectation_vypolneno") else s("complectation_ne_vypolneno"),
             modifier = Modifier
                 .padding(top = 1.dp, end = 6.dp)
                 .size(16.dp),

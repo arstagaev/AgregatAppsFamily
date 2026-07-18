@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.menu
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -52,7 +54,7 @@ fun MenuScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = "Меню",
+            text = s("menu_menyu"),
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -63,7 +65,7 @@ fun MenuScreen(
                         add(
                             MenuCardData(
                                 id = "check_update",
-                                title = "Обновить",
+                                title = s("menu_obnovit"),
                                 iconRes = FeatherIcons.RefreshCw
                             )
                         )
@@ -71,14 +73,14 @@ fun MenuScreen(
                     add(
                         MenuCardData(
                             id = "catalog",
-                            title = "Каталог",
+                            title = s("menu_katalog"),
                             iconRes = LineAwesomeIcons.AlignJustifySolid
                         )
                     )
                     add(
                         MenuCardData(
                             id = "settings",
-                            title = "Настройки",
+                            title = s("menu_nastroyki"),
                             iconRes = LineAwesomeIcons.ToolboxSolid
                         )
                     )
@@ -168,7 +170,7 @@ private fun DesktopUpdatePanel(
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Обновления Desktop", style = MaterialTheme.typography.titleMedium)
+            Text(s("menu_obnovleniya_desktop"), style = MaterialTheme.typography.titleMedium)
             state.currentVersion?.takeIf { it.isNotBlank() }?.let {
                 Text("Текущая версия: $it", style = MaterialTheme.typography.bodySmall)
             }
@@ -177,7 +179,7 @@ private fun DesktopUpdatePanel(
             }
             if (isUpToDate && state.errorMessage == null && !state.isBusy) {
                 Text(
-                    "Установлена актуальная версия. Обновление не требуется.",
+                    s("menu_ustanovlena_aktualnaya_versiya_obnovlenie_ne_trebuet"),
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -211,22 +213,22 @@ private fun DesktopUpdatePanel(
                 OutlinedButton(onClick = onCheck, enabled = !state.isBusy) {
                     Icon(FeatherIcons.RefreshCw, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
-                    Text("Проверить")
+                    Text(s("menu_proverit"))
                 }
                 if (canOfferInstall) {
                     Button(onClick = onInstall, enabled = !state.isBusy) {
                         Icon(FeatherIcons.Download, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("Установить")
+                        Text(s("menu_ustanovit"))
                     }
                 }
                 if (state.canCancelDownload && state.isBusy) {
-                    TextButton(onClick = onCancelDownload) { Text("Отменить") }
+                    TextButton(onClick = onCancelDownload) { Text(s("menu_otmenit")) }
                 }
                 if (state.errorMessage != null) {
-                    TextButton(onClick = onClearError, enabled = !state.isBusy) { Text("Скрыть") }
+                    TextButton(onClick = onClearError, enabled = !state.isBusy) { Text(s("login_skryt")) }
                 } else if (state.availableRelease?.isMandatory == false) {
-                    TextButton(onClick = onDismiss, enabled = !state.isBusy) { Text("Позже") }
+                    TextButton(onClick = onDismiss, enabled = !state.isBusy) { Text(s("menu_pozzhe")) }
                 }
             }
         }

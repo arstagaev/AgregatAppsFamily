@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,7 +72,7 @@ fun CatalogTab(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
                 singleLine = true,
-                label = { Text("Поиск по названию") }
+                label = { Text(s("product_demo_poisk_po_nazvaniyu")) }
             )
         }
 
@@ -118,7 +120,7 @@ fun CatalogTab(
                     onClick = onClearFilters,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Сбросить фильтры")
+                    Text(s("product_demo_sbrosit_filtry"))
                 }
             }
         }
@@ -201,7 +203,7 @@ fun CatalogTab(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = product.id !in addedProductIds
                     ) {
-                        Text(if (product.id in addedProductIds) "В заявке" else "Добавить к заявке")
+                        Text(if (product.id in addedProductIds) "В заявке" else s("product_demo_dobavit_k_zayavke"))
                     }
                 }
             }
@@ -214,7 +216,7 @@ fun CatalogTab(
                     enabled = !isLoadingMore,
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                 ) {
-                    Text(if (isLoadingMore) "Загружаем..." else "Показать ещё")
+                    Text(if (isLoadingMore) "Загружаем..." else s("product_demo_pokazat_esche"))
                 }
             }
         }

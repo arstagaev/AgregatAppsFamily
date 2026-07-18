@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.supplier_order
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.backhandler.BackCallback
 import com.tagaev.trrcrm.data.AppSettings
@@ -131,7 +133,7 @@ class SupplierOrdersComponent(
     }
 
     override suspend fun sendMessage(itemNumber: String, itemDate: String, message: String): String? {
-        return "Отправка сообщений для Заказа поставщику недоступна"
+        return tr("supplier_order_otpravka_soobscheniy_dlya_zakaza_postavschiku_nedost")
     }
 
     override suspend fun resolveBaseDocument(rawBaseDocument: String): Resource<TreeRootResolvedDocument> {

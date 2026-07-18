@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.push
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 data class NotificationContext(
     val screen: String?,
     val docTypeLabel: String?,
@@ -120,7 +122,7 @@ object NotificationContextParser {
     private fun inferDocTypeLabel(title: String, screen: String?): String? {
         val t = title.lowercase()
         return when {
-            t.contains("комплект") || screen == "complectation" -> "Комплектация"
+            t.contains("комплект") || screen == "complectation" -> tr("nav_komplektatsiya")
             t.contains("заказ-нар") || t.contains("заказнар") || screen == "work_orders" -> "Заказ-наряд"
             t.contains("событ") || screen == "events" -> "Событие"
             else -> null

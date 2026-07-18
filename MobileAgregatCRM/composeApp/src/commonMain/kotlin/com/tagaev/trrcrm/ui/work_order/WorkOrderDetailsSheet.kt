@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.work_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +35,9 @@ fun WorkOrderDetailsSheet(
     initialDraft: String? = null,
     onDraftChanged: (String) -> Unit = {},
     onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     DetailsWithMessagesSheet(
         item = order,
@@ -46,10 +51,29 @@ fun WorkOrderDetailsSheet(
             draft.isNotBlank() &&
                     !wo.number.isNullOrBlank() &&
                     !wo.date.isNullOrBlank()
+        },
+        headerContent = { wo ->
+            WorkOrderDetailsBody(
+                wo = wo,
+                onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                documentPhotoCount = documentPhotoCount,
+                isDocumentPhotoCountLoading = isDocumentPhotoCountLoading,
+                onOpenDocumentPhotos = onOpenDocumentPhotos,
+            )
         }
-    ) { wo ->
-        // 1. Организация + подразделение (две колонки)
-        if (!wo.organization.isNullOrBlank() || !wo.branch.isNullOrBlank()) {
+    )
+}
+
+@Composable
+private fun WorkOrderDetailsBody(
+    wo: WorkOrderDto,
+    onNomenclatureCharacteristicSearch: ((String) -> Unit)?,
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
+) {
+    // 1. Организация + подразделение (две колонки)
+    if (!wo.organization.isNullOrBlank() || !wo.branch.isNullOrBlank()) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -57,7 +81,7 @@ fun WorkOrderDetailsSheet(
             ) {
                 if (!wo.organization.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Организация:")
+                        SectionTitle(s("work_order_organizatsiya"))
                         TextC(
                             text = wo.organization.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
@@ -68,7 +92,7 @@ fun WorkOrderDetailsSheet(
                 }
                 if (!wo.branch.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Подразделение:")
+                        SectionTitle(s("work_order_podrazdelenie"))
                         TextC(
                             text = wo.branch.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
@@ -87,7 +111,7 @@ fun WorkOrderDetailsSheet(
             ) {
                 if (!wo.link.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Документ:")
+                        SectionTitle(s("work_order_dokument"))
                         TextC(
                             text = wo.link.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
@@ -98,7 +122,7 @@ fun WorkOrderDetailsSheet(
                 }
                 if (!wo.customer.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Заказчик:")
+                        SectionTitle(s("work_order_zakazchik"))
                         TextC(
                             text = wo.customer.orEmpty(),
                             style = MaterialTheme.typography.bodyMedium
@@ -110,7 +134,7 @@ fun WorkOrderDetailsSheet(
 
         // 4. Автомобиль
         wo.car?.takeIf { it.isNotBlank() }?.let {
-            SectionTitle("Автомобиль:")
+            SectionTitle(s("work_order_avtomobil"))
             TextC(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium
@@ -123,7 +147,7 @@ fun WorkOrderDetailsSheet(
             !wo.mileage.isNullOrBlank() ||
             !wo.carAge.isNullOrBlank()
         ) {
-            SectionTitle("Хар-ки автомобиля:")
+            SectionTitle(s("work_order_har_ki_avtomobilya"))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -131,7 +155,7 @@ fun WorkOrderDetailsSheet(
                 if (!wo.gearboxType.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Тип КПП:",
+                            text = s("work_order_tip_kpp"),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -145,7 +169,7 @@ fun WorkOrderDetailsSheet(
                 if (!wo.engineType.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Тип ДВС:",
+                            text = s("work_order_tip_dvs"),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -159,7 +183,7 @@ fun WorkOrderDetailsSheet(
                 if (!wo.mileage.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Пробег:",
+                            text = s("work_order_probeg"),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -173,7 +197,7 @@ fun WorkOrderDetailsSheet(
                 if (!wo.carAge.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Год выпуска:",
+                            text = s("work_order_god_vypuska"),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -195,7 +219,7 @@ fun WorkOrderDetailsSheet(
             ) {
                 if (!wo.status.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Состояние")
+                        SectionTitle(s("work_order_sostoyanie"))
 
                         Spacer(Modifier.height(4.dp))
                         WorkOrderStatusBadge(wo.status.orEmpty())
@@ -203,7 +227,7 @@ fun WorkOrderDetailsSheet(
                 }
                 if (!wo.repairType.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Вид ремонта:")
+                        SectionTitle(s("work_order_vid_remonta"))
 
                         Text(
                             text = wo.repairType.orEmpty(),
@@ -223,7 +247,7 @@ fun WorkOrderDetailsSheet(
             ) {
                 if (!wo.errorCodes.isNullOrBlank()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Коды ошибок:")
+                        SectionTitle(s("work_order_kody_oshibok"))
                         val lines = remember(wo.errorCodes) {
                             wo.errorCodes!!
                                 .split("\\r".toRegex())
@@ -239,7 +263,7 @@ fun WorkOrderDetailsSheet(
                             }
                         } else {
                             Text(
-                                text = wo.errorCodes ?: "Нету",
+                                text = wo.errorCodes ?: s("work_order_netu"),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -251,7 +275,7 @@ fun WorkOrderDetailsSheet(
                             .weight(1f)
                             .padding(start = 8.dp)
                     ) {
-                        SectionTitle("Причина обращения:")
+                        SectionTitle(s("work_order_prichina_obrascheniya"))
 
                         Text(
                             text = wo.reason.orEmpty()
@@ -265,13 +289,22 @@ fun WorkOrderDetailsSheet(
         }
         Spacer(Modifier.height(6.dp))
 
+        if (onOpenDocumentPhotos != null) {
+            com.tagaev.trrcrm.ui.complectation.ComplectationOpenPhotosButton(
+                photoCount = documentPhotoCount,
+                isLoading = isDocumentPhotoCountLoading,
+                onClick = onOpenDocumentPhotos,
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+
         val jobs = wo.jobs.orEmpty()
         val executors = wo.executors
         val productsBuyer = wo.products2.orEmpty()
         val productsBuyerTotal = productsBuyer.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
         ExpandableListSection(
             title = buildGoodsTitle(
-                baseTitle = "Товары для Покупателя",
+                baseTitle = s("work_order_tovary_dlya_pokupatelya"),
                 positionsCount = productsBuyer.size,
                 totalAmount = productsBuyerTotal
             ),
@@ -284,7 +317,7 @@ fun WorkOrderDetailsSheet(
         ) { product ->
             WorkOrderProductLineRowCompact(
                 product = product,
-                characteristicLabel = "№ кат.",
+                characteristicLabel = s("work_order_kat"),
                 onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
             )
         }
@@ -292,7 +325,7 @@ fun WorkOrderDetailsSheet(
 
         val jobsBuyer = wo.jobs2.orEmpty()
         ExpandableListSection(
-            title = "Работы для Покупателя (поз. ${jobsBuyer.size})",
+            title = s("work_order_raboty_dlya_pokupatelya_poz_jobsbuyer_size", jobsBuyer.size),
             items = jobsBuyer,
             initiallyExpanded = false,
             listContentPadding = WorkOrderLineItemsExpandableListPadding,
@@ -312,7 +345,7 @@ fun WorkOrderDetailsSheet(
         val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
         ExpandableListSection(
             title = buildGoodsTitle(
-                baseTitle = "Товары",
+                baseTitle = s("work_order_tovary"),
                 positionsCount = products.size,
                 totalAmount = productsTotal
             ),
@@ -332,7 +365,7 @@ fun WorkOrderDetailsSheet(
 
 
         ExpandableListSection(
-            title = "Работы (поз. ${jobs.size})",
+            title = s("work_order_raboty_poz_jobs_size", jobs.size),
             items = jobs,
             initiallyExpanded = false,
             listContentPadding = WorkOrderLineItemsExpandableListPadding,
@@ -342,7 +375,6 @@ fun WorkOrderDetailsSheet(
         ) { job ->
             WorkOrderJobLineRowCompact(job, executors = executors)
         }
-    }
 }
 
 @Composable

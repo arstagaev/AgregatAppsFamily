@@ -1,9 +1,13 @@
 package com.tagaev.trrcrm.ui.cargo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,6 +20,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +49,10 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.models.CargoDto
+import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
+import com.tagaev.trrcrm.ui.complectation.ComplectationAddPhotoTopBarAction
+import com.tagaev.trrcrm.ui.complectation.DocumentPhotosViewerScreen
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
@@ -56,6 +67,7 @@ import com.tagaev.trrcrm.ui.master_screen.TreeRootDocumentDetailsSheet
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.ui.style.DefaultColors
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Camera
 import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
@@ -71,21 +83,21 @@ private val CARGO_TOPBAR_SEARCH_OPTIONS = listOf(
 )
 
 private fun Refiner.SearchQueryType.cargoSearchLabel(): String = when (this) {
-    Refiner.SearchQueryType.CODE -> "Номер"
+    Refiner.SearchQueryType.CODE -> s("filter_nomer")
     Refiner.SearchQueryType.ROUTE -> "Маршрут"
     Refiner.SearchQueryType.CARRIER -> "Перевозчик"
-    Refiner.SearchQueryType.AUTHOR -> "Автор"
-    Refiner.SearchQueryType.TOPIC -> "Тема"
-    Refiner.SearchQueryType.MANAGER -> "Менеджер"
-    Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
-    Refiner.SearchQueryType.MASTER -> "Мастер"
+    Refiner.SearchQueryType.AUTHOR -> s("events_avtor")
+    Refiner.SearchQueryType.TOPIC -> s("filter_tema")
+    Refiner.SearchQueryType.MANAGER -> s("filter_menedzher")
+    Refiner.SearchQueryType.COUNTERPARTY -> s("events_kontragent")
+    Refiner.SearchQueryType.MASTER -> s("filter_master")
     Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
     Refiner.SearchQueryType.AUTO -> "Автомобиль"
     Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
     Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
     Refiner.SearchQueryType.FIX_TYPE -> "Вид ремонта"
     Refiner.SearchQueryType.CLIENT -> "Заказчик"
-    Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
+    Refiner.SearchQueryType.SUBJECT_MATTER -> s("incoming_sut_obrascheniya")
     Refiner.SearchQueryType.PHONE -> "Телефон"
     Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
@@ -96,11 +108,11 @@ private fun Refiner.SearchQueryType.cargoSearchLabel(): String = when (this) {
     Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
     Refiner.SearchQueryType.PURPOSE,
-    -> "Калькуляция"
+    -> s("nav_kalkulyatsiya")
 }
 
 @Composable
-fun CargoScreen(component: ICargoComponent) {
+fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
     val resource by component.cargos.collectAsState()
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
@@ -110,15 +122,43 @@ fun CargoScreen(component: ICargoComponent) {
     var searchTypeDraft by rememberSaveable { mutableStateOf(refineState.searchQueryType) }
     val isTopBarLoading = resource is Resource.Loading ||
             (resource as? Resource.Success<*>)?.additionalLoading == true
+
+    val isCameraOpen by component.isCameraOpen.collectAsState()
+    val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
+    val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
+    val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val documentPhotoCount by component.documentPhotoCount.collectAsState()
+    val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
+    val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
+    val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
+    val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
+    val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    var photosUploadEnabled by remember { mutableStateOf(true) }
+    var photosDownloadEnabled by remember { mutableStateOf(true) }
+    val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
+    var cameraSnackbarIsError by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
     val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
     var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
 
-//    var isSendingMessage by remember { mutableStateOf(false) }
-//    var lastSendError by remember { mutableStateOf<String?>(null) }
-
-    androidx.compose.runtime.LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
+    LaunchedEffect(Unit) {
+        photosUploadEnabled = component.isPhotosUploadEnabled()
+        photosDownloadEnabled = component.isPhotosDownloadEnabled()
+    }
+    LaunchedEffect(cameraPrecheckError) {
+        val error = cameraPrecheckError
+        if (!error.isNullOrBlank()) {
+            cameraSnackbarIsError = true
+            cameraErrorSnackbarHostState.showSnackbar(
+                com.tagaev.trrcrm.data.remote.userFacingMessage(error, error),
+            )
+            component.consumeCameraPrecheckError()
+        }
+    }
+    LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
         if (!isSearchMode) {
             searchQueryDraft = refineState.searchQuery
             searchTypeDraft = if (refineState.searchQueryType in CARGO_TOPBAR_SEARCH_OPTIONS) {
@@ -162,11 +202,39 @@ fun CargoScreen(component: ICargoComponent) {
             component.changePanel(MasterPanel.List)
         }
     }
+
+    if (isCameraOpen) {
+        val number = cameraDocumentNumber
+        if (number != null) {
+            DocumentCameraScreen(
+                documentNumber = number,
+                title = s("complectation_kamera_number", number),
+                documentType = ImageDocumentType.Delivery,
+                initialQuota = cameraUploadQuota,
+                showUploadStatusBlock = false,
+                onBack = component::closeCamera,
+            )
+        }
+        return
+    }
+    if (isPhotosViewerOpen) {
+        val number = photosViewerDocumentNumber
+        if (number != null) {
+            DocumentPhotosViewerScreen(
+                documentNumber = number,
+                documentType = ImageDocumentType.Delivery,
+                onBack = component::closePhotosViewer,
+            )
+        }
+        return
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
     MasterScreen(
-        title = "Доставки",
+        title = s("nav_dostavki"),
         resource = resource,
-        errorText = "Не удалось загрузить доставки",
-        notFoundText = "Доставки не найдены",
+        errorText = s("cargo_ne_udalos_zagruzit_dostavki"),
+        notFoundText = s("cargo_dostavki_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -189,9 +257,9 @@ fun CargoScreen(component: ICargoComponent) {
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -205,17 +273,38 @@ fun CargoScreen(component: ICargoComponent) {
             }
 
             val currentLinked = linkedDocuments.lastOrNull()
+            val activeCargoNumber = (currentLinked as? TreeRootResolvedDocument.Cargo)?.value?.number
+                ?: cargo.number
+            LaunchedEffect(activeCargoNumber, photosDownloadEnabled) {
+                if (photosDownloadEnabled) {
+                    activeCargoNumber.takeIf { it.isNotBlank() }?.let {
+                        component.refreshDocumentPhotoCount(it)
+                    }
+                }
+            }
+            val openDocumentPhotos: (() -> Unit)? =
+                if (photosDownloadEnabled && activeCargoNumber.isNotBlank()) {
+                    { component.requestOpenDocumentPhotos(activeCargoNumber) }
+                } else {
+                    null
+                }
             if (currentLinked != null) {
                 TreeRootDocumentDetailsSheet(
                     document = currentLinked,
                     onBack = onNestedBack,
-                    onOpenBaseDocument = onOpenBaseDocument
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                 )
             } else {
                 CargoDetailsSheet(
                     cargo = cargo,
                     onClose = onNestedBack,
-                    onOpenBaseDocument = onOpenBaseDocument
+                    onOpenBaseDocument = onOpenBaseDocument,
+                    documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                 )
             }
         },
@@ -225,7 +314,7 @@ fun CargoScreen(component: ICargoComponent) {
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
-                messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                messageForUser = s("complaints_korrektno_rabotaet_tolko_sortirovka_po_date_ostalnye"),
                 orderByOptions = Refiner.OrderBy.allForUiExceptDateLastModification,
                 sections = setOf(
                     RefineSection.STATUS,
@@ -259,13 +348,13 @@ fun CargoScreen(component: ICargoComponent) {
                         onClick = hideSearchForm,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(
                         onClick = clearSearchAndClose,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -279,7 +368,7 @@ fun CargoScreen(component: ICargoComponent) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 6.dp),
-                        placeholder = { Text("Поиск доставки") },
+                        placeholder = { Text(s("cargo_poisk_dostavki")) },
                         singleLine = true,
                         enabled = !isTopBarLoading,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
@@ -293,7 +382,16 @@ fun CargoScreen(component: ICargoComponent) {
             else -> null
         },
         topBarActionsContent = { isLoadingTopBar ->
-            if (panel == MasterPanel.List) {
+            if (panel == MasterPanel.Details && photosUploadEnabled) {
+                val active = resolveActiveCargo(selectedId, resource, linkedDocuments)
+                val cameraNumber = active?.number.orEmpty()
+                if (active != null && cameraNumber.isNotBlank()) {
+                    ComplectationAddPhotoTopBarAction(
+                        enabled = !isCameraPrecheckInProgress,
+                        onClick = { component.requestOpenCamera(cameraNumber) },
+                    )
+                }
+            } else if (panel == MasterPanel.List) {
                 if (isSearchMode) {
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
@@ -304,12 +402,12 @@ fun CargoScreen(component: ICargoComponent) {
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -333,7 +431,7 @@ fun CargoScreen(component: ICargoComponent) {
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -372,11 +470,43 @@ fun CargoScreen(component: ICargoComponent) {
     if (isResolvingBaseDocument) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("ищем документ основание....") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("events_ischem_dokument_osnovanie")) },
             confirmButton = {}
         )
     }
+
+    SnackbarHost(
+        hostState = cameraErrorSnackbarHostState,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) { data ->
+        Snackbar(
+            snackbarData = data,
+            containerColor = if (cameraSnackbarIsError) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseSurface
+            },
+            contentColor = if (cameraSnackbarIsError) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseOnSurface
+            },
+        )
+    }
+    }
+}
+
+private fun resolveActiveCargo(
+    selectedId: String?,
+    resource: Resource<List<CargoDto>>,
+    linkedDocuments: List<TreeRootResolvedDocument>,
+): CargoDto? {
+    linkedDocuments.lastOrNull()?.let { linked ->
+        if (linked is TreeRootResolvedDocument.Cargo) return linked.value
+    }
+    val list = (resource as? Resource.Success)?.data.orEmpty()
+    return list.firstOrNull { it.guid.toString() == selectedId }
 }
 
 
@@ -396,7 +526,7 @@ private fun CargoSearchTypeRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Поиск по:",
+                text = s("events_poisk_po"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

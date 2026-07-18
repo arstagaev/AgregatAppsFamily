@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.data
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
@@ -71,8 +73,14 @@ import com.tagaev.trrcrm.domain.normalizeDocumentNumber
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCache
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheKey
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheStats
+import com.tagaev.trrcrm.data.fixator.UploadSessionQuotaTracker
+import com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore
+import com.tagaev.trrcrm.models.DocumentUploadKey
+import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorImageListResponse
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
+import com.tagaev.trrcrm.models.UploadAvailability
+import com.tagaev.trrcrm.data.remote.uploadSessionExhaustedMessage
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.koin.core.component.KoinComponent
@@ -98,6 +106,8 @@ class MainRepository(
     private val settings: AppSettings by inject()
     private val imageMediatorApi: ImageMediatorApi by inject()
     private val documentPhotoCache: DocumentPhotoCache by inject()
+    private val uploadSessionQuotaTracker: UploadSessionQuotaTracker by inject()
+    private val mobileFeatureFlags: MobileFeatureFlagsStore by inject()
 
     suspend fun loadEvents(
         type: String? = null,
@@ -204,7 +214,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<EventItemDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.Event(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -215,7 +225,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<WorkOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.WorkOrder(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -226,7 +236,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<WorkOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.Complectation(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -237,7 +247,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<ComplaintDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.Complaint(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -248,7 +258,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<InnerOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.InnerOrder(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -259,7 +269,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<BuyerOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.BuyerOrder(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -270,7 +280,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<SupplierOrderDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.SupplierOrder(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -281,7 +291,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<CargoDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.Cargo(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -292,7 +302,7 @@ class MainRepository(
                 when (val result = api.findDocumentsByNumber<ExpenseRequestDto>(apiCfg, parsed.requestName, parsed.documentNumber)) {
                     is Resource.Success -> {
                         val item = result.data.firstOrNull()
-                        if (item == null) Resource.Error(causes = "Документ-основание не найден")
+                        if (item == null) Resource.Error(causes = tr("events_dokument_osnovanie_ne_nayden"))
                         else Resource.Success(TreeRootResolvedDocument.ExpenseRequest(item))
                     }
                     is Resource.Error -> Resource.Error(result.exception, result.causes)
@@ -435,11 +445,55 @@ class MainRepository(
         }
     }
 
-    suspend fun coreSessionBootstrap(request: CoreSessionBootstrapRequest): Resource<CoreSessionBootstrapResponse> =
-        api.coreSessionBootstrap(request)
+    suspend fun coreSessionBootstrap(request: CoreSessionBootstrapRequest): Resource<CoreSessionBootstrapResponse> {
+        val result = api.coreSessionBootstrap(request)
+        if (result is Resource.Success) {
+            applyMobileFeatureFlagsFromConfig(result.data.config)
+        }
+        return result
+    }
 
-    suspend fun coreSessionHeartbeat(request: CoreSessionHeartbeatRequest): Resource<CoreSessionHeartbeatResponse> =
-        api.coreSessionHeartbeat(request)
+    suspend fun coreSessionHeartbeat(request: CoreSessionHeartbeatRequest): Resource<CoreSessionHeartbeatResponse> {
+        val result = api.coreSessionHeartbeat(request)
+        if (result is Resource.Success) {
+            applyMobileFeatureFlagsFromConfig(result.data.config)
+        }
+        return result
+    }
+
+    suspend fun refreshMobileFeatureToggles(): Resource<Unit> {
+        return when (val res = api.coreMobileFeatureTogglesGet()) {
+            is Resource.Success -> {
+                val data = res.data
+                mobileFeatureFlags.applyFlags(data.flags, data.revision)
+                mobileFeatureFlags.logEffectiveFlagsIfPublish(source = "GET /feature-toggles/mobile")
+                Resource.Success(Unit)
+            }
+            is Resource.Error -> {
+                if (com.tagaev.secrets.Secrets.IS_PUBLISH.toBoolean()) {
+                    println(
+                        "FEATURE_FLAGS: GET /feature-toggles/mobile failed " +
+                            "detail=${res.causes ?: res.exception?.message}",
+                    )
+                }
+                Resource.Error(
+                    exception = res.exception,
+                    causes = res.causes,
+                )
+            }
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    fun mobileFeatureFlagsStore(): MobileFeatureFlagsStore = mobileFeatureFlags
+
+    private suspend fun applyMobileFeatureFlagsFromConfig(config: com.tagaev.trrcrm.models.CoreSessionConfig?) {
+        if (config == null) return
+        mobileFeatureFlags.applyFlags(config.flags, config.revision)
+        if (!config.flags.isNullOrEmpty()) {
+            mobileFeatureFlags.logEffectiveFlagsIfPublish(source = "session config")
+        }
+    }
 
     suspend fun coreSessionLogout(request: CoreSessionLogoutRequest): Resource<CoreSessionLogoutResponse> =
         api.coreSessionLogout(request)
@@ -623,35 +677,69 @@ class MainRepository(
     @OptIn(ExperimentalTime::class)
     private fun currentTimeMillis(): Long = Clock.System.now().toEpochMilliseconds()
 
-    suspend fun checkCanUploadFixatorPhotos(
+    /**
+     * Current upload quota for UI (badge / capture limit).
+     * Returns Success even when [UploadAvailability.availableNow] is 0 (session or folder exhausted).
+     */
+    suspend fun getFixatorUploadAvailability(
         documentNumber: String,
-        documentName: String = "Комплектация",
-    ): Resource<Unit> {
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
+    ): Resource<UploadAvailability> {
         val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
         if (token.isBlank()) {
-            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+            return Resource.Error(causes = tr("error_sessiya_istekla_voydite_zanovo"))
         }
 
         val normalizedNumber = normalizeDocumentNumber(documentNumber)
         if (!isValidDocumentNumber(normalizedNumber)) {
-            return Resource.Error(causes = "Некорректный номер документа")
+            return Resource.Error(causes = tr("complectation_nekorrektnyy_nomer_dokumenta"))
         }
 
-        return when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentName)) {
-            is Resource.Success -> {
-                val data = precheck.data
-                if (!data.folderFound || !data.allowed) {
-                    Resource.Error(causes = canUploadBlockedMessage(data))
-                } else {
-                    Resource.Success(Unit)
-                }
-            }
+        val key = DocumentUploadKey(documentType, normalizedNumber)
+        val sessionRemaining = uploadSessionQuotaTracker.remaining(key)
+        val uploaded = uploadSessionQuotaTracker.uploadedCount(key)
+
+        return when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentType)) {
+            is Resource.Success -> Resource.Success(
+                UploadAvailability.from(
+                    response = precheck.data,
+                    sessionRemaining = sessionRemaining,
+                    uploadedInAppRun = uploaded,
+                ),
+            )
             is Resource.Error -> Resource.Error(
                 exception = precheck.exception,
                 causes = precheck.causes ?: precheck.exception.toImageMediatorError(
-                    "Не удалось проверить возможность загрузки",
+                    tr("complectation_ne_udalos_proverit_vozmozhnost_zagruzki"),
                 ),
             )
+            is Resource.Loading -> Resource.Loading
+        }
+    }
+
+    /** Gate for opening camera / starting upload: Error when nothing can be uploaded now. */
+    suspend fun checkCanUploadFixatorPhotos(
+        documentNumber: String,
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
+    ): Resource<UploadAvailability> {
+        return when (val availability = getFixatorUploadAvailability(documentNumber, documentType)) {
+            is Resource.Success -> {
+                val data = availability.data
+                if (data.availableNow <= 0) {
+                    val causes = when {
+                        data.sessionRemaining <= 0 -> uploadSessionExhaustedMessage()
+                        !data.folderFound -> tr("upload_folder_unavailable")
+                        else -> tr(
+                            "upload_doc_full",
+                            data.maxPhotosPerDocument ?: 500,
+                        )
+                    }
+                    Resource.Error(causes = causes)
+                } else {
+                    Resource.Success(data)
+                }
+            }
+            is Resource.Error -> availability
             is Resource.Loading -> Resource.Loading
         }
     }
@@ -659,11 +747,12 @@ class MainRepository(
     suspend fun uploadFixatorPhotos(
         documentNumber: String,
         photos: List<ByteArray>,
-        documentName: String = "Camera fixator",
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
+        idempotencyKey: String = ImageMediatorApi.generateIdempotencyKey(),
     ): Resource<ImageMediatorUploadResult> {
         val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
         if (token.isBlank()) {
-            return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
+            return Resource.Error(causes = tr("error_sessiya_istekla_voydite_zanovo"))
         }
         if (photos.isEmpty()) {
             return Resource.Error(causes = "Нет фотографий для отправки")
@@ -681,44 +770,96 @@ class MainRepository(
             )
         }
 
-        when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentName)) {
+        val key = DocumentUploadKey(documentType, normalizedNumber)
+        var folderLimit: Int? = null
+        var availability: UploadAvailability? = null
+
+        when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentType)) {
             is Resource.Success -> {
                 val data = precheck.data
-                if (!data.folderFound || !data.allowed) {
+                folderLimit = data.limits?.effectiveMaxPhotos()
+                val remaining = data.limits?.effectiveRemaining() ?: 0
+                if (!data.folderFound || !data.allowed || remaining <= 0) {
                     return Resource.Error(causes = canUploadBlockedMessage(data))
+                }
+                val sessionRemaining = uploadSessionQuotaTracker.remaining(key)
+                val uploaded = uploadSessionQuotaTracker.uploadedCount(key)
+                availability = UploadAvailability.from(data, sessionRemaining, uploaded)
+                if (photos.size > availability.availableNow) {
+                    return Resource.Error(
+                        causes = tr("upload_select_at_most_n", availability.availableNow),
+                    )
                 }
             }
             is Resource.Error -> {
                 return Resource.Error(
                     exception = precheck.exception,
-                    causes = precheck.causes ?: precheck.exception.toImageMediatorError("Не удалось проверить возможность загрузки"),
+                    causes = precheck.causes ?: precheck.exception.toImageMediatorError(
+                        tr("complectation_ne_udalos_proverit_vozmozhnost_zagruzki"),
+                    ),
                 )
             }
             is Resource.Loading -> Unit
         }
 
-        return when (val upload = imageMediatorApi.uploadPhotos(token, normalizedNumber, photos, documentName)) {
-            is Resource.Success -> {
-                val data = upload.data
-                Resource.Success(
-                    ImageMediatorUploadResult(
-                        documentNumber = data.documentNumber,
-                        storedFilenames = data.uploadedFiles.mapNotNull { it.storedFilename },
-                        ftpFolderPath = data.ftpFolderPath,
-                        resolvedYear = data.resolvedYear,
-                        resolvedMonth = data.resolvedMonth,
-                    )
+        val reservation = uploadSessionQuotaTracker.tryReserve(key, photos.size)
+            ?: return Resource.Error(causes = uploadSessionExhaustedMessage())
+
+        return try {
+            when (
+                val upload = imageMediatorApi.uploadPhotos(
+                    agrToken = token,
+                    documentNumber = normalizedNumber,
+                    files = photos,
+                    documentType = documentType,
+                    idempotencyKey = idempotencyKey,
                 )
+            ) {
+                is Resource.Success -> {
+                    val data = upload.data
+                    val confirmed = data.uploadedFiles.size.takeIf { it > 0 } ?: photos.size
+                    uploadSessionQuotaTracker.commit(reservation, confirmedCount = confirmed)
+                    Resource.Success(
+                        ImageMediatorUploadResult(
+                            documentNumber = data.documentNumber,
+                            storedFilenames = data.uploadedFiles.mapNotNull { it.storedFilename },
+                            ftpFolderPath = data.ftpFolderPath,
+                            resolvedYear = data.resolvedYear,
+                            resolvedMonth = data.resolvedMonth,
+                        )
+                    )
+                }
+                is Resource.Error -> {
+                    uploadSessionQuotaTracker.release(reservation)
+                    Resource.Error(
+                        exception = upload.exception,
+                        causes = upload.causes ?: upload.exception.toImageMediatorError(
+                            tr("error_ne_udalos_otpravit_foto"),
+                            folderLimit = folderLimit ?: availability?.maxPhotosPerDocument,
+                        ),
+                    )
+                }
+                is Resource.Loading -> {
+                    uploadSessionQuotaTracker.release(reservation)
+                    Resource.Loading
+                }
             }
-            is Resource.Error -> Resource.Error(
-                exception = upload.exception,
-                causes = upload.causes ?: upload.exception.toImageMediatorError("Не удалось отправить фото"),
+        } catch (t: Throwable) {
+            uploadSessionQuotaTracker.release(reservation)
+            Resource.Error(
+                exception = t as? Exception ?: Exception(t),
+                causes = t.toImageMediatorError(
+                    tr("error_ne_udalos_otpravit_foto"),
+                    folderLimit = folderLimit ?: availability?.maxPhotosPerDocument,
+                ),
             )
-            is Resource.Loading -> Resource.Loading
         }
     }
 
-    suspend fun getFixatorDocumentPhotoCount(documentNumber: String): Resource<Int> {
+    suspend fun getFixatorDocumentPhotoCount(
+        documentNumber: String,
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
+    ): Resource<Int> {
         val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
         if (token.isBlank()) {
             return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
@@ -727,7 +868,7 @@ class MainRepository(
         if (!isValidDocumentNumber(normalizedNumber)) {
             return Resource.Success(0)
         }
-        return when (val result = imageMediatorApi.getDocumentPhotoCount(token, normalizedNumber)) {
+        return when (val result = imageMediatorApi.getDocumentPhotoCount(token, normalizedNumber, documentType)) {
             is Resource.Success -> Resource.Success(result.data)
             is Resource.Error -> Resource.Error(
                 exception = result.exception,
@@ -740,6 +881,7 @@ class MainRepository(
     suspend fun listFixatorDocumentImages(
         documentNumber: String,
         page: Int,
+        documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<ImageMediatorImageListResponse> {
         val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
         if (token.isBlank()) {
@@ -752,18 +894,18 @@ class MainRepository(
         if (page < 1) {
             return Resource.Error(causes = "Некорректный номер страницы")
         }
-        return when (val result = imageMediatorApi.listDocumentImages(token, normalizedNumber, page)) {
+        return when (val result = imageMediatorApi.listDocumentImages(token, normalizedNumber, page, documentType)) {
             is Resource.Success -> Resource.Success(result.data)
             is Resource.Error -> Resource.Error(
                 exception = result.exception,
-                causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить фотографии"),
+                causes = result.causes ?: result.exception.toImageMediatorError(tr("complectation_ne_udalos_zagruzit_fotografii")),
             )
             is Resource.Loading -> Resource.Loading
         }
     }
 
     suspend fun downloadFixatorDocumentImage(
-        documentType: String,
+        documentType: ImageDocumentType,
         documentNumber: String,
         imageId: String,
         contentUrl: String,
@@ -773,11 +915,11 @@ class MainRepository(
             return Resource.Error(causes = "Нет токена авторизации. Войдите заново.")
         }
         if (contentUrl.isBlank() || imageId.isBlank()) {
-            return Resource.Error(causes = "Не удалось загрузить фотографии")
+            return Resource.Error(causes = tr("complectation_ne_udalos_zagruzit_fotografii"))
         }
 
         val cacheKey = DocumentPhotoCacheKey(
-            documentType = documentType,
+            documentType = documentType.wireName,
             documentNumber = normalizeDocumentNumber(documentNumber),
             imageId = imageId,
         )
@@ -796,18 +938,18 @@ class MainRepository(
             }
             is Resource.Error -> Resource.Error(
                 exception = result.exception,
-                causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить фотографии"),
+                causes = result.causes ?: result.exception.toImageMediatorError(tr("complectation_ne_udalos_zagruzit_fotografii")),
             )
             is Resource.Loading -> Resource.Loading
         }
     }
 
     suspend fun clearFixatorDocumentPhotoCache(
-        documentType: String,
+        documentType: ImageDocumentType,
         documentNumber: String,
     ): DocumentPhotoCacheStats =
         documentPhotoCache.clearDocument(
-            documentType = documentType,
+            documentType = documentType.wireName,
             documentNumber = normalizeDocumentNumber(documentNumber),
         )
 

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.incoming_applications
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -121,10 +123,10 @@ fun IncomingApplicationsScreen(
     }
 
     MasterScreen(
-        title = "Входящие заявки",
+        title = s("incoming_vhodyaschie_zayavki"),
         resource = resource,
-        errorText = "Не удалось загрузить входящие заявки",
-        notFoundText = "Входящие заявки не найдены",
+        errorText = s("incoming_ne_udalos_zagruzit_vhodyaschie_zayavki"),
+        notFoundText = s("incoming_vhodyaschie_zayavki_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -146,7 +148,7 @@ fun IncomingApplicationsScreen(
                         StatusBadge(
                             state = t,
                             styles = mapOf(
-                                "Лендинг" to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
+                                s("incoming_lending") to StatusStyle(DefaultColors.RainbowSkyBg, DefaultColors.RainbowSkyFg),
                             ),
                         )
                     }
@@ -166,7 +168,7 @@ fun IncomingApplicationsScreen(
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
-                messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                messageForUser = s("complaints_korrektno_rabotaet_tolko_sortirovka_po_date_ostalnye"),
                 orderByOptions = Refiner.OrderBy.allForUiExceptDateLastModification,
                 sections = setOf(
                     RefineSection.STATUS,
@@ -192,10 +194,10 @@ fun IncomingApplicationsScreen(
             {
                 Row {
                     IconButton(onClick = hideSearchForm, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(onClick = clearSearchAndClose, enabled = !isTopBarLoading) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -233,12 +235,12 @@ fun IncomingApplicationsScreen(
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -262,7 +264,7 @@ fun IncomingApplicationsScreen(
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -298,17 +300,17 @@ private fun IncomingApplicationsSearchModeRow(
         FilterChip(
             selected = selected == IncomingSearchMode.NUMBER,
             onClick = { onSelected(IncomingSearchMode.NUMBER) },
-            label = { Text("Номер", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(s("filter_nomer"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
             selected = selected == IncomingSearchMode.AUTHOR,
             onClick = { onSelected(IncomingSearchMode.AUTHOR) },
-            label = { Text("Автор", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(s("events_avtor"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
             selected = selected == IncomingSearchMode.SUBJECT,
             onClick = { onSelected(IncomingSearchMode.SUBJECT) },
-            label = { Text("Суть обращения", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(s("incoming_sut_obrascheniya"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         )
         FilterChip(
             selected = selected == IncomingSearchMode.PHONE,
@@ -319,8 +321,8 @@ private fun IncomingApplicationsSearchModeRow(
 }
 
 private fun IncomingSearchMode.placeholder(): String = when (this) {
-    IncomingSearchMode.NUMBER -> "Номер заявки…"
+    IncomingSearchMode.NUMBER -> s("expense_nomer_zayavki")
     IncomingSearchMode.AUTHOR -> "Автор…"
-    IncomingSearchMode.SUBJECT -> "Суть обращения…"
-    IncomingSearchMode.PHONE -> "Телефон…"
+    IncomingSearchMode.SUBJECT -> s("incoming_sut_obrascheniya_2")
+    IncomingSearchMode.PHONE -> s("incoming_telefon")
 }

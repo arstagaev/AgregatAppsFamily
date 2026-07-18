@@ -27,6 +27,7 @@ data class CoreSessionBootstrapResponse(
     @SerialName("session_id")
     val sessionId: String,
     val status: String? = null,
+    val config: CoreSessionConfig? = null,
 )
 
 @Serializable
@@ -42,6 +43,24 @@ data class CoreSessionHeartbeatRequest(
 @Serializable
 data class CoreSessionHeartbeatResponse(
     val status: String? = null,
+    val config: CoreSessionConfig? = null,
+)
+
+@Serializable
+data class CoreSessionConfig(
+    val flags: Map<String, Boolean>? = null,
+    /** Opaque string from server — do not parse as date/number. */
+    val revision: String? = null,
+)
+
+@Serializable
+data class MobileFeatureTogglesResponse(
+    val status: String? = null,
+    val flags: Map<String, Boolean>? = null,
+    /** Opaque string from server — do not parse as date/number. */
+    val revision: String? = null,
+    @SerialName("server_time")
+    val serverTime: String? = null,
 )
 
 @Serializable

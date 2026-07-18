@@ -2,6 +2,7 @@ package com.tagaev.trrcrm.ui.permissions
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -23,7 +24,7 @@ import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 
-private const val MAX_GALLERY_PICK_ITEMS = 10
+private const val MAX_GALLERY_PICK_ITEMS = MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN
 
 private object ActiveGalleryPicker {
     var delegate: GalleryPickerDelegate? = null
@@ -37,14 +38,15 @@ actual fun rememberGalleryPhotoPicker(
 
     return remember {
         { maxItems: Int ->
+            val limit = maxItems.coerceAtMost(MAX_GALLERY_PICK_ITEMS)
+            if (limit <= 0) return@remember
             val root = findTopViewController() ?: return@remember
-            val limit = maxItems.coerceIn(1, MAX_GALLERY_PICK_ITEMS).toLong()
             val configuration = PHPickerConfiguration().apply {
-                selectionLimit = limit
+                selectionLimit = limit.toLong()
                 filter = PHPickerFilter.imagesFilter
             }
             val picker = PHPickerViewController(configuration)
-            val delegate = GalleryPickerDelegate(callback)
+            val delegate = GalleryPickerDelegate(callback, limit)
             ActiveGalleryPicker.delegate = delegate
             picker.delegate = delegate
             root.presentViewController(picker, animated = true, completion = null)
@@ -74,6 +76,7 @@ private fun findTopViewController(): UIViewController? {
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private class GalleryPickerDelegate(
     private val onResult: (List<ByteArray>) -> Unit,
+    private val maxItems: Int,
 ) : NSObject(), PHPickerViewControllerDelegateProtocol {
 
     override fun picker(
@@ -81,7 +84,9 @@ private class GalleryPickerDelegate(
         didFinishPicking: List<*>,
     ) {
         picker.dismissViewControllerAnimated(true, completion = null)
-        val results = didFinishPicking.filterIsInstance<PHPickerResult>()
+        val results = didFinishPicking
+            .filterIsInstance<PHPickerResult>()
+            .take(maxItems.coerceAtLeast(0))
         if (results.isEmpty()) {
             deliverResult(emptyList())
             return
@@ -120,7 +125,7 @@ private class GalleryPickerDelegate(
 
     private fun deliverResult(images: List<ByteArray>) {
         dispatch_async(dispatch_get_main_queue()) {
-            onResult(images)
+            onResult(images.take(maxItems.coerceAtLeast(0)))
             ActiveGalleryPicker.delegate = null
         }
     }

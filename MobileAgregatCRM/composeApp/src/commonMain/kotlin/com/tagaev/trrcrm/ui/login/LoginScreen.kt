@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.login
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
@@ -84,7 +86,7 @@ fun LoginScreen(component: ILoginComponent) {
 
     var keepSplash by rememberSaveable { mutableStateOf(true) }
     val startupBlocked = uiState as? LoginUiState.StartupBlocked
-    var errorDialogTitle by remember { mutableStateOf("Ошибка входа") }
+    var errorDialogTitle by remember { mutableStateOf(s("login_oshibka_vhoda")) }
     var dialogIsStartupBlocked by remember { mutableStateOf(false) }
 
     // Keep the loading splash on screen a bit longer when leaving Login,
@@ -97,15 +99,15 @@ fun LoginScreen(component: ILoginComponent) {
                 val e = uiState as LoginUiState.Error
                 showErrorDialog = true
                 dialogIsStartupBlocked = false
-                errorDialogTitle = "Ошибка входа"
+                errorDialogTitle = s("login_oshibka_vhoda")
                 currentError = e.message
             }
             is LoginUiState.StartupBlocked -> {
                 keepSplash = false
                 showErrorDialog = true
                 dialogIsStartupBlocked = true
-                errorDialogTitle = "Ошибка соединения"
-                currentError = "Сервер недоступен или превышено время ожидания"
+                errorDialogTitle = s("login_oshibka_soedineniya")
+                currentError = s("login_server_nedostupen_ili_prevysheno_vremya_ozhidaniya")
             }
             else -> {
                 // Navigation / success / idle — hold splash briefly
@@ -235,7 +237,7 @@ fun LoginScreen(component: ILoginComponent) {
                                 OutlinedTextField(
                                     value = user,
                                     onValueChange = { user = it },
-                                    label = { Text("Логин") },
+                                    label = { Text(s("login_login")) },
                                     singleLine = true,
                                     colors = tfColors,
                                     modifier = Modifier.fillMaxWidth(),
@@ -249,13 +251,13 @@ fun LoginScreen(component: ILoginComponent) {
                                 OutlinedTextField(
                                     value = pass,
                                     onValueChange = { pass = it },
-                                    label = { Text("Пароль") },
+                                    label = { Text(s("login_parol")) },
                                     singleLine = true,
                                     colors = tfColors,
                                     modifier = Modifier.fillMaxWidth(),
                                     visualTransformation = if (passVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                     trailingIcon = {
-                                        val label = if (passVisible) "Скрыть" else "Показать"
+                                        val label = if (passVisible) s("login_skryt") else s("login_pokazat")
                                         TextButton(onClick = { passVisible = !passVisible }) { Text(label) }
                                     },
                                     keyboardOptions = KeyboardOptions(
@@ -302,7 +304,7 @@ fun LoginScreen(component: ILoginComponent) {
                                 .fillMaxWidth()
                                 .height(48.dp)
                         ) {
-                            Text("Войти", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            Text(s("login_voyti"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
 
@@ -325,10 +327,10 @@ fun LoginScreen(component: ILoginComponent) {
                                 TextButton(
                                     onClick = { component.retryStartup() },
                                     enabled = uiState !is LoginUiState.Loading
-                                ) { Text("Повторить") }
+                                ) { Text(s("login_povtorit")) }
                             },
                             title = { Text(errorDialogTitle) },
-                            text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
+                            text = { Text(currentError.anonim().substringBefore('[') ?: s("login_kod_oshibki_ne_izvesten")) }
                         )
                     } else {
                         val onDismiss: () -> Unit = {
@@ -338,10 +340,10 @@ fun LoginScreen(component: ILoginComponent) {
                         AlertDialog(
                             onDismissRequest = onDismiss,
                             confirmButton = {
-                                TextButton(onClick = onDismiss) { Text("ОК") }
+                                TextButton(onClick = onDismiss) { Text(s("login_ok")) }
                             },
                             title = { Text(errorDialogTitle) },
-                            text = { Text(currentError.anonim().substringBefore('[') ?: "Код ошибки не известен") }
+                            text = { Text(currentError.anonim().substringBefore('[') ?: s("login_kod_oshibki_ne_izvesten")) }
                         )
                     }
                 }
@@ -367,7 +369,7 @@ fun LoginScreen(component: ILoginComponent) {
                     .background(Color.Black.copy(alpha = 0.35f))
             )
             ShimmerTitle(
-                text = "Загрузка ...",
+                text = s("login_zagruzka"),
             )
         }
     }

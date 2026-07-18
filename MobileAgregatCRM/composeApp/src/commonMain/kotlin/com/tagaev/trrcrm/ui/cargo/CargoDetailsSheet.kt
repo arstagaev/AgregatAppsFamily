@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.cargo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
@@ -38,6 +40,9 @@ fun CargoDetailsSheet(
     cargo: CargoDto,
     onClose: () -> Unit,
     onOpenBaseDocument: (String) -> Unit = {},
+    documentPhotoCount: Int = 0,
+    isDocumentPhotoCountLoading: Boolean = false,
+    onOpenDocumentPhotos: (() -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
 
@@ -81,7 +86,7 @@ fun CargoDetailsSheet(
         cargo.baseDocument.takeIf { it.isNotBlank() }?.let { baseDocument ->
             val cleanedBase = remember(baseDocument) { normalizeRawDocumentLabel(baseDocument) }
             Text(
-                text = "Документ-основание",
+                text = s("events_dokument_osnovanie_2"),
                 style = MaterialTheme.typography.titleSmall
             )
             TextC(
@@ -106,28 +111,28 @@ fun CargoDetailsSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Основная информация",
+                    text = s("cargo_osnovnaya_informatsiya"),
                     style = MaterialTheme.typography.titleMedium
                 )
 
                 InfoFieldGrid(
                     fields = listOf(
-                        "Проведен" to cargo.posted,
-                        "Пометка удаления" to cargo.deletionMark,
+                        s("cargo_proveden") to cargo.posted,
+                        s("cargo_pometka_udaleniya") to cargo.deletionMark,
 
-                        "Номер" to cargo.number,
-                        "Дата" to cargo.date,
+                        s("filter_nomer") to cargo.number,
+                        s("filter_data") to cargo.date,
 
-                        "Состояние" to cargo.status,
+                        s("work_order_sostoyanie") to cargo.status,
                         "Маршрут" to cargo.route,
 
-                        "Организация" to cargo.organization,
-                        "Подразделение" to cargo.department,
+                        s("events_organizatsiya") to cargo.organization,
+                        s("events_podrazdelenie") to cargo.department,
 
-                        "Автор" to cargo.author,
-                        "Количество мест" to cargo.placesCount,
+                        s("events_avtor") to cargo.author,
+                        s("cargo_kolichestvo_mest") to cargo.placesCount,
 
-                        "Сумма документа" to cargo.amount
+                        s("complectation_summa_dokumenta") to cargo.amount
                     )
                 )
             }
@@ -146,7 +151,7 @@ fun CargoDetailsSheet(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Комментарий",
+                        text = s("complectation_kommentariy"),
                         style = MaterialTheme.typography.titleMedium
                     )
                     TextC(
@@ -169,17 +174,17 @@ fun CargoDetailsSheet(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Логистика",
+                    text = s("cargo_logistika"),
                     style = MaterialTheme.typography.titleMedium
                 )
 
                 InfoFieldGrid(
                     fields = listOf(
-                        "Дата отправления" to cargo.departureDate , //shipDate,
-                        "Дата прибытия" to cargo.arrivalDate,
-                        "Перевозка службой доставки" to cargo.deliveredByService,
+                        s("cargo_data_otpravleniya") to cargo.departureDate , //shipDate,
+                        s("cargo_data_pribytiya") to cargo.arrivalDate,
+                        s("cargo_perevozka_sluzhboy_dostavki") to cargo.deliveredByService,
                         "Грузоперевозчик" to cargo.carrier,
-                        "Контакт перевозчика" to cargo.carrierContacts,
+                        s("cargo_kontakt_perevozchika") to cargo.carrierContacts,
                         "№ накладной" to cargo.carrierInvoiceNumber,
                         "Вес" to cargo.weight,
                         "Объем" to cargo.volume,
@@ -188,8 +193,8 @@ fun CargoDetailsSheet(
                         "Высота" to cargo.height,
 //                        "Путь к файлам" to cargo.filesPath,
                         "QR" to cargo.qr,
-                        "Дата отправки сообщения" to cargo.messageSentAt,
-                        "Состояние сообщения" to cargo.messageStatus,
+                        s("cargo_data_otpravki_soobscheniya") to cargo.messageSentAt,
+                        s("cargo_sostoyanie_soobscheniya") to cargo.messageStatus,
                         "Комплектовщик" to cargo.picker
                     )
                 )
@@ -197,9 +202,17 @@ fun CargoDetailsSheet(
         }
 
         // Внизу — разворачиваемые блоки со списками.
+        if (onOpenDocumentPhotos != null) {
+            com.tagaev.trrcrm.ui.complectation.ComplectationOpenPhotosButton(
+                photoCount = documentPhotoCount,
+                isLoading = isDocumentPhotoCountLoading,
+                onClick = onOpenDocumentPhotos,
+            )
+        }
+
         if (cargo.orders.isNotEmpty()) {
             ExpandableListSection(
-                title = "Заказы",
+                title = s("cargo_zakazy"),
                 items = cargo.orders
             ) { order ->
                 CargoDocumentReferenceText(
@@ -212,7 +225,7 @@ fun CargoDetailsSheet(
 
         if (cargo.products.isNotEmpty()) {
             ExpandableListSection(
-                title = "Товары",
+                title = s("work_order_tovary"),
                 items = cargo.products
             ) { product ->
                 Card(
@@ -397,7 +410,7 @@ fun <T> ExpandableListSection(
                         }
                     } else {
                         Text(
-                            text = "Пусто",
+                            text = s("cargo_pusto"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

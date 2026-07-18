@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.data.remote
 
+import com.tagaev.trrcrm.ui.i18n.tr
+
 import io.ktor.client.plugins.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -22,10 +24,10 @@ suspend inline fun <T> resourceify(
                     Resource.Error(t, friendlyError(t, "Сервер временно недоступен"))
                 }
                 is ClientRequestException -> {
-                    Resource.Error(t, friendlyError(t, "Ошибка запроса"))
+                    Resource.Error(t, friendlyError(t, tr("main_oshibka_zaprosa")))
                 }
                 is CoreApiException -> {
-                    Resource.Error(t, friendlyError(t, "Ошибка запроса"))
+                    Resource.Error(t, friendlyError(t, tr("main_oshibka_zaprosa")))
                 }
                 is ImageMediatorException -> {
                     Resource.Error(t, t.toImageMediatorError("Не удалось выполнить запрос"))

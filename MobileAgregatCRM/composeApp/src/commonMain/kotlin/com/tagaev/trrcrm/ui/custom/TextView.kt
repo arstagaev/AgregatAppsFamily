@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.custom
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -220,12 +222,12 @@ fun TextCAnnotated(
                         if (snackbarHostState != null) {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    message = "Скопировано",
+                                    message = s("ui_skopirovano"),
                                     duration = SnackbarDuration.Short
                                 )
                             }
                         }
-                        showSnackbar("Скопировано!")
+                        showSnackbar(s("ui_skopirovano_2"))
                     }
                 } else null
             )

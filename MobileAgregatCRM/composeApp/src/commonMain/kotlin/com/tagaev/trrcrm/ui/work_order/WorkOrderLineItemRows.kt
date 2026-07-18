@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.work_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -105,10 +107,10 @@ internal fun formatTotalMoneyAmount(total: Double): String {
 }
 
 internal fun buildGoodsTitle(baseTitle: String, positionsCount: Int, totalAmount: Double): String =
-    "$baseTitle (поз. $positionsCount, сум. ${formatTotalMoneyAmount(totalAmount)})"
+    s("work_order_basetitle_poz_positionscount_sum_formattotalmoneyamo", baseTitle, positionsCount, formatTotalMoneyAmount(totalAmount))
 
 internal fun productDisplayTitle(p: WorkOrderProductDto): String {
-    val line = p.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> "Стр. $ln" }
+    val line = p.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> s("work_order_line_str", ln) }
     return sequenceOf(p.name, p.characteristic, p.note, p.notePrint, p.article, line)
         .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
         .firstOrNull()
@@ -121,7 +123,7 @@ internal fun productCharacteristicTitle(p: WorkOrderProductDto): String =
         .firstOrNull() ?: "—"
 
 internal fun jobDisplayTitle(j: WorkOrderJobDto): String {
-    val line = j.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> "Стр. $ln" }
+    val line = j.lineNumber?.trim()?.takeIf { it.isNotBlank() }?.let { ln -> s("work_order_line_str", ln) }
     return sequenceOf(j.work, j.workLine1, j.note, j.notePrint, j.workPackageNumber, line)
         .mapNotNull { it?.trim()?.takeIf(String::isNotBlank) }
         .firstOrNull()
@@ -143,7 +145,7 @@ internal fun jobExecutorTitle(job: WorkOrderJobDto, executors: List<WorkOrderExe
 fun WorkOrderProductLineRowCompact(
     product: WorkOrderProductDto,
     onNomenclatureCharacteristicSearch: ((String) -> Unit)? = null,
-    characteristicLabel: String = "хар-ка",
+    characteristicLabel: String = s("work_order_har_ka"),
 ) {
     val charRaw = product.characteristic?.trim().orEmpty()
     val charDisplay = if (onNomenclatureCharacteristicSearch != null) {
@@ -189,18 +191,18 @@ fun WorkOrderProductLineRowCompact(
                 usePrimaryForValue = onCharClick != null
             )
             WorkOrderProductMetaCell(
-                label = "кол-во",
+                label = s("work_order_kol_vo"),
                 value = formatProductQuantityWithUnit(product.quantity, product.unit) ?: "—",
                 modifier = Modifier.weight(1f),
                 emphasize = true
             )
             WorkOrderProductMetaCell(
-                label = "цена",
+                label = s("work_order_tsena"),
                 value = dashOr(product.price),
                 modifier = Modifier.weight(1f)
             )
             WorkOrderProductMetaCell(
-                label = "сумма",
+                label = s("work_order_line_summa"),
                 value = formatRubleAmount(product.amount),
                 modifier = Modifier.weight(1f),
                 emphasize = true
@@ -209,7 +211,7 @@ fun WorkOrderProductLineRowCompact(
         product.cell?.takeIf { it.isNotBlank() }?.let { cell ->
             Spacer(Modifier.height(4.dp))
             TextC(
-                text = "Ячейка: $cell",
+                text = s("work_order_line_yacheyka", cell),
                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 13.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -307,7 +309,7 @@ fun WorkOrderJobLineRowCompact(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
-                        text = "Работа",
+                        text = s("work_order_line_rabota"),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -327,7 +329,7 @@ fun WorkOrderJobLineRowCompact(
                     if (shouldShowExecutor) {
                         Spacer(Modifier.height(1.dp))
                         Text(
-                            text = "Исполнитель",
+                            text = s("work_order_line_ispolnitel"),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -353,20 +355,20 @@ fun WorkOrderJobLineRowCompact(
                     horizontalAlignment = Alignment.End
                 ) {
                     WorkOrderJobMetaLine(
-                        label = "Количество: ",
+                        label = s("work_order_line_kolichestvo"),
                         value = dashOr(job.quantity),
                         emphasize = true
                     )
                     WorkOrderJobMetaLine(
-                        label = "Норма вр. (ч.): ",
+                        label = s("work_order_line_norma_vr"),
                         value = normWithCoefficient
                     )
                     WorkOrderJobMetaLine(
-                        label = "Цена: ",
+                        label = s("work_order_line_tsena"),
                         value = dashOr(job.price)
                     )
                     WorkOrderJobMetaLine(
-                        label = "Сумма: ",
+                        label = s("work_order_line_summa_prefix"),
                         value = formatRubleAmount(job.amount),
                         emphasize = true
                     )

@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.work_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,7 +28,12 @@ import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacte
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
+import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
+import com.tagaev.trrcrm.ui.complectation.ComplectationAddPhotoTopBarAction
+import com.tagaev.trrcrm.ui.complectation.ComplectationOpenPhotosButton
+import com.tagaev.trrcrm.ui.complectation.DocumentPhotosViewerScreen
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.TextC
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
@@ -38,6 +45,7 @@ import com.tagaev.trrcrm.ui.master_screen.models.MessageModel
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Camera
 import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
@@ -66,22 +74,22 @@ private const val WORK_ORDER_REPAIR_FILTER_WARNING = """
 
 private fun Refiner.SearchQueryType.workOrderSearchLabel(): String {
     return when (this) {
-        Refiner.SearchQueryType.CODE -> "Номер"
-        Refiner.SearchQueryType.AUTO -> "Автомобиль"
-        Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
+        Refiner.SearchQueryType.CODE -> s("filter_nomer")
+        Refiner.SearchQueryType.AUTO -> s("search_label_avtomobil")
+        Refiner.SearchQueryType.LICENSE_PLATE -> s("search_label_gosnomer")
         Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
-        Refiner.SearchQueryType.FIX_TYPE -> "Вид ремонта"
-        Refiner.SearchQueryType.CLIENT -> "Заказчик"
-        Refiner.SearchQueryType.MASTER -> "Мастер"
-        Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
-        Refiner.SearchQueryType.TOPIC -> "Тема"
-        Refiner.SearchQueryType.AUTHOR -> "Автор"
-        Refiner.SearchQueryType.MANAGER -> "Менеджер"
-        Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
-        Refiner.SearchQueryType.ROUTE -> "Маршрут"
-        Refiner.SearchQueryType.CARRIER -> "Перевозчик"
-        Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
-        Refiner.SearchQueryType.PHONE -> "Телефон"
+        Refiner.SearchQueryType.FIX_TYPE -> s("search_label_vid_remonta")
+        Refiner.SearchQueryType.CLIENT -> s("search_label_zakazchik")
+        Refiner.SearchQueryType.MASTER -> s("filter_master")
+        Refiner.SearchQueryType.KIT_CHARACTERISTIC -> s("search_label_har_komplekta")
+        Refiner.SearchQueryType.TOPIC -> s("filter_tema")
+        Refiner.SearchQueryType.AUTHOR -> s("events_avtor")
+        Refiner.SearchQueryType.MANAGER -> s("filter_menedzher")
+        Refiner.SearchQueryType.COUNTERPARTY -> s("events_kontragent")
+        Refiner.SearchQueryType.ROUTE -> s("search_label_marshrut")
+        Refiner.SearchQueryType.CARRIER -> s("search_label_perevozchik")
+        Refiner.SearchQueryType.SUBJECT_MATTER -> s("incoming_sut_obrascheniya")
+        Refiner.SearchQueryType.PHONE -> s("search_label_telefon")
         Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
         Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
         Refiner.SearchQueryType.REPAIR_TEMPLATE_CODE,
@@ -91,7 +99,7 @@ private fun Refiner.SearchQueryType.workOrderSearchLabel(): String {
         Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
         Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
         Refiner.SearchQueryType.PURPOSE,
-        -> "Калькуляция"
+        -> s("nav_kalkulyatsiya")
     }
 }
 
@@ -106,9 +114,24 @@ fun WorkOrdersScreen(
     val panel by component.masterScreenPanel.collectAsState()
     val selectedId by component.selectedItemGuid.collectAsState()
     val transientWarning by component.transientWarning.collectAsState()
+    val isCameraOpen by component.isCameraOpen.collectAsState()
+    val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
+    val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
+    val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val documentPhotoCount by component.documentPhotoCount.collectAsState()
+    val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
+    val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
+    val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
+    val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
+    val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    var photosUploadEnabled by remember { mutableStateOf(true) }
+    var photosDownloadEnabled by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
+    val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
+    var cameraSnackbarIsError by remember { mutableStateOf(false) }
     val linkedDocuments = remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
     var characteristicMatches by remember { mutableStateOf<List<WorkOrderDto>>(emptyList()) }
     var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
@@ -119,6 +142,20 @@ fun WorkOrdersScreen(
     val isTopBarLoading = resource is Resource.Loading ||
             (resource as? Resource.Success<*>)?.additionalLoading == true
 
+    LaunchedEffect(Unit) {
+        photosUploadEnabled = component.isPhotosUploadEnabled()
+        photosDownloadEnabled = component.isPhotosDownloadEnabled()
+    }
+    LaunchedEffect(cameraPrecheckError) {
+        val error = cameraPrecheckError
+        if (!error.isNullOrBlank()) {
+            cameraSnackbarIsError = true
+            cameraErrorSnackbarHostState.showSnackbar(
+                com.tagaev.trrcrm.data.remote.userFacingMessage(error, error),
+            )
+            component.consumeCameraPrecheckError()
+        }
+    }
     LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
         if (!isSearchMode) {
             searchQueryDraft = refineState.searchQuery
@@ -146,7 +183,7 @@ fun WorkOrdersScreen(
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
         val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
         if (token.isBlank()) {
-            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+            showSnackbar(s("work_order_ukazhite_drugoe_znachenie_harakteristiki_dlya_poiska"))
         } else {
             scope.launch {
                 isResolvingLinkedByCharacteristic = true
@@ -155,13 +192,13 @@ fun WorkOrdersScreen(
                         is Resource.Success -> {
                             val list = res.data.orEmpty()
                             when {
-                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.isEmpty() -> showSnackbar(s("work_order_komplektatsii_ne_naydeny"))
                                 list.size == 1 -> linkedDocuments.add(TreeRootResolvedDocument.Complectation(list.first()))
                                 else -> characteristicMatches = list
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
+                            res.causes ?: friendlyError(res.exception, s("work_order_oshibka_poiska_komplektatsii"))
                         )
                         is Resource.Loading -> Unit
                     }
@@ -196,11 +233,38 @@ fun WorkOrdersScreen(
         component.setRefineState(refineState.copy(searchQuery = ""))
     }
 
+    if (isCameraOpen) {
+        val number = cameraDocumentNumber
+        if (number != null) {
+            DocumentCameraScreen(
+                documentNumber = number,
+                title = s("complectation_kamera_number", number),
+                documentType = ImageDocumentType.WorkOrder,
+                initialQuota = cameraUploadQuota,
+                showUploadStatusBlock = false,
+                onBack = component::closeCamera,
+            )
+        }
+        return
+    }
+    if (isPhotosViewerOpen) {
+        val number = photosViewerDocumentNumber
+        if (number != null) {
+            DocumentPhotosViewerScreen(
+                documentNumber = number,
+                documentType = ImageDocumentType.WorkOrder,
+                onBack = component::closePhotosViewer,
+            )
+        }
+        return
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
     MasterScreen(
-        title = "Заказ-наряды",
+        title = s("work_order_zakaz_naryady"),
         resource = resource,
-        errorText = "Не удалось загрузить заказ-наряды",
-        notFoundText = "Заказ-наряды не найдены",
+        errorText = s("work_order_ne_udalos_zagruzit_zakaz_naryady"),
+        notFoundText = s("work_order_zakaz_naryady_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -224,9 +288,9 @@ fun WorkOrdersScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -240,12 +304,28 @@ fun WorkOrdersScreen(
             }
 
             val currentLinked = linkedDocuments.lastOrNull()
+            val activeOrderNumber = (currentLinked as? TreeRootResolvedDocument.WorkOrder)?.value?.number
+                ?: order.number
+            LaunchedEffect(activeOrderNumber, photosDownloadEnabled) {
+                if (photosDownloadEnabled) {
+                    activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+                }
+            }
+            val openDocumentPhotos: (() -> Unit)? =
+                if (photosDownloadEnabled && !activeOrderNumber.isNullOrBlank()) {
+                    { component.requestOpenDocumentPhotos(activeOrderNumber) }
+                } else {
+                    null
+                }
             if (currentLinked != null) {
                 TreeRootDocumentDetailsSheet(
                     document = currentLinked,
                     onBack = onNestedBack,
                     onOpenBaseDocument = onOpenBaseDocument,
-                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                 )
             } else {
                 component.pickedOrder = order
@@ -253,13 +333,16 @@ fun WorkOrdersScreen(
                     order = order,
                     onBack = onNestedBack,
                     onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                     onSendMessage = { message, onResult ->
                         val number = order.number.orEmpty()
                         val date = order.date.orEmpty()
                         scope.launch {
                             val err = component.sendMessage(number, date, message)
                             if (err == null) {
-                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = s("events_ya"), text = message))
                             }
                             onResult(err)
                         }
@@ -309,13 +392,13 @@ fun WorkOrdersScreen(
                         onClick = hideSearchForm,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(
                         onClick = clearSearchAndClose,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -330,7 +413,7 @@ fun WorkOrdersScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 6.dp),
-                    placeholder = { Text("Поиск заказ-наряда") },
+                    placeholder = { Text(s("work_order_poisk_zakaz_naryada")) },
                     singleLine = true,
                     enabled = !isTopBarLoading,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -341,7 +424,16 @@ fun WorkOrdersScreen(
             null
         },
         topBarActionsContent = { isLoadingTopBar ->
-            if (panel == MasterPanel.List) {
+            if (panel == MasterPanel.Details && photosUploadEnabled) {
+                val active = resolveActiveWorkOrder(selectedId, resource, linkedDocuments)
+                val cameraNumber = active?.number.orEmpty()
+                if (active != null && cameraNumber.isNotBlank()) {
+                    ComplectationAddPhotoTopBarAction(
+                        enabled = !isCameraPrecheckInProgress,
+                        onClick = { component.requestOpenCamera(cameraNumber) },
+                    )
+                }
+            } else if (panel == MasterPanel.List) {
                 if (isSearchMode) {
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
@@ -352,12 +444,12 @@ fun WorkOrdersScreen(
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -382,7 +474,7 @@ fun WorkOrdersScreen(
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -399,20 +491,20 @@ fun WorkOrdersScreen(
             null
         },
 
-        modifier = modifier
+        modifier = Modifier.fillMaxSize()
     )
 
     if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Открытие документа...") },
+            title = { Text(s("work_order_otkrytie_dokumenta")) },
             text = {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text("Подождите, выполняем поиск.")
+                    Text(s("work_order_please_wait_search"))
                 }
             },
             confirmButton = {}
@@ -422,7 +514,7 @@ fun WorkOrdersScreen(
     if (characteristicMatches.size >= 2) {
         AlertDialog(
             onDismissRequest = { characteristicMatches = emptyList() },
-            title = { Text("Найдено ${characteristicMatches.size} комплектаций") },
+            title = { Text(s("work_order_naydeno_characteristicmatches_size_komplektatsiy", characteristicMatches.size)) },
             text = {
                 Column(
                     modifier = Modifier
@@ -434,7 +526,7 @@ fun WorkOrdersScreen(
                     characteristicMatches.forEach { item ->
                         val title = item.link?.takeIf { it.isNotBlank() }
                             ?: item.number?.takeIf { it.isNotBlank() }
-                            ?: "Без номера"
+                            ?: s("events_bez_nomera")
                         val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—"
                         Surface(
                             modifier = Modifier
@@ -469,11 +561,43 @@ fun WorkOrdersScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { characteristicMatches = emptyList() }) {
-                    Text("Закрыть")
+                    Text(s("camera_zakryt"))
                 }
             }
         )
     }
+
+    SnackbarHost(
+        hostState = cameraErrorSnackbarHostState,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) { data ->
+        Snackbar(
+            snackbarData = data,
+            containerColor = if (cameraSnackbarIsError) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseSurface
+            },
+            contentColor = if (cameraSnackbarIsError) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseOnSurface
+            },
+        )
+    }
+    }
+}
+
+private fun resolveActiveWorkOrder(
+    selectedId: String?,
+    resource: Resource<List<WorkOrderDto>>,
+    linkedDocuments: List<TreeRootResolvedDocument>,
+): WorkOrderDto? {
+    linkedDocuments.lastOrNull()?.let { linked ->
+        if (linked is TreeRootResolvedDocument.WorkOrder) return linked.value
+    }
+    val list = (resource as? Resource.Success)?.data.orEmpty()
+    return list.firstOrNull { it.guid?.toString() == selectedId }
 }
 
 @Composable
@@ -492,7 +616,7 @@ private fun WorkOrderSearchTypeRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Поиск по:",
+                text = s("events_poisk_po"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -538,7 +662,7 @@ private fun WorkOrderCard(
                         .padding(end = 8.dp)
                 ) {
                     TextC(
-                        text = order.number?.let { "№ $it" } ?: "Без номера",
+                        text = order.number?.let { "№ $it" } ?: s("events_bez_nomera"),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.fillMaxWidth(),
@@ -635,7 +759,7 @@ private fun WorkOrderCard(
             ) {
                 order.date?.let {
                     Text(
-                        text = "созд. ${it}",
+                        text = s("work_order_sozd_it", it),
                         modifier = Modifier.fillMaxWidth(),
                         style = TextStyle(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -646,7 +770,7 @@ private fun WorkOrderCard(
                 }
                 order.messages.lastOrNull()?.let {
                     Text(
-                        text = "изм. ${formatRelativeWorkDate(it.workDate)}",
+                        text = s("work_order_izm_formatrelativeworkdate_it_workdate", formatRelativeWorkDate(it.workDate)),
                         modifier = Modifier.fillMaxWidth(),
                         style = TextStyle(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -657,7 +781,7 @@ private fun WorkOrderCard(
                 }
                 if (order.messages.lastOrNull() == null) {
                     Text(
-                        text = "Сообщений нет",
+                        text = s("work_order_soobscheniy_net"),
                         modifier = Modifier.fillMaxWidth(),
                         style = TextStyle(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

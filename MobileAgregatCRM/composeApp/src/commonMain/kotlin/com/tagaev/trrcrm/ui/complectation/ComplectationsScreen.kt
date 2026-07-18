@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.complectation
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -30,11 +32,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.tagaev.trrcrm.getPlatform
-import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.data.remote.userFacingMessage
-import com.tagaev.trrcrm.developer.ComplectationPhotosViewerFeatureState
 import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.displayNameRu
 import com.tagaev.trrcrm.domain.Refiner
@@ -43,6 +43,7 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.domain.stableStateKey
+import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
@@ -69,7 +70,6 @@ import compose.icons.feathericons.X
 import compose.icons.lineawesomeicons.QrcodeSolid
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 
 private enum class ComplectationSearchModeType {
     NAME,
@@ -98,10 +98,10 @@ private fun refineToComplectationSearchModeType(type: Refiner.SearchQueryType): 
 
 private fun ComplectationSearchModeType.searchFieldPlaceholder(): String =
     when (this) {
-        ComplectationSearchModeType.NAME -> "Название комплекта…"
-        ComplectationSearchModeType.NUMBER -> "Номер документа…"
-        ComplectationSearchModeType.MASTER -> "Мастер…"
-        ComplectationSearchModeType.KIT_CHARACTERISTIC -> "С/Н…"
+        ComplectationSearchModeType.NAME -> s("complectation_placeholder_name")
+        ComplectationSearchModeType.NUMBER -> s("complectation_placeholder_number")
+        ComplectationSearchModeType.MASTER -> s("complectation_placeholder_master")
+        ComplectationSearchModeType.KIT_CHARACTERISTIC -> s("complectation_placeholder_sn")
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,6 +120,7 @@ fun ComplectationsScreen(
     val isCameraOpen by component.isCameraOpen.collectAsState()
     val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
     val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
     val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
     val documentPhotoCount by component.documentPhotoCount.collectAsState()
     val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
@@ -128,12 +129,6 @@ fun ComplectationsScreen(
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
     val transientWarning by component.transientWarning.collectAsState()
-
-    val appSettings = koinInject<AppSettings>()
-    LaunchedEffect(panel) {
-        ComplectationPhotosViewerFeatureState.loadFrom(appSettings)
-    }
-    val photosViewerFeatureEnabled by ComplectationPhotosViewerFeatureState.enabled
 
     val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
     var cameraSnackbarIsError by remember { mutableStateOf(false) }
@@ -191,7 +186,7 @@ fun ComplectationsScreen(
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
         val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
         if (token.isBlank()) {
-            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+            showSnackbar(s("work_order_ukazhite_drugoe_znachenie_harakteristiki_dlya_poiska"))
         } else {
             scope.launch {
                 isResolvingLinkedByCharacteristic = true
@@ -200,7 +195,7 @@ fun ComplectationsScreen(
                         is Resource.Success -> {
                             val list = res.data.orEmpty()
                             when {
-                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.isEmpty() -> showSnackbar(s("work_order_komplektatsii_ne_naydeny"))
                                 list.size == 1 -> linkedDocuments.add(
                                     TreeRootResolvedDocument.Complectation(list.first())
                                 )
@@ -210,7 +205,7 @@ fun ComplectationsScreen(
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
+                            res.causes ?: friendlyError(res.exception, s("work_order_oshibka_poiska_komplektatsii"))
                         )
                         is Resource.Loading -> Unit
                     }
@@ -262,8 +257,9 @@ fun ComplectationsScreen(
         if (number != null) {
             DocumentCameraScreen(
                 documentNumber = number,
-                title = "Камера ($number)",
-                documentName = "Комплектация",
+                title = s("complectation_kamera_number", number),
+                documentType = ImageDocumentType.Complects,
+                initialQuota = cameraUploadQuota,
                 showUploadStatusBlock = false,
                 onBack = component::closeCamera,
             )
@@ -275,7 +271,7 @@ fun ComplectationsScreen(
         if (number != null) {
             DocumentPhotosViewerScreen(
                 documentNumber = number,
-                documentType = "complectation",
+                documentType = ImageDocumentType.Complects,
                 onBack = component::closePhotosViewer,
             )
         }
@@ -284,10 +280,10 @@ fun ComplectationsScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         MasterScreen(
-            title = "Комплектация",
+            title = s("nav_komplektatsiya"),
             resource = resource,
-            errorText = "Не удалось загрузить комплектации",
-        notFoundText = "Комплектации не найдены",
+            errorText = s("complectation_ne_udalos_zagruzit_komplektatsii"),
+        notFoundText = s("work_order_komplektatsii_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -314,13 +310,11 @@ fun ComplectationsScreen(
             }
             val activeOrderNumber = (currentLinked as? TreeRootResolvedDocument.Complectation)?.value?.number
                 ?: order.number
-            LaunchedEffect(activeOrderNumber, photosViewerFeatureEnabled) {
-                if (photosViewerFeatureEnabled) {
-                    activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
-                }
+            LaunchedEffect(activeOrderNumber) {
+                activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
             }
             val openDocumentPhotos: (() -> Unit)? =
-                if (photosViewerFeatureEnabled && !activeOrderNumber.isNullOrBlank()) {
+                if (!activeOrderNumber.isNullOrBlank()) {
                     { component.requestOpenDocumentPhotos(activeOrderNumber) }
                 } else {
                     null
@@ -352,9 +346,9 @@ fun ComplectationsScreen(
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -373,8 +367,8 @@ fun ComplectationsScreen(
                     onOpenBaseDocument = onOpenBaseDocument,
                     complectationStacked = complectationStackedUi,
                     onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
-                    documentPhotoCount = if (photosViewerFeatureEnabled) documentPhotoCount else 0,
-                    isDocumentPhotoCountLoading = photosViewerFeatureEnabled && isDocumentPhotoCountUiLoading,
+                    documentPhotoCount = documentPhotoCount,
+                    isDocumentPhotoCountLoading = isDocumentPhotoCountUiLoading,
                     onOpenDocumentPhotos = openDocumentPhotos,
                 )
             } else {
@@ -386,8 +380,8 @@ fun ComplectationsScreen(
                     onStackedDetailsSnapshotChange = complectationStackedUi.onDetailsSnapshot,
                     detailsScrollState = complectationStackedUi.detailsScroll,
                     onOpenBaseDocument = onOpenBaseDocument,
-                    documentPhotoCount = if (photosViewerFeatureEnabled) documentPhotoCount else 0,
-                    isDocumentPhotoCountLoading = photosViewerFeatureEnabled && isDocumentPhotoCountUiLoading,
+                    documentPhotoCount = documentPhotoCount,
+                    isDocumentPhotoCountLoading = isDocumentPhotoCountUiLoading,
                     onOpenDocumentPhotos = openDocumentPhotos,
                     onSendMessage = { message, onResult ->
                         val number = order.number.orEmpty()
@@ -395,7 +389,7 @@ fun ComplectationsScreen(
                         scope.launch {
                             val err = component.sendMessage(number, date, message)
                             if (err == null) {
-                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = "я", text = message))
+                                component.addLocalMessage(order.guid.toString(), message = MessageModel(author = s("events_ya"), text = message))
                             }
                             onResult(err)
                         }
@@ -441,13 +435,13 @@ fun ComplectationsScreen(
                         onClick = hideSearchForm,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(
                         onClick = clearSearchAndClose,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -504,15 +498,15 @@ fun ComplectationsScreen(
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.openQrScanner() }) {
-                        Icon(LineAwesomeIcons.QrcodeSolid, contentDescription = "Сканировать QR")
+                        Icon(LineAwesomeIcons.QrcodeSolid, contentDescription = s("complectation_skanirovat_qr"))
                     }
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -533,7 +527,7 @@ fun ComplectationsScreen(
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -598,8 +592,8 @@ fun ComplectationsScreen(
     if (isCameraPrecheckInProgress) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("Проверка возможности загрузки…") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("complectation_proverka_vozmozhnosti_zagruzki")) },
             confirmButton = {},
         )
     }
@@ -607,8 +601,8 @@ fun ComplectationsScreen(
     if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("Поиск документа…") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("complectation_poisk_dokumenta")) },
             confirmButton = {}
         )
     }
@@ -616,7 +610,7 @@ fun ComplectationsScreen(
     if (characteristicMatches.size >= 2) {
         AlertDialog(
             onDismissRequest = { characteristicMatches = emptyList() },
-            title = { Text("Найдено несколько комплектаций") },
+            title = { Text(s("complectation_naydeno_neskolko_komplektatsiy")) },
             text = {
                 Column(
                     modifier = Modifier
@@ -628,7 +622,7 @@ fun ComplectationsScreen(
                     characteristicMatches.forEach { item ->
                         val title = item.link?.takeIf { it.isNotBlank() }
                             ?: item.number?.takeIf { it.isNotBlank() }
-                            ?: "Без номера"
+                            ?: s("events_bez_nomera")
                         val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() }
                             ?: "—"
                         Surface(
@@ -664,7 +658,7 @@ fun ComplectationsScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { characteristicMatches = emptyList() }) {
-                    Text("Отмена")
+                    Text(s("settings_otmena"))
                 }
             }
         )
@@ -687,7 +681,7 @@ private fun ComplectationSearchTypeRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Поиск по:",
+                text = s("events_poisk_po"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -703,7 +697,7 @@ private fun ComplectationSearchTypeRow(
                     onClick = { onSelected(ComplectationSearchModeType.KIT_CHARACTERISTIC) },
                     label = {
                         Text(
-                            "По с/н",
+                            s("complectation_po_sn"),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -712,17 +706,17 @@ private fun ComplectationSearchTypeRow(
                 FilterChip(
                     selected = selected == ComplectationSearchModeType.NAME,
                     onClick = { onSelected(ComplectationSearchModeType.NAME) },
-                    label = { Text("По названию") }
+                    label = { Text(s("complectation_po_nazvaniyu")) }
                 )
                 FilterChip(
                     selected = selected == ComplectationSearchModeType.NUMBER,
                     onClick = { onSelected(ComplectationSearchModeType.NUMBER) },
-                    label = { Text("По номеру") }
+                    label = { Text(s("complectation_po_nomeru")) }
                 )
                 FilterChip(
                     selected = selected == ComplectationSearchModeType.MASTER,
                     onClick = { onSelected(ComplectationSearchModeType.MASTER) },
-                    label = { Text("По мастеру") }
+                    label = { Text(s("complectation_po_masteru")) }
                 )
             }
         }
@@ -753,10 +747,10 @@ private fun ComplectationQrScannerView(
             TopAppBar(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
+                        Icon(FeatherIcons.ArrowLeft, contentDescription = s("settings_nazad"))
                     }
                 },
-                title = { Text("Сканер комплектации") }
+                title = { Text(s("complectation_skaner_komplektatsii")) }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -779,13 +773,13 @@ private fun ComplectationQrScannerView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "QR-сканер пока недоступен на desktop",
+                            text = s("complectation_qr_skaner_poka_nedostupen_na_desktop"),
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.White
                         )
                     }
                 } else {
-                    CameraPermissionGate(rationaleText = "Для сканирования нужен доступ к камере.") {
+                    CameraPermissionGate(rationaleText = s("complectation_dlya_skanirovaniya_nuzhen_dostup_k_kamere")) {
                         CameraView(
                             decodedString = { decodedString ->
                                 if (!isResolving) onScanned(decodedString)
@@ -813,7 +807,7 @@ private fun ComplectationQrScannerView(
                             strokeWidth = 2.dp
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("Поиск комплектации...")
+                        Text(s("complectation_poisk_komplektatsii"))
                     }
                 }
             }
@@ -829,15 +823,15 @@ private fun ComplectationCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val numberText = normalizeSingleLine(order.number).orEmpty().ifBlank { "Без номера" }
+    val numberText = normalizeSingleLine(order.number).orEmpty().ifBlank { s("events_bez_nomera") }
     val branchText = normalizeSingleLine(order.branch).orEmpty()
     val characteristicText = normalizeSingleLine(order.complectationCharacteristic).orEmpty().ifBlank { "—" }
     val statusText = normalizeSingleLine(order.status)
     val documentAmountText =
         normalizeSingleLine(order.documentAmount)?.trim().orEmpty().ifBlank { "—" }
     val kitText = normalizeSingleLine(order.complectationKit).orEmpty().ifBlank { "—" }
-    val createdText = normalizeSingleLine(order.date)?.let { "созд. $it" }
-    val lastMessageText = order.messages.lastOrNull()?.let { "изм. ${formatRelativeWorkDate(it.workDate)}" }
+    val createdText = normalizeSingleLine(order.date)?.let { s("complectation_sozd_it", it) }
+    val lastMessageText = order.messages.lastOrNull()?.let { s("work_order_izm_formatrelativeworkdate_it_workdate", formatRelativeWorkDate(it.workDate)) }
 
     Card(
         modifier = modifier
@@ -900,13 +894,13 @@ private fun ComplectationCard(
 
             Spacer(Modifier.height(3.dp))
             ComplectationMetaRow(
-                label = "Состояние",
+                label = s("work_order_sostoyanie"),
                 value = statusText.orEmpty().ifBlank { "—" }
             )
-            ComplectationMetaRow(label = "Сумма документа", value = documentAmountText)
-            ComplectationMetaRow(label = "Комплект", value = kitText)
+            ComplectationMetaRow(label = s("complectation_summa_dokumenta"), value = documentAmountText)
+            ComplectationMetaRow(label = s("complectation_komplekt"), value = kitText)
             ComplectationMetaRow(
-                label = "Комментарий",
+                label = s("complectation_kommentariy"),
                 value = normalizeSingleLine(order.comment).orEmpty().ifBlank { "—" }
             )
 
@@ -939,7 +933,7 @@ private fun ComplectationCard(
                 }
                 if (order.messages.lastOrNull() == null) {
                     Text(
-                        text = "Сообщений нет",
+                        text = s("work_order_soobscheniy_net"),
                         modifier = Modifier.fillMaxWidth(),
                         style = TextStyle(fontSize = 9.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1005,39 +999,6 @@ private fun resolveActiveComplectation(
     }
     if (selectedId == null) return null
     return (resource as? Resource.Success)?.data?.firstOrNull { it.guid.toString() == selectedId }
-}
-
-@Composable
-private fun ComplectationAddPhotoTopBarAction(
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .padding(end = 4.dp)
-            .alpha(if (enabled) 1f else 0.45f)
-            .clip(MaterialTheme.shapes.small)
-            .clickable(enabled = enabled, onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = "добавить фото",
-                style = MaterialTheme.typography.labelMedium,
-                fontSize = 12.sp,
-                maxLines = 1,
-            )
-            Icon(
-                FeatherIcons.Camera,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-            )
-        }
-    }
 }
 
 private fun normalizeSingleLine(value: String?): String? {

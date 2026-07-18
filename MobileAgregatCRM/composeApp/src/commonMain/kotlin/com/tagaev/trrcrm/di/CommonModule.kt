@@ -23,6 +23,7 @@ import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.updates.createDesktopUpdateService
 import com.tagaev.trrcrm.updates.DesktopUpdateService
+import com.tagaev.trrcrm.ui.i18n.LanguageController
 import com.tagaev.trrcrm.ui.style.ThemeController
 import com.tagaev.trrcrm.utils.DefaultValuesConst.GLOBAL_PUSH_URL
 import io.ktor.client.HttpClient
@@ -54,6 +55,7 @@ val commonModule = module {
     }
 
     single { ImageMediatorApi(client = get()) }
+    single { com.tagaev.trrcrm.data.fixator.UploadSessionQuotaTracker() }
     single { createFixatorPhotoStorage() }
     single { createDocumentPhotoCache() }
 
@@ -89,8 +91,10 @@ val commonModule = module {
     // --- Settings / JSON ---
     single<Json> { Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false } }
     single { AppSettings(get<Settings>(), get<Json>()) }
+    single { com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore(settings = get(), json = get()) }
 
-    // --- Theme ---
+    // --- Theme / Language ---
     single { ThemeController(get()) }
+    single { LanguageController(get()) }
     single<DesktopUpdateService> { createDesktopUpdateService(get(), get()) }
 }

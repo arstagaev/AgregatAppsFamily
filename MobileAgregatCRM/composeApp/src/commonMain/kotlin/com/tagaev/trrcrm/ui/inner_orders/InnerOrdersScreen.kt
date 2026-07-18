@@ -1,8 +1,11 @@
 package com.tagaev.trrcrm.ui.inner_orders
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,7 +56,13 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.complectationSearchTokenFromNomenclatureCharacteristic
 import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
+import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.models.InnerOrderDto
 import com.tagaev.trrcrm.models.WorkOrderDto
+import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
+import com.tagaev.trrcrm.ui.complectation.ComplectationAddPhotoTopBarAction
+import com.tagaev.trrcrm.ui.complectation.ComplectationOpenPhotosButton
+import com.tagaev.trrcrm.ui.complectation.DocumentPhotosViewerScreen
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
 import com.tagaev.trrcrm.ui.custom.StatusBadge
 import com.tagaev.trrcrm.ui.custom.StatusStyle
@@ -68,6 +80,7 @@ import com.tagaev.trrcrm.ui.style.DefaultColors
 import com.tagaev.trrcrm.ui.work_order.WorkOrderDetailsSheet
 import com.tagaev.trrcrm.utils.formatRelativeWorkDate
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Camera
 import compose.icons.feathericons.ChevronsUp
 import compose.icons.feathericons.Filter
 import compose.icons.feathericons.RefreshCw
@@ -85,13 +98,13 @@ private val INNER_ORDERS_TOPBAR_SEARCH_OPTIONS = listOf(
 )
 
 private fun Refiner.SearchQueryType.innerOrdersSearchLabel(): String = when (this) {
-    Refiner.SearchQueryType.CODE -> "Номер"
-    Refiner.SearchQueryType.TOPIC -> "Тема"
-    Refiner.SearchQueryType.AUTHOR -> "Автор"
-    Refiner.SearchQueryType.COUNTERPARTY -> "Контрагент"
+    Refiner.SearchQueryType.CODE -> s("filter_nomer")
+    Refiner.SearchQueryType.TOPIC -> s("filter_tema")
+    Refiner.SearchQueryType.AUTHOR -> s("events_avtor")
+    Refiner.SearchQueryType.COUNTERPARTY -> s("events_kontragent")
     Refiner.SearchQueryType.AUTO -> "Автомобиль"
-    Refiner.SearchQueryType.MANAGER -> "Менеджер"
-    Refiner.SearchQueryType.MASTER -> "Мастер"
+    Refiner.SearchQueryType.MANAGER -> s("filter_menedzher")
+    Refiner.SearchQueryType.MASTER -> s("filter_master")
     Refiner.SearchQueryType.KIT_CHARACTERISTIC -> "Хар. комплекта"
     Refiner.SearchQueryType.LICENSE_PLATE -> "Госномер"
     Refiner.SearchQueryType.VIN_NUMBER -> "VIN"
@@ -99,7 +112,7 @@ private fun Refiner.SearchQueryType.innerOrdersSearchLabel(): String = when (thi
     Refiner.SearchQueryType.CLIENT -> "Заказчик"
     Refiner.SearchQueryType.ROUTE -> "Маршрут"
     Refiner.SearchQueryType.CARRIER -> "Перевозчик"
-    Refiner.SearchQueryType.SUBJECT_MATTER -> "Суть обращения"
+    Refiner.SearchQueryType.SUBJECT_MATTER -> s("incoming_sut_obrascheniya")
     Refiner.SearchQueryType.PHONE -> "Телефон"
     Refiner.SearchQueryType.REPAIR_TEMPLATE_MODEL,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_NAME,
@@ -110,11 +123,11 @@ private fun Refiner.SearchQueryType.innerOrdersSearchLabel(): String = when (thi
     Refiner.SearchQueryType.REPAIR_TEMPLATE_ENGINE,
     Refiner.SearchQueryType.REPAIR_TEMPLATE_REPAIR_KIND,
     Refiner.SearchQueryType.PURPOSE,
-    -> "Калькуляция"
+    -> s("nav_kalkulyatsiya")
 }
 
 @Composable
-fun InnerOrdersScreen(component: IInnerOrdersComponent) {
+fun InnerOrdersScreen(component: InnerOrdersComponent, modifier: Modifier = Modifier) {
     val resource by component.innerOrders.collectAsState()
     val refineState by component.refineState.collectAsState()
     val panel by component.masterScreenPanel.collectAsState()
@@ -125,12 +138,43 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     val isTopBarLoading = resource is Resource.Loading ||
             (resource as? Resource.Success<*>)?.additionalLoading == true
 
+    val isCameraOpen by component.isCameraOpen.collectAsState()
+    val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
+    val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
+    val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
+    val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val documentPhotoCount by component.documentPhotoCount.collectAsState()
+    val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
+    val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
+    val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
+    val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
+    val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    var photosUploadEnabled by androidx.compose.runtime.remember { mutableStateOf(true) }
+    var photosDownloadEnabled by androidx.compose.runtime.remember { mutableStateOf(true) }
+    val cameraErrorSnackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
+    var cameraSnackbarIsError by androidx.compose.runtime.remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
     val linkedDocuments = androidx.compose.runtime.remember { emptyList<TreeRootResolvedDocument>().toMutableStateList() }
     var characteristicMatches by androidx.compose.runtime.remember { mutableStateOf<List<WorkOrderDto>>(emptyList()) }
     var isResolvingBaseDocument by rememberSaveable { mutableStateOf(false) }
     var isResolvingLinkedByCharacteristic by rememberSaveable { mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        photosUploadEnabled = component.isPhotosUploadEnabled()
+        photosDownloadEnabled = component.isPhotosDownloadEnabled()
+    }
+    androidx.compose.runtime.LaunchedEffect(cameraPrecheckError) {
+        val error = cameraPrecheckError
+        if (!error.isNullOrBlank()) {
+            cameraSnackbarIsError = true
+            cameraErrorSnackbarHostState.showSnackbar(
+                com.tagaev.trrcrm.data.remote.userFacingMessage(error, error),
+            )
+            component.consumeCameraPrecheckError()
+        }
+    }
 
     androidx.compose.runtime.LaunchedEffect(refineState.searchQuery, refineState.searchQueryType, isSearchMode) {
         if (!isSearchMode) {
@@ -152,7 +196,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     val onNomenclatureCharacteristicSearch: (String) -> Unit = { rawCharacteristic ->
         val token = complectationSearchTokenFromNomenclatureCharacteristic(rawCharacteristic)
         if (token.isBlank()) {
-            showSnackbar("Укажите другое значение характеристики — для поиска нет сырого кода (например ЦБ153214)")
+            showSnackbar(s("work_order_ukazhite_drugoe_znachenie_harakteristiki_dlya_poiska"))
         } else {
             scope.launch {
                 isResolvingLinkedByCharacteristic = true
@@ -161,13 +205,13 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                         is Resource.Success -> {
                             val list = res.data.orEmpty()
                             when {
-                                list.isEmpty() -> showSnackbar("Комплектации не найдены")
+                                list.isEmpty() -> showSnackbar(s("work_order_komplektatsii_ne_naydeny"))
                                 list.size == 1 -> linkedDocuments.add(TreeRootResolvedDocument.Complectation(list.first()))
                                 else -> characteristicMatches = list
                             }
                         }
                         is Resource.Error -> showSnackbar(
-                            res.causes ?: friendlyError(res.exception, "Ошибка поиска комплектации")
+                            res.causes ?: friendlyError(res.exception, s("work_order_oshibka_poiska_komplektatsii"))
                         )
                         is Resource.Loading -> Unit
                     }
@@ -207,11 +251,39 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
             component.changePanel(MasterPanel.List)
         }
     }
+
+    if (isCameraOpen) {
+        val number = cameraDocumentNumber
+        if (number != null) {
+            DocumentCameraScreen(
+                documentNumber = number,
+                title = s("complectation_kamera_number", number),
+                documentType = ImageDocumentType.InnerOrder,
+                initialQuota = cameraUploadQuota,
+                showUploadStatusBlock = false,
+                onBack = component::closeCamera,
+            )
+        }
+        return
+    }
+    if (isPhotosViewerOpen) {
+        val number = photosViewerDocumentNumber
+        if (number != null) {
+            DocumentPhotosViewerScreen(
+                documentNumber = number,
+                documentType = ImageDocumentType.InnerOrder,
+                onBack = component::closePhotosViewer,
+            )
+        }
+        return
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
     MasterScreen(
-        title = "Внутренние заказы",
+        title = s("inner_order_vnutrennie_zakazy"),
         resource = resource,
-        errorText = "Не удалось загрузить внутренние заказы",
-        notFoundText = "Внутренние заказы не найдены",
+        errorText = s("inner_order_ne_udalos_zagruzit_vnutrennie_zakazy"),
+        notFoundText = s("inner_order_vnutrennie_zakazy_ne_naydeny"),
         refineState = refineState,
         onRefresh = { component.fullRefresh() },
         onLoadMore = { component.loadMore() },
@@ -237,9 +309,9 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                                 // Colors are aligned with 1C screenshot palette
                                 "Заявка"                      to StatusStyle(DefaultColors.RainbowSkyBg,        DefaultColors.RainbowSkyFg),
                                 "В работе"                    to StatusStyle(DefaultColors.RainbowMintBg,       DefaultColors.RainbowMintFg),
-                                "Выполнено"                   to StatusStyle(DefaultColors.RainbowBrightPurpleBg, DefaultColors.RainbowBrightPurpleFg),
+                                s("complectation_vypolneno")                   to StatusStyle(DefaultColors.RainbowBrightPurpleBg, DefaultColors.RainbowBrightPurpleFg),
                                 "В пути на основной склад"    to StatusStyle(DefaultColors.RainbowSoftAmberBg,  DefaultColors.RainbowSoftAmberFg),
-                                "Готово к отгрузке"           to StatusStyle(DefaultColors.RainbowStrongOrangeBg, DefaultColors.RainbowStrongOrangeFg),
+                                s("inner_order_gotovo_k_otgruzke")           to StatusStyle(DefaultColors.RainbowStrongOrangeBg, DefaultColors.RainbowStrongOrangeFg),
                                 "Заказано"                    to StatusStyle(DefaultColors.RainbowNeonMagentaBg, DefaultColors.RainbowNeonMagentaFg),
                                 "Дефектовка"                  to StatusStyle(DefaultColors.RainbowGreyBg,       DefaultColors.RainbowGreyFg),
                                 "Дефектовка (выполнено)"      to StatusStyle(DefaultColors.RainbowOliveBg,      DefaultColors.RainbowOliveFg),
@@ -294,7 +366,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
 //                }
 //                if (complaint.messages.lastOrNull() == null) {
 //                    Text(
-//                        text = "Сообщений нет",
+//                        text = s("work_order_soobscheniy_net"),
 //                        style = TextStyle(fontSize = 9.sp),
 //                        color = MaterialTheme.colorScheme.onSurfaceVariant
 //                    )
@@ -313,9 +385,9 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                     isResolvingBaseDocument = true
                     try {
                         when (val resolved = runCatching { component.resolveBaseDocument(rawBaseDocument) }
-                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, "Ошибка поиска документа")) }) {
+                            .getOrElse { e -> Resource.Error(causes = friendlyError(e, s("events_oshibka_poiska_dokumenta"))) }) {
                             is Resource.Success -> linkedDocuments.add(resolved.data)
-                            is Resource.Error -> showSnackbar(resolved.causes ?: "Документ-основание не найден")
+                            is Resource.Error -> showSnackbar(resolved.causes ?: s("events_dokument_osnovanie_ne_nayden"))
                             is Resource.Loading -> Unit
                         }
                     } finally {
@@ -329,12 +401,28 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
             }
 
             val currentLinked = linkedDocuments.lastOrNull()
+            val activeInnerOrderNumber = (currentLinked as? TreeRootResolvedDocument.InnerOrder)?.value?.number
+                ?: complaint.number
+            androidx.compose.runtime.LaunchedEffect(activeInnerOrderNumber, photosDownloadEnabled) {
+                if (photosDownloadEnabled) {
+                    activeInnerOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+                }
+            }
+            val openDocumentPhotos: (() -> Unit)? =
+                if (photosDownloadEnabled && !activeInnerOrderNumber.isNullOrBlank()) {
+                    { component.requestOpenDocumentPhotos(activeInnerOrderNumber) }
+                } else {
+                    null
+                }
             if (currentLinked != null) {
                 TreeRootDocumentDetailsSheet(
                     document = currentLinked,
                     onBack = onNestedBack,
                     onOpenBaseDocument = onOpenBaseDocument,
-                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch
+                    onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                 )
             } else {
                 InnerOrderDetailsSheetWithMessages(
@@ -342,6 +430,9 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                     onBack = onNestedBack,
                     onOpenBaseDocument = onOpenBaseDocument,
                     onNomenclatureCharacteristicSearch = onNomenclatureCharacteristicSearch,
+                    documentPhotoCount = if (photosDownloadEnabled) documentPhotoCount else 0,
+                    isDocumentPhotoCountLoading = photosDownloadEnabled && isDocumentPhotoCountUiLoading,
+                    onOpenDocumentPhotos = openDocumentPhotos,
                     onSendMessage = { message, onResult ->
                         val number = complaint.number.orEmpty()
                         val date = complaint.date.orEmpty()
@@ -362,7 +453,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
             RefineScreen(
                 current = current,
                 onBack = onDismiss,
-                messageForUser = "Корректно работает только сортировка по Дате, остальные фильтры пока в разработке",
+                messageForUser = s("complaints_korrektno_rabotaet_tolko_sortirovka_po_date_ostalnye"),
                 orderByOptions = Refiner.OrderBy.allForUiExceptDateLastModification,
                 sections = setOf(
                     RefineSection.STATUS,
@@ -396,13 +487,13 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                         onClick = hideSearchForm,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.ChevronsUp, contentDescription = "Скрыть поиск")
+                        Icon(FeatherIcons.ChevronsUp, contentDescription = s("events_skryt_poisk"))
                     }
                     IconButton(
                         onClick = clearSearchAndClose,
                         enabled = !isTopBarLoading
                     ) {
-                        Icon(FeatherIcons.X, contentDescription = "Очистить и закрыть поиск")
+                        Icon(FeatherIcons.X, contentDescription = s("events_ochistit_i_zakryt_poisk"))
                     }
                 }
             }
@@ -416,7 +507,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 6.dp),
-                        placeholder = { Text("Поиск внутреннего заказа") },
+                        placeholder = { Text(s("inner_order_poisk_vnutrennego_zakaza")) },
                         singleLine = true,
                         enabled = !isTopBarLoading,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
@@ -430,7 +521,16 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
             else -> null
         },
         topBarActionsContent = { isLoadingTopBar ->
-            if (panel == MasterPanel.List) {
+            if (panel == MasterPanel.Details && photosUploadEnabled) {
+                val active = resolveActiveInnerOrder(selectedId, resource, linkedDocuments)
+                val cameraNumber = active?.number.orEmpty()
+                if (active != null && cameraNumber.isNotBlank()) {
+                    ComplectationAddPhotoTopBarAction(
+                        enabled = !isCameraPrecheckInProgress,
+                        onClick = { component.requestOpenCamera(cameraNumber) },
+                    )
+                }
+            } else if (panel == MasterPanel.List) {
                 if (isSearchMode) {
                     if (isLoadingTopBar) {
                         CircularProgressIndicator(
@@ -441,12 +541,12 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                         )
                     } else {
                         IconButton(onClick = applySearch) {
-                            Icon(FeatherIcons.Search, contentDescription = "Искать")
+                            Icon(FeatherIcons.Search, contentDescription = s("events_iskat"))
                         }
                     }
                 } else {
                     IconButton(onClick = { component.changePanel(MasterPanel.Filter) }) {
-                        Icon(FeatherIcons.Filter, contentDescription = "Фильтр")
+                        Icon(FeatherIcons.Filter, contentDescription = s("events_filtr"))
                     }
                     SearchIconButtonWithIndicator(
                         showIndicator = refineState.searchQuery.isNotBlank(),
@@ -470,7 +570,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                         )
                     } else {
                         IconButton(onClick = { component.fullRefresh() }) {
-                            Icon(FeatherIcons.RefreshCw, contentDescription = "Обновить")
+                            Icon(FeatherIcons.RefreshCw, contentDescription = s("menu_obnovit"))
                         }
                     }
                 }
@@ -509,8 +609,8 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     if (isResolvingBaseDocument || isResolvingLinkedByCharacteristic) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Пожалуйста, подождите") },
-            text = { Text("ищем документ основание....") },
+            title = { Text(s("events_pozhaluysta_podozhdite")) },
+            text = { Text(s("events_ischem_dokument_osnovanie")) },
             confirmButton = {}
         )
     }
@@ -518,7 +618,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
     if (characteristicMatches.size >= 2) {
         AlertDialog(
             onDismissRequest = { characteristicMatches = emptyList() },
-            title = { Text("Найдено несколько комплектаций") },
+            title = { Text(s("complectation_naydeno_neskolko_komplektatsiy")) },
             text = {
                 Column(
                     modifier = Modifier
@@ -530,7 +630,7 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
                     characteristicMatches.forEach { item ->
                         val title = item.link?.takeIf { it.isNotBlank() }
                             ?: item.number?.takeIf { it.isNotBlank() }
-                            ?: "Без номера"
+                            ?: s("events_bez_nomera")
                         val subtitle = item.complectationCharacteristic?.takeIf { it.isNotBlank() } ?: "—"
                         Surface(
                             modifier = Modifier
@@ -565,11 +665,43 @@ fun InnerOrdersScreen(component: IInnerOrdersComponent) {
             confirmButton = {},
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { characteristicMatches = emptyList() }) {
-                    Text("Отмена")
+                    Text(s("settings_otmena"))
                 }
             }
         )
     }
+
+    SnackbarHost(
+        hostState = cameraErrorSnackbarHostState,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) { data ->
+        Snackbar(
+            snackbarData = data,
+            containerColor = if (cameraSnackbarIsError) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseSurface
+            },
+            contentColor = if (cameraSnackbarIsError) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseOnSurface
+            },
+        )
+    }
+    }
+}
+
+private fun resolveActiveInnerOrder(
+    selectedId: String?,
+    resource: Resource<List<InnerOrderDto>>,
+    linkedDocuments: List<TreeRootResolvedDocument>,
+): InnerOrderDto? {
+    linkedDocuments.lastOrNull()?.let { linked ->
+        if (linked is TreeRootResolvedDocument.InnerOrder) return linked.value
+    }
+    val list = (resource as? Resource.Success)?.data.orEmpty()
+    return list.firstOrNull { it.guid.toString() == selectedId }
 }
 
 @Composable
@@ -588,7 +720,7 @@ private fun InnerOrdersSearchTypeRow(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "Поиск по:",
+                text = s("events_poisk_po"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

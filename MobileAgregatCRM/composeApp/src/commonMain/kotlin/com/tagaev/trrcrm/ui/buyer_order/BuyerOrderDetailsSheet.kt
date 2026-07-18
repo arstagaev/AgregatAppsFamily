@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.buyer_order
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,11 +61,11 @@ fun BuyerOrderDetailsSheet(
         isSendEnabled = { draft, wo ->
             draft.isNotBlank() && !wo.number.isNullOrBlank() && !wo.date.isNullOrBlank()
         },
-        historyTitle = "История",
-        historyEmptyText = "Записей нет",
-        addCommentTitle = "Добавить запись",
-        composerPlaceholder = "Текст записи…",
-        sendingDialogTitle = "Отправка записи",
+        historyTitle = s("complectation_istoriya"),
+        historyEmptyText = s("complectation_zapisey_net"),
+        addCommentTitle = s("complectation_dobavit_zapis"),
+        composerPlaceholder = s("complectation_tekst_zapisi"),
+        sendingDialogTitle = s("complectation_otpravka_zapisi"),
         headerContent = { wo ->
             BuyerOrderHeaderContent(
                 order = wo,
@@ -78,7 +80,7 @@ private fun BuyerOrderHeaderContent(
     order: BuyerOrderDto,
     onOpenBaseDocument: (String) -> Unit
 ) {
-    BuyerOrderCompactTitle("Ссылка")
+    BuyerOrderCompactTitle(s("buyer_order_ssylka"))
     BuyerOrderCompactValue(order.link)
     Spacer(Modifier.height(4.dp))
 
@@ -87,11 +89,11 @@ private fun BuyerOrderHeaderContent(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Column(Modifier.weight(1f)) {
-            BuyerOrderCompactTitle("Организация")
+            BuyerOrderCompactTitle(s("events_organizatsiya"))
             BuyerOrderCompactValue(order.organization)
         }
         Column(Modifier.weight(1f)) {
-            BuyerOrderCompactTitle("Подразделение")
+            BuyerOrderCompactTitle(s("events_podrazdelenie"))
             BuyerOrderCompactValue(order.branch)
         }
     }
@@ -101,15 +103,15 @@ private fun BuyerOrderHeaderContent(
     BuyerOrderCompactValue(order.car ?: order.carText)
     Spacer(Modifier.height(4.dp))
 
-    BuyerOrderCompactTitle("Состояние")
+    BuyerOrderCompactTitle(s("work_order_sostoyanie"))
     BuyerOrderCompactValue(order.status)
     Spacer(Modifier.height(4.dp))
 
-    BuyerOrderCompactTitle("Автор")
+    BuyerOrderCompactTitle(s("events_avtor"))
     BuyerOrderCompactValue(order.author)
     Spacer(Modifier.height(4.dp))
 
-    BuyerOrderCompactTitle("Менеджер")
+    BuyerOrderCompactTitle(s("filter_menedzher"))
     BuyerOrderCompactValue(order.manager)
     Spacer(Modifier.height(4.dp))
 
@@ -154,7 +156,7 @@ private fun BuyerOrderHeaderContent(
     }
     Spacer(Modifier.height(6.dp))
 
-    BuyerOrderCompactTitle("Комментарий")
+    BuyerOrderCompactTitle(s("complectation_kommentariy"))
     BuyerOrderCompactValue(order.comment)
     Spacer(Modifier.height(8.dp))
 
@@ -176,7 +178,7 @@ private fun BuyerOrderHeaderContent(
     val productsTotal = products.sumOf { parseMoneyAmount(it.amount) ?: 0.0 }
     ExpandableListSection(
         title = buildGoodsTitle(
-            baseTitle = "Товары (Вып работ)",
+            baseTitle = s("buyer_order_tovary_vyp_rabot"),
             positionsCount = products.size,
             totalAmount = productsTotal
         ),

@@ -14,6 +14,10 @@ actual fun rememberGalleryPhotoPicker(
 
     return remember {
         { maxItems: Int ->
+            if (maxItems <= 0) {
+                callback(emptyList())
+                return@remember
+            }
             val chooser = JFileChooser().apply {
                 dialogTitle = "Выберите фотографии"
                 isMultiSelectionEnabled = maxItems > 1

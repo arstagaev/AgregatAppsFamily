@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.ui.product_demo
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,7 +48,7 @@ fun ProductDetailsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = onBack) { Text("Назад") }
+                OutlinedButton(onClick = onBack) { Text(s("settings_nazad")) }
             }
 
             Box(
@@ -91,7 +93,7 @@ fun ProductDetailsScreen(
                 onClick = onAdd,
                 enabled = !inRequest
             ) {
-                Text(if (inRequest) "В заявке" else "Добавить к заявке")
+                Text(if (inRequest) "В заявке" else s("product_demo_dobavit_k_zayavke"))
             }
             OutlinedButton(
                 modifier = Modifier.fillMaxWidth(),

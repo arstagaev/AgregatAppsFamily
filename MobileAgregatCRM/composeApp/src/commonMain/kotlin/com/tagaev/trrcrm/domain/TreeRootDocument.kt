@@ -1,5 +1,7 @@
 package com.tagaev.trrcrm.domain
 
+import com.tagaev.trrcrm.ui.i18n.s
+
 import com.tagaev.trrcrm.models.BuyerOrderDto
 import com.tagaev.trrcrm.models.CargoDto
 import com.tagaev.trrcrm.models.ComplaintDto
@@ -22,15 +24,15 @@ enum class TreeRootDocumentKind {
 }
 
 fun TreeRootDocumentKind.displayNameRu(): String = when (this) {
-    TreeRootDocumentKind.EVENT -> "Событие"
-    TreeRootDocumentKind.WORK_ORDER -> "Заказ-наряд"
-    TreeRootDocumentKind.COMPLECTATION -> "Комплектация"
-    TreeRootDocumentKind.COMPLAINT -> "Рекламация"
-    TreeRootDocumentKind.INNER_ORDER -> "Заказ внутренний"
-    TreeRootDocumentKind.BUYER_ORDER -> "Заказ покупателя"
-    TreeRootDocumentKind.SUPPLIER_ORDER -> "Заказ поставщику"
-    TreeRootDocumentKind.CARGO -> "Груз"
-    TreeRootDocumentKind.EXPENSE_REQUEST -> "Заявка на расход ДС"
+    TreeRootDocumentKind.EVENT -> s("doc_kind_sobytie")
+    TreeRootDocumentKind.WORK_ORDER -> s("doc_kind_zakaz_naryad")
+    TreeRootDocumentKind.COMPLECTATION -> s("doc_kind_komplektatsiya")
+    TreeRootDocumentKind.COMPLAINT -> s("doc_kind_reklamatsiya")
+    TreeRootDocumentKind.INNER_ORDER -> s("doc_kind_zakaz_vnutrenniy")
+    TreeRootDocumentKind.BUYER_ORDER -> s("doc_kind_zakaz_pokupatelya")
+    TreeRootDocumentKind.SUPPLIER_ORDER -> s("doc_kind_zakaz_postavschiku")
+    TreeRootDocumentKind.CARGO -> s("doc_kind_gruz")
+    TreeRootDocumentKind.EXPENSE_REQUEST -> s("doc_kind_zayavka_rashod_ds")
 }
 
 data class TreeRootDocumentRef(
