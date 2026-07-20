@@ -36,3 +36,52 @@ in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and r
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+
+---
+
+## Feature toggles (CoreService)
+
+Клиентские ключи в `config.flags` / `GET /feature-toggles/mobile` — **без** префикса `feature_toggle.mobile.`.  
+Если ключ отсутствует → **выключено** (`false`). Сервер должен явно прислать `true`, чтобы включить.
+
+Store: `MobileFeatureFlagsStore`. Лог ON/OFF каждого ключа только при `IS_PUBLISH=true`.
+
+### Когда приложение запрашивает / применяет toggles
+
+| Когда | Что происходит |
+|-------|----------------|
+| **После успешного логина** | Явный `GET /feature-toggles/mobile` (`MobileFeatureFlagsSync`, reason=`login`) |
+| **После успешного логина** | `GET /feature-toggles/push-notifications` (push toggle, force) |
+| **Bootstrap** `POST /core/session/bootstrap` | Если в ответе есть непустой `config.flags` — apply в store (без отдельного GET) |
+| **Heartbeat** `POST /core/session/heartbeat` | То же: непустой `config.flags` → apply |
+| **Регистрация push** | `refreshPushFeatureToggleIfNeeded` (с TTL-кэшем), не каждый раз ходит на сервер |
+
+**Не** вызывается на каждый foreground/resume приложения.
+
+Пустой / отсутствующий `config.flags` **не** стирает уже сохранённый кэш.
+
+### Mobile photo toggles
+
+| Клиентский ключ | Документы | Эффект |
+|-----------------|-----------|--------|
+| `photos_upload_work_orders_etc` | Заказ-наряд | Только **загрузка** фото |
+| `photos_download_work_orders_etc` | Заказ-наряд | Только **просмотр** / count / list |
+| `photos_inner_order` | Внутренняя заявка | Upload **и** viewer |
+| `photos_events` | Событие | Upload **и** viewer |
+| `photos_cargo` | Доставка (Cargo → wire `Delivery`) | Upload **и** viewer |
+| — | Комплектация | Всегда включено, серверными photo-toggles не гейтится |
+
+При выключенном toggle:
+
+- UI (кнопка камеры / «Открыть фотографии») скрывается;
+- **не** вызываются ImageMediator-эндпоинты count / can-upload / list / download для этого типа (`DocumentPhotoSession` early-return).
+
+### Push toggle
+
+| Клиентский путь | Эффект |
+|-----------------|--------|
+| `GET/POST /feature-toggles/push-notifications` | Вкл/выкл push; кэш в prefs с TTL |
+
+### Серверные имена (справочно)
+
+На сервере ключи могут жить как `feature_toggle.mobile.<key>`; в JSON для мобильного клиента отдавать **короткие** ключи из таблицы выше.

@@ -149,8 +149,8 @@ fun InnerOrdersScreen(component: InnerOrdersComponent, modifier: Modifier = Modi
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
-    var photosUploadEnabled by androidx.compose.runtime.remember { mutableStateOf(true) }
-    var photosDownloadEnabled by androidx.compose.runtime.remember { mutableStateOf(true) }
+    var photosUploadEnabled by androidx.compose.runtime.remember { mutableStateOf(false) }
+    var photosDownloadEnabled by androidx.compose.runtime.remember { mutableStateOf(false) }
     val cameraErrorSnackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
     var cameraSnackbarIsError by androidx.compose.runtime.remember { mutableStateOf(false) }
 

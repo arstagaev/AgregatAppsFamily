@@ -44,13 +44,13 @@ class MobileFeatureFlagsStoreTest {
     }
 
     @Test
-    fun missingFlag_defaultsToTrue() = runTest {
+    fun missingFlag_defaultsToFalse() = runTest {
         val s = store()
-        assertTrue(s.isPhotosUploadWorkOrdersEtcEnabled())
-        assertTrue(s.isPhotosDownloadWorkOrdersEtcEnabled())
-        assertTrue(s.isPhotosInnerOrderEnabled())
-        assertTrue(s.isPhotosEventsEnabled())
-        assertTrue(s.isPhotosCargoEnabled())
+        assertFalse(s.isPhotosUploadWorkOrdersEtcEnabled())
+        assertFalse(s.isPhotosDownloadWorkOrdersEtcEnabled())
+        assertFalse(s.isPhotosInnerOrderEnabled())
+        assertFalse(s.isPhotosEventsEnabled())
+        assertFalse(s.isPhotosCargoEnabled())
     }
 
     @Test
@@ -90,7 +90,10 @@ class MobileFeatureFlagsStoreTest {
     fun falseBlocksUpload() = runTest {
         val s = store()
         s.applyFlags(
-            mapOf(MobileFeatureFlagsStore.KEY_PHOTOS_UPLOAD_WORK_ORDERS_ETC to false),
+            mapOf(
+                MobileFeatureFlagsStore.KEY_PHOTOS_UPLOAD_WORK_ORDERS_ETC to false,
+                MobileFeatureFlagsStore.KEY_PHOTOS_DOWNLOAD_WORK_ORDERS_ETC to true,
+            ),
         )
         assertFalse(s.isPhotosUploadWorkOrdersEtcEnabled())
         assertTrue(s.isPhotosDownloadWorkOrdersEtcEnabled())
@@ -120,6 +123,7 @@ class MobileFeatureFlagsStoreTest {
             mapOf(
                 MobileFeatureFlagsStore.KEY_PHOTOS_INNER_ORDER to false,
                 MobileFeatureFlagsStore.KEY_PHOTOS_EVENTS to false,
+                MobileFeatureFlagsStore.KEY_PHOTOS_CARGO to true,
             ),
         )
         assertFalse(s.isPhotosInnerOrderEnabled())
@@ -141,12 +145,12 @@ class MobileFeatureFlagsStoreTest {
     }
 
     @Test
-    fun unknownFlagsIgnoredForKnownLookups() = runTest {
+    fun keysAbsentFromAppliedMapAreOff() = runTest {
         val s = store()
-        s.applyFlags(mapOf("some_other_flag" to false))
-        assertTrue(s.isPhotosUploadWorkOrdersEtcEnabled())
-        assertTrue(s.isPhotosDownloadWorkOrdersEtcEnabled())
-        assertFalse(s.isEnabled("some_other_flag"))
+        s.applyFlags(mapOf("some_other_flag" to true))
+        assertFalse(s.isPhotosUploadWorkOrdersEtcEnabled())
+        assertFalse(s.isPhotosDownloadWorkOrdersEtcEnabled())
+        assertTrue(s.isEnabled("some_other_flag"))
     }
 
     @Test

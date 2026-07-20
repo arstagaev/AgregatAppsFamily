@@ -78,6 +78,7 @@ class DocumentPhotoSession(
         }
 
         appScope.launch {
+            // When upload/photos toggle is off: do not call can-upload / open camera.
             if (!isUploadEnabled()) return@launch
             _isCameraPrecheckInProgress.value = true
             _cameraPrecheckError.value = null
@@ -115,6 +116,7 @@ class DocumentPhotoSession(
 
     fun refreshDocumentPhotoCount(documentNumber: String) {
         appScope.launch {
+            // When download/photos toggle is off: no ImageMediator count request.
             if (!isDownloadEnabled()) {
                 _documentPhotoCount.value = 0
                 _documentPhotoCountLoaded.value = true

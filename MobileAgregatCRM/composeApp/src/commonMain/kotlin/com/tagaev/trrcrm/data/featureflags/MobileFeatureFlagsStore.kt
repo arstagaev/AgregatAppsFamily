@@ -12,7 +12,8 @@ import kotlinx.serialization.json.Json
  * Process + disk cache for CoreService mobile feature toggles (`config.flags`).
  * Keys are client-facing (no `feature_toggle.mobile.` prefix).
  *
- * Precedence: latest successful apply → persisted cache → [DEFAULT_ENABLED] for known keys.
+ * Precedence: latest successful apply → persisted cache → [DEFAULT_ENABLED] if key absent.
+ * Absent key means the feature is off (server must send `true` explicitly to enable).
  */
 class MobileFeatureFlagsStore(
     private val settings: AppSettings,
@@ -25,8 +26,8 @@ class MobileFeatureFlagsStore(
         const val KEY_PHOTOS_EVENTS = "photos_events"
         const val KEY_PHOTOS_CARGO = "photos_cargo"
 
-        /** Compatibility default: photo features worked before toggles existed. */
-        const val DEFAULT_ENABLED = true
+        /** Missing key from server/cache → feature disabled. */
+        const val DEFAULT_ENABLED = false
 
         private val KNOWN_KEYS = listOf(
             KEY_PHOTOS_UPLOAD_WORK_ORDERS_ETC,

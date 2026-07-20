@@ -125,8 +125,8 @@ fun WorkOrdersScreen(
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
-    var photosUploadEnabled by remember { mutableStateOf(true) }
-    var photosDownloadEnabled by remember { mutableStateOf(true) }
+    var photosUploadEnabled by remember { mutableStateOf(false) }
+    var photosDownloadEnabled by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val showSnackbar = LocalAppSnackbar.current
