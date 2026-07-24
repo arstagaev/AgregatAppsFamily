@@ -24,6 +24,7 @@ actual fun FixatorCameraPreview(
             FixatorCameraControls(
                 capturePhoto = { onLog("desktop capture unavailable") },
                 toggleTorch = { onLog("desktop torch unavailable") },
+                focusAtNormalized = { _, _ -> onLog("desktop focus unavailable") },
                 isTorchOn = false,
                 isTorchAvailable = false,
             ),

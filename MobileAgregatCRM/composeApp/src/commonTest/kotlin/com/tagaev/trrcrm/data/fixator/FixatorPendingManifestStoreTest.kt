@@ -2,7 +2,7 @@ package com.tagaev.trrcrm.data.fixator
 
 import kotlinx.coroutines.test.runTest
 import okio.FileSystem
-import okio.Path.Companion.toPath
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -54,8 +54,10 @@ class FixatorPendingManifestStoreTest {
     }
 
     private fun createTempRoot(): okio.Path {
-        val dir = java.nio.file.Files.createTempDirectory("fixator-store-test")
-        return dir.toAbsolutePath().toString().toPath()
+        val root = FileSystem.SYSTEM_TEMPORARY_DIRECTORY /
+            "fixator-store-test-${Random.nextLong()}"
+        fileSystem.createDirectories(root)
+        return root
     }
 
     private fun deleteRecursively(root: okio.Path) {

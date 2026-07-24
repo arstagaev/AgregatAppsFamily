@@ -604,7 +604,7 @@ fun DocumentCameraScreen(
         AlertDialog(
             onDismissRequest = { showUploadSuccessDialog = false },
             text = {
-                Text("Фотографии успешно загружены в комплектацию $documentNumber")
+                Text("Фотографии успешно загружены в документ $documentNumber")
             },
             confirmButton = {
                 TextButton(

@@ -160,7 +160,7 @@
     <string name="camera_udalit_foto">O‘chirish foto</string>
     <string name="camera_otpravit">Yuborish</string>
     <string name="camera_zakryt">Yopish</string>
-    <string name="camera_dobavit_iz_galerei">Добавить из галереи</string>
+    <string name="camera_dobavit_iz_galerei">Выбрать из Галереи</string>
     <string name="camera_foto_sohraneno_lokalno_v_galereyu_ne_dobavleno">Foto сохранено локально, в галерею не добавлено</string>
     <string name="camera_vosstanovleno_photos_size_foto_ozhidayut_otpravki">Восстановлено %1$s foto, ожидают отправки</string>
     <string name="camera_mozhno_dobavit_ne_bolee_max_photos_per_upload_foto_z">Можно добавить не более %1$s foto за одну отправку</string>

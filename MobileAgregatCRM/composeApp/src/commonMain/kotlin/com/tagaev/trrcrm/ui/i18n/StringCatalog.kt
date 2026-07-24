@@ -841,7 +841,7 @@ object StringCatalog {
         "camera_foto_dobavleno_iz_galerei" to "Foto добавлено из галереи",
         "camera_foto_udaleno" to "Foto удалено",
         "camera_sdelat_foto" to "Сделать foto",
-        "camera_fotografii_uspeshno_zagruzheny_v_komplektatsiyu_docu" to "Fotosuratи muvaffaqiyatli загружены в комплектацию %1${'$'}s",
+        "camera_fotografii_uspeshno_zagruzheny_v_komplektatsiyu_docu" to "Fotosuratи muvaffaqiyatli загружены в документ %1${'$'}s",
         "camera_foto_otpravleno" to "Foto отправлено",
         "camera_dlya_semki_nuzhen_dostup_k_kamere" to "Для съёмки нужен kirish к камере.",
         "camera_vykl" to "Выкл",

@@ -53,6 +53,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -618,7 +619,7 @@ class EventsApi(
 
         // If the server sometimes sends a preface you strip off:
         val raw = response.bodyAsText().cleanJsonStart()
-        val obj = json.parseToJsonElement(raw).jsonObject
+        val obj = json.parseGetTokenResponse(raw)
         val err = obj["error"]?.jsonPrimitive?.contentOrNull
         if (err != null) {
             // Map logical 200-OK errors into Resource.Error via resourceify
@@ -1139,6 +1140,18 @@ class EventsApi(
             explicitNulls = false
         }
     }
+}
+
+/**
+ * The 1C endpoint normally returns an object for `gettoken`, but some proxy/API
+ * configurations wrap that object in a one-item array. Unwrap only that known
+ * envelope and turn every other response shape into a user-safe failure.
+ */
+private fun Json.parseGetTokenResponse(raw: String) = when (val response = parseToJsonElement(raw)) {
+    is kotlinx.serialization.json.JsonObject -> response
+    is JsonArray -> response.singleOrNull() as? kotlinx.serialization.json.JsonObject
+        ?: throw IllegalStateException("Некорректный ответ сервера при входе")
+    else -> throw IllegalStateException("Некорректный ответ сервера при входе")
 }
 
 private data class ParsedCoreErrorPayload(

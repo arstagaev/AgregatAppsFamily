@@ -2,7 +2,7 @@ package com.tagaev.trrcrm.data.fixator
 
 import kotlinx.coroutines.test.runTest
 import okio.FileSystem
-import okio.Path.Companion.toPath
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -106,8 +106,10 @@ class DocumentPhotoCacheTest {
     }
 
     private fun createTempRoot(): okio.Path {
-        val dir = java.nio.file.Files.createTempDirectory("document-photo-cache-test")
-        return dir.toAbsolutePath().toString().toPath()
+        val root = FileSystem.SYSTEM_TEMPORARY_DIRECTORY /
+            "document-photo-cache-test-${Random.nextLong()}"
+        fileSystem.createDirectories(root)
+        return root
     }
 
     private fun deleteRecursively(root: okio.Path) {

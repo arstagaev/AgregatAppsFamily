@@ -160,7 +160,7 @@
     <string name="camera_udalit_foto">Удалить фото</string>
     <string name="camera_otpravit">Отправить</string>
     <string name="camera_zakryt">Закрыть</string>
-    <string name="camera_dobavit_iz_galerei">Добавить из галереи</string>
+    <string name="camera_dobavit_iz_galerei">Выбрать из Галереи</string>
     <string name="camera_foto_sohraneno_lokalno_v_galereyu_ne_dobavleno">Фото сохранено локально, в галерею не добавлено</string>
     <string name="camera_vosstanovleno_photos_size_foto_ozhidayut_otpravki">Восстановлено %1$s фото, ожидают отправки</string>
     <string name="camera_mozhno_dobavit_ne_bolee_max_photos_per_upload_foto_z">Можно добавить не более %1$s фото за одну отправку</string>

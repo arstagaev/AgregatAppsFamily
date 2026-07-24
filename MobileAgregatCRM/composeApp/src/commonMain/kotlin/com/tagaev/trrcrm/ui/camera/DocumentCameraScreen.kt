@@ -2,6 +2,8 @@ package com.tagaev.trrcrm.ui.camera
 
 import com.tagaev.trrcrm.ui.i18n.s
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -566,8 +568,15 @@ fun DocumentCameraScreen(
                 contentPadding = PaddingValues(bottom = 8.dp),
             ) {
                 item(key = "gallery_pick") {
+                    val galleryExpanded = photos.isEmpty()
                     PhotoGalleryPickTile(
+                        expanded = galleryExpanded,
                         enabled = canAddFromGallery,
+                        modifier = if (galleryExpanded) {
+                            Modifier.fillParentMaxWidth()
+                        } else {
+                            Modifier
+                        },
                         onClick = {
                             if (isCameraBusy) return@PhotoGalleryPickTile
                             val remainingSlots = (sessionMax - photos.size).coerceAtLeast(0)
@@ -604,7 +613,7 @@ fun DocumentCameraScreen(
         AlertDialog(
             onDismissRequest = { showUploadSuccessDialog = false },
             text = {
-                Text("Фотографии успешно загружены в комплектацию $documentNumber")
+                Text("Успешно загружено в №$documentNumber")
             },
             confirmButton = {
                 TextButton(
@@ -757,22 +766,48 @@ private fun RowStatus(
 
 @Composable
 private fun PhotoGalleryPickTile(
+    expanded: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = Modifier
-            .size(THUMB_SIZE_DP.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
+    val label = s("camera_dobavit_iz_galerei")
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .then(
+                if (expanded) {
+                    Modifier.fillMaxWidth()
+                } else {
+                    Modifier.size(THUMB_SIZE_DP.dp)
+                },
+            )
+            .animateContentSize(animationSpec = spring()),
+        contentPadding = if (expanded) {
+            PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        } else {
+            PaddingValues(0.dp)
+        },
     ) {
-        Icon(
-            FeatherIcons.Image,
-            contentDescription = s("camera_dobavit_iz_galerei"),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (expanded) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = label)
+                Icon(
+                    FeatherIcons.Image,
+                    contentDescription = null,
+                )
+            }
+        } else {
+            Icon(
+                FeatherIcons.Image,
+                contentDescription = label,
+            )
+        }
     }
 }
 
