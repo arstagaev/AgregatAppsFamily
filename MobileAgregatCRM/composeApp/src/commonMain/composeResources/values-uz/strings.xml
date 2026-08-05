@@ -34,6 +34,7 @@
     <string name="upload_session_exhausted">Ushbu sessiyada bu hujjat uchun maksimal %1$s ta foto yuklangan. Yangi sessiyani boshlash uchun ilovani qayta ishga tushiring.</string>
     <string name="upload_idempotency_conflict">Qayta yuborish konflikti. Qayta urinib ko‘ring.</string>
     <string name="upload_document_type">Hujjat turi</string>
+    <string name="upload_document_date_missing">Hujjat yaratilgan sana ko‘rsatilmagan. Fotosuratlarni yuklash mumkin emas.</string>
     <string name="login_oshibka_vhoda">Kirish xatosi</string>
     <string name="login_oshibka_soedineniya">Ulanish xatosi</string>
     <string name="login_zagruzka">Yuklanmoqda ...</string>

@@ -53,6 +53,7 @@ import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.OptionChipsScrollingRow
 import com.tagaev.trrcrm.domain.Refiner
 import com.tagaev.trrcrm.models.EventItemDto
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.push.rememberNotificationPermissionRequester
 import com.tagaev.trrcrm.domain.TreeRootDocumentKind
@@ -146,6 +147,7 @@ fun EventsScreen(
     val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
     val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
     val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val cameraUploadPeriod by component.cameraUploadPeriod.collectAsState()
     val documentPhotoCount by component.documentPhotoCount.collectAsState()
     val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
     val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
@@ -284,9 +286,11 @@ fun EventsScreen(
 
     if (isCameraOpen) {
         val number = cameraDocumentNumber
-        if (number != null) {
+        val uploadPeriod = cameraUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentCameraScreen(
                 documentNumber = number,
+                uploadPeriod = uploadPeriod,
                 title = s("complectation_kamera_number", number),
                 documentType = ImageDocumentType.Event,
                 initialQuota = cameraUploadQuota,
@@ -473,7 +477,7 @@ fun EventsScreen(
                     if (active != null && cameraNumber.isNotBlank()) {
                         ComplectationAddPhotoTopBarAction(
                             enabled = !isCameraPrecheckInProgress,
-                            onClick = { component.requestOpenCamera(cameraNumber) },
+                            onClick = { component.requestOpenCamera(cameraNumber, DocumentUploadPeriod.from(active.date)) },
                         )
                     }
                 } else if (panel == MasterPanel.List) {

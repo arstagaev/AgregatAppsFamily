@@ -1,6 +1,7 @@
 package com.tagaev.trrcrm.data.remote
 
 import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageMediatorCanUploadRequest
 import com.tagaev.trrcrm.models.ImageMediatorCanUploadResponse
 import com.tagaev.trrcrm.models.ImageMediatorImageCountResponse
@@ -34,6 +35,7 @@ class ImageMediatorApi(
     suspend fun canUpload(
         agrToken: String,
         documentNumber: String,
+        uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<ImageMediatorCanUploadResponse> = resourceify {
         val response = client.post(buildUrl("/api/v1/uploads/can-upload")) {
@@ -44,6 +46,8 @@ class ImageMediatorApi(
                 ImageMediatorCanUploadRequest(
                     documentNumber = documentNumber,
                     documentName = documentType.wireName,
+                    year = uploadPeriod.year,
+                    month = uploadPeriod.month,
                 )
             )
         }
@@ -102,6 +106,7 @@ class ImageMediatorApi(
         agrToken: String,
         documentNumber: String,
         files: List<ByteArray>,
+        uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
         idempotencyKey: String,
     ): Resource<ImageMediatorUploadResponse> = resourceify {
@@ -119,6 +124,8 @@ class ImageMediatorApi(
                     formData {
                         append("document_number", documentNumber)
                         append("document_name", documentType.wireName)
+                        append("year", uploadPeriod.year.toString())
+                        append("month", uploadPeriod.month.toString())
                         files.forEachIndexed { index, bytes ->
                             append(
                                 key = "files[]",

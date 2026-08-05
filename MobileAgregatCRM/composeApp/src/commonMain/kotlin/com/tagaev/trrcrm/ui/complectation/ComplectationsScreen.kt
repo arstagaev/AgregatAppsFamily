@@ -44,6 +44,7 @@ import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.domain.stableStateKey
 import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
 import com.tagaev.trrcrm.ui.custom.SearchIconButtonWithIndicator
@@ -121,6 +122,7 @@ fun ComplectationsScreen(
     val isCameraPrecheckInProgress by component.isCameraPrecheckInProgress.collectAsState()
     val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
     val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val cameraUploadPeriod by component.cameraUploadPeriod.collectAsState()
     val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
     val documentPhotoCount by component.documentPhotoCount.collectAsState()
     val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
@@ -254,9 +256,11 @@ fun ComplectationsScreen(
     }
     if (isCameraOpen) {
         val number = cameraDocumentNumber
-        if (number != null) {
+        val uploadPeriod = cameraUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentCameraScreen(
                 documentNumber = number,
+                uploadPeriod = uploadPeriod,
                 title = s("complectation_kamera_number", number),
                 documentType = ImageDocumentType.Complects,
                 initialQuota = cameraUploadQuota,
@@ -484,7 +488,7 @@ fun ComplectationsScreen(
                 if (activeComplectation != null && cameraNumber.isNotBlank()) {
                     ComplectationAddPhotoTopBarAction(
                         enabled = !isCameraPrecheckInProgress,
-                        onClick = { component.requestOpenCamera(cameraNumber) },
+                        onClick = { component.requestOpenCamera(cameraNumber, DocumentUploadPeriod.from(activeComplectation.date)) },
                     )
                 }
             } else if (panel == MasterPanel.List) {

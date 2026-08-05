@@ -91,6 +91,7 @@ class ComplectationComponent(
     val cameraDocumentNumber: StateFlow<String?> = photoSession.cameraDocumentNumber
     val cameraPrecheckError: StateFlow<String?> = photoSession.cameraPrecheckError
     val cameraUploadQuota: StateFlow<UploadAvailability?> = photoSession.cameraUploadQuota
+    val cameraUploadPeriod = photoSession.cameraUploadPeriod
     val documentPhotoCount: StateFlow<Int> = photoSession.documentPhotoCount
     val isDocumentPhotoCountLoading: StateFlow<Boolean> = photoSession.isDocumentPhotoCountLoading
     val documentPhotoCountLoaded: StateFlow<Boolean> = photoSession.documentPhotoCountLoaded
@@ -114,7 +115,8 @@ class ComplectationComponent(
         _qrLookupError.value = null
     }
 
-    fun requestOpenCamera(rawNumber: String) = photoSession.requestOpenCamera(rawNumber)
+    fun requestOpenCamera(rawNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
+        photoSession.requestOpenCamera(rawNumber, uploadPeriod)
 
     fun closeCamera() = photoSession.closeCamera()
 

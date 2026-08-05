@@ -66,6 +66,7 @@ import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.domain.FixatorPhotoNormalizationException
 import com.tagaev.trrcrm.domain.normalizeFixatorPhoto
 import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
 import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN
 import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_UPLOAD_REQUEST
@@ -121,6 +122,7 @@ private const val MAX_PHOTOS_PER_UPLOAD_FALLBACK = MAX_PHOTOS_PER_UPLOAD_REQUEST
 @Composable
 fun DocumentCameraScreen(
     documentNumber: String,
+    uploadPeriod: DocumentUploadPeriod,
     title: String,
     documentType: ImageDocumentType = ImageDocumentType.Complects,
     initialQuota: UploadAvailability? = null,
@@ -188,12 +190,12 @@ fun DocumentCameraScreen(
         }
     }
 
-    LaunchedEffect(documentNumber, documentType, initialQuota) {
+    LaunchedEffect(documentNumber, uploadPeriod, documentType, initialQuota) {
         if (initialQuota != null) {
             uploadQuota = initialQuota
             quotaLoadError = null
         }
-        when (val result = repository.getFixatorUploadAvailability(documentNumber, documentType)) {
+        when (val result = repository.getFixatorUploadAvailability(documentNumber, uploadPeriod, documentType)) {
             is Resource.Success -> {
                 uploadQuota = result.data
                 quotaLoadError = null
@@ -408,6 +410,7 @@ fun DocumentCameraScreen(
                                 val result = repository.uploadFixatorPhotos(
                                     documentNumber = documentNumber,
                                     photos = photoBytes,
+                                    uploadPeriod = uploadPeriod,
                                     documentType = documentType,
                                     idempotencyKey = ImageMediatorApi.generateIdempotencyKey(),
                                 )
@@ -428,6 +431,7 @@ fun DocumentCameraScreen(
                                     when (
                                         val refreshed = repository.getFixatorUploadAvailability(
                                             documentNumber,
+                                            uploadPeriod,
                                             documentType,
                                         )
                                     ) {

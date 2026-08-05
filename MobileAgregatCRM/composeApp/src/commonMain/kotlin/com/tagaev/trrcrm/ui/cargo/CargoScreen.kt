@@ -49,6 +49,7 @@ import com.tagaev.trrcrm.domain.TreeRootResolvedDocument
 import com.tagaev.trrcrm.domain.linkTabCaptionForListRow
 import com.tagaev.trrcrm.domain.linkTabLabel
 import com.tagaev.trrcrm.models.CargoDto
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.ui.camera.DocumentCameraScreen
 import com.tagaev.trrcrm.ui.complectation.ComplectationAddPhotoTopBarAction
@@ -128,6 +129,7 @@ fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
     val cameraDocumentNumber by component.cameraDocumentNumber.collectAsState()
     val cameraPrecheckError by component.cameraPrecheckError.collectAsState()
     val cameraUploadQuota by component.cameraUploadQuota.collectAsState()
+    val cameraUploadPeriod by component.cameraUploadPeriod.collectAsState()
     val documentPhotoCount by component.documentPhotoCount.collectAsState()
     val isDocumentPhotoCountLoading by component.isDocumentPhotoCountLoading.collectAsState()
     val documentPhotoCountLoaded by component.documentPhotoCountLoaded.collectAsState()
@@ -205,9 +207,11 @@ fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
 
     if (isCameraOpen) {
         val number = cameraDocumentNumber
-        if (number != null) {
+        val uploadPeriod = cameraUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentCameraScreen(
                 documentNumber = number,
+                uploadPeriod = uploadPeriod,
                 title = s("complectation_kamera_number", number),
                 documentType = ImageDocumentType.Delivery,
                 initialQuota = cameraUploadQuota,
@@ -388,7 +392,7 @@ fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
                 if (active != null && cameraNumber.isNotBlank()) {
                     ComplectationAddPhotoTopBarAction(
                         enabled = !isCameraPrecheckInProgress,
-                        onClick = { component.requestOpenCamera(cameraNumber) },
+                        onClick = { component.requestOpenCamera(cameraNumber, DocumentUploadPeriod.from(active.date)) },
                     )
                 }
             } else if (panel == MasterPanel.List) {

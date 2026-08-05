@@ -2,6 +2,8 @@ package com.tagaev.trrcrm.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 
 /** Wire codes for ImageMediator document_name / document_type. */
 enum class ImageDocumentType(val wireName: String) {
@@ -46,10 +48,46 @@ data class DocumentUploadKey(
     val documentNumber: String,
 )
 
+/**
+ * Folder period supplied by the document itself.  It is deliberately not derived
+ * from the device clock: an upload must always land in the document's month.
+ */
+data class DocumentUploadPeriod(
+    val year: Int,
+    val month: Int,
+) {
+    init {
+        require(month in 1..12) { "Month must be in 1..12" }
+    }
+
+    companion object {
+        fun from(date: LocalDateTime?): DocumentUploadPeriod? =
+            date?.let { DocumentUploadPeriod(it.year, it.month.ordinal + 1) }
+
+        /** Supports 1C dates (`dd.MM.yyyy ...`) and ISO dates without using device time. */
+        fun from(rawDate: String?): DocumentUploadPeriod? {
+            val raw = rawDate?.trim().orEmpty()
+            val russianMatch = RU_DATE.find(raw)
+            val match = russianMatch ?: ISO_DATE.find(raw) ?: return null
+            val (year, month, day) = if (russianMatch != null) {
+                Triple(match.groupValues[3].toIntOrNull(), match.groupValues[2].toIntOrNull(), match.groupValues[1].toIntOrNull())
+            } else Triple(match.groupValues[1].toIntOrNull(), match.groupValues[2].toIntOrNull(), match.groupValues[3].toIntOrNull())
+            return runCatching { LocalDate(year ?: return null, month ?: return null, day ?: return null) }
+                .getOrNull()
+                ?.let { DocumentUploadPeriod(it.year, it.month.ordinal + 1) }
+        }
+
+        private val RU_DATE = Regex("^(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})")
+        private val ISO_DATE = Regex("^(\\d{4})-(\\d{1,2})-(\\d{1,2})")
+    }
+}
+
 @Serializable
 data class ImageMediatorCanUploadRequest(
     @SerialName("document_number") val documentNumber: String,
     @SerialName("document_name") val documentName: String? = null,
+    val year: Int,
+    val month: Int,
 )
 
 @Serializable

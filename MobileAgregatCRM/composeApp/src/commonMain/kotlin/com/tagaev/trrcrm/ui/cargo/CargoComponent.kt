@@ -56,13 +56,15 @@ class CargoComponent(
     val cameraDocumentNumber = photoSession.cameraDocumentNumber
     val cameraPrecheckError = photoSession.cameraPrecheckError
     val cameraUploadQuota = photoSession.cameraUploadQuota
+    val cameraUploadPeriod = photoSession.cameraUploadPeriod
     val documentPhotoCount = photoSession.documentPhotoCount
     val isDocumentPhotoCountLoading = photoSession.isDocumentPhotoCountLoading
     val documentPhotoCountLoaded = photoSession.documentPhotoCountLoaded
     val isPhotosViewerOpen = photoSession.isPhotosViewerOpen
     val photosViewerDocumentNumber = photoSession.photosViewerDocumentNumber
 
-    fun requestOpenCamera(rawNumber: String) = photoSession.requestOpenCamera(rawNumber)
+    fun requestOpenCamera(rawNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
+        photoSession.requestOpenCamera(rawNumber, uploadPeriod)
     fun closeCamera() = photoSession.closeCamera()
     fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
     fun refreshDocumentPhotoCount(documentNumber: String) =

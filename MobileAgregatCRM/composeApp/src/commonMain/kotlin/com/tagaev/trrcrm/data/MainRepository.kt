@@ -76,6 +76,7 @@ import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheStats
 import com.tagaev.trrcrm.data.fixator.UploadSessionQuotaTracker
 import com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore
 import com.tagaev.trrcrm.models.DocumentUploadKey
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorImageListResponse
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
@@ -683,6 +684,7 @@ class MainRepository(
      */
     suspend fun getFixatorUploadAvailability(
         documentNumber: String,
+        uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<UploadAvailability> {
         val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
@@ -699,7 +701,7 @@ class MainRepository(
         val sessionRemaining = uploadSessionQuotaTracker.remaining(key)
         val uploaded = uploadSessionQuotaTracker.uploadedCount(key)
 
-        return when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentType)) {
+        return when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, uploadPeriod, documentType)) {
             is Resource.Success -> Resource.Success(
                 UploadAvailability.from(
                     response = precheck.data,
@@ -720,9 +722,10 @@ class MainRepository(
     /** Gate for opening camera / starting upload: Error when nothing can be uploaded now. */
     suspend fun checkCanUploadFixatorPhotos(
         documentNumber: String,
+        uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<UploadAvailability> {
-        return when (val availability = getFixatorUploadAvailability(documentNumber, documentType)) {
+        return when (val availability = getFixatorUploadAvailability(documentNumber, uploadPeriod, documentType)) {
             is Resource.Success -> {
                 val data = availability.data
                 if (data.availableNow <= 0) {
@@ -747,6 +750,7 @@ class MainRepository(
     suspend fun uploadFixatorPhotos(
         documentNumber: String,
         photos: List<ByteArray>,
+        uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
         idempotencyKey: String = ImageMediatorApi.generateIdempotencyKey(),
     ): Resource<ImageMediatorUploadResult> {
@@ -774,7 +778,7 @@ class MainRepository(
         var folderLimit: Int? = null
         var availability: UploadAvailability? = null
 
-        when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, documentType)) {
+        when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, uploadPeriod, documentType)) {
             is Resource.Success -> {
                 val data = precheck.data
                 folderLimit = data.limits?.effectiveMaxPhotos()
@@ -811,6 +815,7 @@ class MainRepository(
                     agrToken = token,
                     documentNumber = normalizedNumber,
                     files = photos,
+                    uploadPeriod = uploadPeriod,
                     documentType = documentType,
                     idempotencyKey = idempotencyKey,
                 )

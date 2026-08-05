@@ -7,6 +7,7 @@ import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.domain.isValidDocumentNumber
 import com.tagaev.trrcrm.domain.normalizeDocumentNumber
 import com.tagaev.trrcrm.models.ImageDocumentType
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.UploadAvailability
 import com.tagaev.trrcrm.ui.i18n.tr
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,8 @@ class DocumentPhotoSession(
     val isCameraPrecheckInProgress: StateFlow<Boolean> = _isCameraPrecheckInProgress
     private val _cameraDocumentNumber = MutableStateFlow<String?>(null)
     val cameraDocumentNumber: StateFlow<String?> = _cameraDocumentNumber
+    private val _cameraUploadPeriod = MutableStateFlow<DocumentUploadPeriod?>(null)
+    val cameraUploadPeriod: StateFlow<DocumentUploadPeriod?> = _cameraUploadPeriod
     private val _cameraPrecheckError = MutableStateFlow<String?>(null)
     val cameraPrecheckError: StateFlow<String?> = _cameraPrecheckError
     private val _cameraUploadQuota = MutableStateFlow<UploadAvailability?>(null)
@@ -68,12 +71,17 @@ class DocumentPhotoSession(
             ImageDocumentType.Delivery -> featureFlags.isPhotosCargoEnabled()
         }
 
-    fun requestOpenCamera(rawNumber: String) {
+    fun requestOpenCamera(rawNumber: String, uploadPeriod: DocumentUploadPeriod?) {
         if (_isCameraPrecheckInProgress.value) return
 
         val normalized = normalizeDocumentNumber(rawNumber.filter { it.isDigit() })
         if (!isValidDocumentNumber(normalized)) {
             _cameraPrecheckError.value = tr("complectation_nekorrektnyy_nomer_dokumenta")
+            return
+        }
+        if (uploadPeriod == null) {
+            _cameraUploadQuota.value = null
+            _cameraPrecheckError.value = tr("upload_document_date_missing")
             return
         }
 
@@ -82,10 +90,11 @@ class DocumentPhotoSession(
             if (!isUploadEnabled()) return@launch
             _isCameraPrecheckInProgress.value = true
             _cameraPrecheckError.value = null
-            when (val result = repository.checkCanUploadFixatorPhotos(normalized, documentType)) {
+            when (val result = repository.checkCanUploadFixatorPhotos(normalized, uploadPeriod, documentType)) {
                 is Resource.Success -> {
                     _cameraUploadQuota.value = result.data
                     _cameraDocumentNumber.value = normalized
+                    _cameraUploadPeriod.value = uploadPeriod
                     _isCameraOpen.value = true
                 }
                 is Resource.Error -> {
@@ -106,6 +115,7 @@ class DocumentPhotoSession(
         val documentNumber = _cameraDocumentNumber.value
         _isCameraOpen.value = false
         _cameraDocumentNumber.value = null
+        _cameraUploadPeriod.value = null
         _cameraUploadQuota.value = null
         documentNumber?.let(::refreshDocumentPhotoCount)
     }
