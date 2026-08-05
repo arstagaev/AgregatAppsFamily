@@ -93,7 +93,6 @@
     <string name="settings_glavnaya_vsegda_pervaya_sobytiya_qr_skaner_i_menyu_n">«Главная» всегда первая. «События», «QR Сканер» и «Меню» нельзя скрыть. Используйте стрелки для смены порядка.</string>
     <string name="settings_skryt_iz_menyu">Скрыть из меню</string>
     <string name="settings_pokazat_v_menyu">Показать в меню</string>
-    <string name="settings_kamera_fiksator">Камера фиксатор</string>
     <string name="settings_obnovit_nastroyki_uvedomleniy">Обновить настройки уведомлений</string>
     <string name="settings_vyyti">Выйти</string>
     <string name="settings_vyhod_iz_akkaunta">Выход из аккаунта</string>
@@ -101,17 +100,12 @@
     <string name="settings_otmena">Отмена</string>
     <string name="settings_ochistit">Очистить</string>
     <string name="settings_prosmotr_fotografiy_komplektatsii">Просмотр фотографий комплектации</string>
-    <string name="settings_semka_i_otpravka_fotografiy">Съёмка и отправка фотографий</string>
     <string name="settings_zagruzhennye_foto_dokumentov_na_ustroystve">Загруженные фото документов на устройстве</string>
     <string name="settings_panel_navigatsii">Панель навигации</string>
     <string name="settings_vyshe">Выше</string>
     <string name="settings_nizhe">Ниже</string>
     <string name="settings_dolzhen_byt_viden_hotya_by_odin_punkt_menyu">Должен быть виден хотя бы один пункт меню</string>
     <string name="settings_panel_navigatsii_sohranena">Панель навигации сохранена</string>
-    <string name="settings_nomer_dokumenta">Номер документа</string>
-    <string name="settings_612_tsifr_s_veduschimi_nulyami">6–12 цифр, с ведущими нулями</string>
-    <string name="settings_vvedite_ot_6_do_12_tsifr">Введите от 6 до 12 цифр</string>
-    <string name="settings_otkryt_kameru">Открыть камеру</string>
     <string name="settings_setka_2n_paginatsiya_po_10">Сетка 2×N, пагинация по 10</string>
     <string name="settings_uvedomleniya">Уведомления</string>
     <string name="settings_otklyuchit_vse_uvedomleniya_na_etom_ustroystve">Отключить все уведомления на этом устройстве</string>
@@ -129,7 +123,6 @@
     <string name="settings_tema_prilozheniya">Тема приложения</string>
     <string name="settings_poryadok_i_vidimost_ikonok_v_nizhnem_menyu">Порядок и видимость иконок в нижнем меню</string>
     <string name="settings_push_uvedomleniya_i_mute_po_tipam_dokumentov">Push-уведомления и mute по типам документов</string>
-    <string name="settings_instrumenty_razrabotchika">Инструменты разработчика</string>
     <string name="settings_zavershit_sessiyu">Завершить сессию</string>
     <string name="settings_vy_uvereny_chto_hotite_vyyti_iz_akkaunta">Вы уверены, что хотите выйти из аккаунта?</string>
     <string name="settings_podrazdelenie_departmentdata">Подразделение: %1$s</string>

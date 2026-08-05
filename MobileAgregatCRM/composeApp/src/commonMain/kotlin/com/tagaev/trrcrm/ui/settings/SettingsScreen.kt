@@ -28,7 +28,6 @@ import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.secrets.Secrets
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Bell
-import compose.icons.feathericons.Code
 import compose.icons.feathericons.Image
 import compose.icons.feathericons.LogOut
 import compose.icons.feathericons.Sliders
@@ -48,8 +47,6 @@ fun SettingsScreen(
 ) {
     val showBottomNavEditor by component.showBottomNavEditor.collectAsState()
     val showNotificationSettings by component.showNotificationSettings.collectAsState()
-    val showDeveloperMenu by component.showDeveloperMenu.collectAsState()
-    val showCameraFixator by component.showCameraFixator.collectAsState()
 
     when {
         showBottomNavEditor -> {
@@ -64,17 +61,6 @@ fun SettingsScreen(
             NotificationSettingsScreen(
                 component = component,
                 onBack = component::closeNotificationSettings,
-            )
-        }
-        showCameraFixator -> {
-            CameraFixatorScreen(
-                onBack = component::closeCameraFixator,
-            )
-        }
-        showDeveloperMenu -> {
-            DeveloperMenuScreen(
-                onBack = component::closeDeveloperMenu,
-                onOpenCameraFixator = component::openCameraFixator,
             )
         }
         else -> {
@@ -99,7 +85,6 @@ private fun SettingsMainScreen(
         DeveloperModeState.loadFrom(appSettings)
     }
 
-    val developerMode by DeveloperModeState.enabled
     var titleTapCount by rememberSaveable { mutableIntStateOf(0) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
     var showClearPhotoCacheDialog by rememberSaveable { mutableStateOf(false) }
@@ -226,18 +211,6 @@ private fun SettingsMainScreen(
                         modifier = Modifier.clickable { showClearPhotoCacheDialog = true },
                     )
                     Divider()
-                }
-
-                if (developerMode) {
-                    item {
-                        ListItem(
-                            headlineContent = { Text("Developer") },
-                            supportingContent = { Text(s("settings_instrumenty_razrabotchika")) },
-                            leadingContent = { Icon(FeatherIcons.Code, contentDescription = null) },
-                            modifier = Modifier.clickable { component.openDeveloperMenu() },
-                        )
-                        Divider()
-                    }
                 }
 
                 item {

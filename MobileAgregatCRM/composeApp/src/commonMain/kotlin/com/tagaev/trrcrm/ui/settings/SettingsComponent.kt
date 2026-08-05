@@ -37,8 +37,6 @@ enum class DeviceMuteDocType(val wire: String, val title: String) {
 interface ISettingsComponent : BottomNavLayoutEditorHost {
     val showBottomNavEditor: StateFlow<Boolean>
     val showNotificationSettings: StateFlow<Boolean>
-    val showDeveloperMenu: StateFlow<Boolean>
-    val showCameraFixator: StateFlow<Boolean>
     val muteAll: StateFlow<Boolean>
     val mutedDocTypes: StateFlow<Set<DeviceMuteDocType>>
     val muteLoading: StateFlow<Boolean>
@@ -55,10 +53,6 @@ interface ISettingsComponent : BottomNavLayoutEditorHost {
     fun closeBottomNavEditor()
     fun openNotificationSettings()
     fun closeNotificationSettings()
-    fun openDeveloperMenu()
-    fun closeDeveloperMenu()
-    fun openCameraFixator()
-    fun closeCameraFixator()
     fun clearDocumentPhotoCache(onResult: (String) -> Unit)
 }
 
@@ -81,12 +75,6 @@ class SettingsComponent(
 
     private val _showNotificationSettings = MutableStateFlow(false)
     override val showNotificationSettings: StateFlow<Boolean> = _showNotificationSettings
-
-    private val _showDeveloperMenu = MutableStateFlow(false)
-    override val showDeveloperMenu: StateFlow<Boolean> = _showDeveloperMenu
-
-    private val _showCameraFixator = MutableStateFlow(false)
-    override val showCameraFixator: StateFlow<Boolean> = _showCameraFixator
 
     override val bottomNavDraft = bottomNavEditor.bottomNavDraft
     override val bottomNavDirty = bottomNavEditor.bottomNavDirty
@@ -388,24 +376,6 @@ class SettingsComponent(
         _showNotificationSettings.value = false
     }
 
-    override fun openDeveloperMenu() {
-        closeAllSubScreens(exceptDeveloperMenu = true)
-        _showDeveloperMenu.value = true
-    }
-
-    override fun closeDeveloperMenu() {
-        _showDeveloperMenu.value = false
-    }
-
-    override fun openCameraFixator() {
-        closeAllSubScreens(exceptCameraFixator = true)
-        _showCameraFixator.value = true
-    }
-
-    override fun closeCameraFixator() {
-        _showCameraFixator.value = false
-    }
-
     override fun clearDocumentPhotoCache(onResult: (String) -> Unit) {
         appScope.launch {
             val stats = runCatching { repository.clearDocumentPhotoCache() }
@@ -422,8 +392,6 @@ class SettingsComponent(
     private fun closeAllSubScreens(
         exceptBottomNav: Boolean = false,
         exceptNotifications: Boolean = false,
-        exceptDeveloperMenu: Boolean = false,
-        exceptCameraFixator: Boolean = false,
     ) {
         if (!exceptBottomNav) {
             bottomNavEditor.resetBottomNavDraft()
@@ -431,12 +399,6 @@ class SettingsComponent(
         }
         if (!exceptNotifications) {
             _showNotificationSettings.value = false
-        }
-        if (!exceptDeveloperMenu) {
-            _showDeveloperMenu.value = false
-        }
-        if (!exceptCameraFixator) {
-            _showCameraFixator.value = false
         }
     }
 
