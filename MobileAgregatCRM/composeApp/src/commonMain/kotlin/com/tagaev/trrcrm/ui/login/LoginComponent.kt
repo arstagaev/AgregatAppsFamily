@@ -31,6 +31,8 @@ sealed interface LoginUiState {
     data object Idle : LoginUiState
     data object Loading : LoginUiState
     data class Error(val message: String) : LoginUiState
+    /** Saved token was explicitly rejected; show the credentials form after acknowledgement. */
+    data object ReauthenticationRequired : LoginUiState
     data class StartupBlocked(val reason: StartupBlockReason) : LoginUiState
 }
 
@@ -73,7 +75,6 @@ class LoginComponent(
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     override val uiState: StateFlow<LoginUiState> = _uiState
-    private var tokenRefreshAttemptedThisLogin = false
     private val heartbeatRecoveryMutex = kotlinx.coroutines.sync.Mutex()
 
     init {
@@ -94,7 +95,9 @@ class LoginComponent(
     }
 
     override fun dismissError() {
-        if (_uiState.value is LoginUiState.Error) {
+        if (_uiState.value is LoginUiState.Error ||
+            _uiState.value is LoginUiState.ReauthenticationRequired
+        ) {
             _uiState.value = LoginUiState.Idle
         }
     }
@@ -123,38 +126,41 @@ class LoginComponent(
 
     private suspend fun continueAsUsual() {
         val savedToken = appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty()
-        val hasSavedCredentials = hasSavedCredentials()
+        val hasLegacyCredentials = hasLegacyCredentials()
+        val needsLegacyMigration = hasLegacyCredentials &&
+            !appSettings.getBool(AppSettingsKeys.TOKEN_ONLY_AUTH_MIGRATION_COMPLETED, false)
 
         withContext(Dispatchers.Main.immediate) {
             _uiState.value = LoginUiState.Idle
         }
 
-        tokenRefreshAttemptedThisLogin = false
-        if (hasSavedCredentials) {
-            onLoginWithCredentials(
+        if (savedToken.isNotBlank()) {
+            startTokenLogin(savedToken, allowLegacyCredentialsMigration = needsLegacyMigration)
+        } else if (needsLegacyMigration) {
+            // One-time compatibility path for users who update with old saved credentials.
+            startCredentialsLogin(
                 user = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
-                pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
+                pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = ""),
+                isLegacyMigration = true
             )
-        } else if (savedToken.isNotBlank()) {
-            onLoginWithToken(savedToken)
         } else {
             println("Login: no saved auth context, opening demo zone")
             onNoSavedAuth()
         }
     }
 
-    private fun hasSavedCredentials(): Boolean {
-        return !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrEmpty() &&
-            !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrEmpty()
+    private fun hasLegacyCredentials(): Boolean =
+        !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrBlank() &&
+            !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrBlank()
+
+    private fun completeLegacyMigration() {
+        appSettings.setString(AppSettingsKeys.EMAIL, "")
+        appSettings.setString(AppSettingsKeys.PASS, "")
+        appSettings.setBool(AppSettingsKeys.TOKEN_ONLY_AUTH_MIGRATION_COMPLETED, true)
     }
 
-    private fun isTokenAuthenticationError(message: String?): Boolean {
-        val raw = message?.trim().orEmpty()
-        if (raw.isBlank()) return false
-        val lower = raw.lowercase()
-        return lower.contains("token authentification error") ||
-            lower.contains("token authentication error")
-    }
+    private fun isDefinitiveLegacyCredentialFailure(error: Resource.Error<*>): Boolean =
+        error.exception is IllegalStateException
 
     private fun classifyStartupBlock(error: Resource.Error<*>): StartupBlockReason? {
         val ex = error.exception
@@ -198,6 +204,10 @@ class LoginComponent(
     }
 
     override fun onLoginWithCredentials(user: String, pass: String) {
+        startCredentialsLogin(user, pass, isLegacyMigration = false)
+    }
+
+    private fun startCredentialsLogin(user: String, pass: String, isLegacyMigration: Boolean) {
         // Prevent concurrent attempts
         if (_uiState.value is LoginUiState.Loading) return
 
@@ -222,13 +232,18 @@ class LoginComponent(
                     is Resource.Success -> {
                         println("Success! We can LOGIN!")
                         withContext(Dispatchers.Main.immediate) {
+                            if (isLegacyMigration) completeLegacyMigration()
                             completeLogin()
                         }
                     }
                     is Resource.Error -> {
                         val msg = res.causes ?: friendlyError(res.exception, tr("login_oshibka_avtorizatsii"))
-                        tokenRefreshAttemptedThisLogin = false
                         withContext(Dispatchers.Main.immediate) {
+                            // Do not retry bad legacy credentials on every future launch.
+                            // Transport failures deliberately keep them for a later migration retry.
+                            if (isLegacyMigration && isDefinitiveLegacyCredentialFailure(res)) {
+                                completeLegacyMigration()
+                            }
                             _uiState.value = LoginUiState.Error(msg)
                         }
                     }
@@ -237,7 +252,6 @@ class LoginComponent(
                     }
                 }
             } catch (t: Throwable) {
-                tokenRefreshAttemptedThisLogin = false
                 withContext(Dispatchers.Main.immediate) {
                     _uiState.value = LoginUiState.Error(friendlyError(t, tr("login_oshibka_avtorizatsii")))
                 }
@@ -251,45 +265,48 @@ class LoginComponent(
     }
 
     override fun onLoginWithToken(token: String) {
+        startTokenLogin(token, allowLegacyCredentialsMigration = false)
+    }
+
+    private fun startTokenLogin(token: String, allowLegacyCredentialsMigration: Boolean) {
         if (_uiState.value is LoginUiState.Loading) return
         appScope.launch {
             withContext(Dispatchers.Main.immediate) {
                 _uiState.value = LoginUiState.Loading
             }
             try {
-                appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
                 runCatching { apiConfig.token = token }
                 val permissions = withContext(Dispatchers.Default) { CrmAuthUseCase.loginWithToken(token) }
                 withContext(Dispatchers.Main.immediate) {
                     when (permissions) {
                         is Resource.Success -> {
-                            tokenRefreshAttemptedThisLogin = false
+                            if (allowLegacyCredentialsMigration) completeLegacyMigration()
                             completeLogin()
                         }
                         is Resource.Loading -> Unit
                         is Resource.Error -> {
                             val msg = permissions.causes
                                 ?: friendlyError(permissions.exception, tr("login_ne_udalos_zagruzit_prava_dostupa"))
-                            val shouldFallbackToCredentials = !tokenRefreshAttemptedThisLogin &&
-                                isTokenAuthenticationError(msg) &&
-                                hasSavedCredentials()
-                            if (shouldFallbackToCredentials) {
-                                tokenRefreshAttemptedThisLogin = true
-                                val savedUser = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = "")
-                                val savedPassHash = appSettings.getString(AppSettingsKeys.PASS, defaultValue = "")
-                                println("Saved token rejected, requesting fresh token by credentials")
+                            if (allowLegacyCredentialsMigration && isTokenAuthenticationError(msg)) {
                                 _uiState.value = LoginUiState.Idle
-                                onLoginWithCredentials(savedUser, savedPassHash)
+                                startCredentialsLogin(
+                                    user = appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""),
+                                    pass = appSettings.getString(AppSettingsKeys.PASS, defaultValue = ""),
+                                    isLegacyMigration = true
+                                )
+                                return@withContext
+                            }
+                            // Keep the saved token intact. It is cleared only by explicit logout.
+                            _uiState.value = if (isTokenAuthenticationError(msg)) {
+                                LoginUiState.ReauthenticationRequired
                             } else {
-                                tokenRefreshAttemptedThisLogin = false
-                                _uiState.value = LoginUiState.Error(msg)
+                                LoginUiState.Error(msg)
                             }
                         }
                     }
                 }
             } catch (t: Throwable) {
                 withContext(Dispatchers.Main.immediate) {
-                    tokenRefreshAttemptedThisLogin = false
                     _uiState.value = LoginUiState.Error(friendlyError(t, tr("login_oshibka_avtorizatsii")))
                 }
             }

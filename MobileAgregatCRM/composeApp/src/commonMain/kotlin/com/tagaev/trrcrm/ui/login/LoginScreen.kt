@@ -53,7 +53,7 @@ import mobileagregatcrm.composeapp.generated.resources.carv
  * 1) Login + Password
  * 2) Token only
  *
- * В режиме токена значение пишется в AppSettings ([AppSettingsKeys.TOKEN_KEY]) по мере ввода.
+ * В режиме токена значение сохраняется только после успешной проверки прав доступа.
  *
  * Expected component API:
  *   - component.onLoginWithCredentials(user, pass)
@@ -101,6 +101,13 @@ fun LoginScreen(component: ILoginComponent) {
                 dialogIsStartupBlocked = false
                 errorDialogTitle = s("login_oshibka_vhoda")
                 currentError = e.message
+            }
+            LoginUiState.ReauthenticationRequired -> {
+                keepSplash = false
+                showErrorDialog = true
+                dialogIsStartupBlocked = false
+                errorDialogTitle = s("login_oshibka_vhoda")
+                currentError = s("error_sessiya_istekla_voydite_zanovo")
             }
             is LoginUiState.StartupBlocked -> {
                 keepSplash = false
@@ -275,7 +282,6 @@ fun LoginScreen(component: ILoginComponent) {
                                     value = token,
                                     onValueChange = { value ->
                                         token = value
-                                        appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
                                     },
                                     label = { Text("API Token") },
                                     placeholder = { Text("Paste your token here") },

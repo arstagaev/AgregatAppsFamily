@@ -50,6 +50,7 @@ object AppSettingsKeys {
     const val EMAIL     = "EMAIL"
     const val PASS      = "PASS"
     const val TOKEN_KEY = "TOKEN_KEY"
+    const val TOKEN_ONLY_AUTH_MIGRATION_COMPLETED = "TOKEN_ONLY_AUTH_MIGRATION_COMPLETED"
 
     const val LAST_UPDATE = "LAST_UPDATE"
 

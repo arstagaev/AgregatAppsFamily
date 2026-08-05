@@ -49,8 +49,9 @@ object CrmAuthUseCase : KoinComponent {
                 if (token.isBlank()) {
                     Resource.Error(causes = tr("login_pustoy_token_ot_servera"))
                 } else {
-                    appSettings.setString(AppSettingsKeys.EMAIL, user)
-                    appSettings.setString(AppSettingsKeys.PASS, passHash)
+                    // Do not persist login or password hash. A token is enough to restore a session.
+                    appSettings.setString(AppSettingsKeys.EMAIL, "")
+                    appSettings.setString(AppSettingsKeys.PASS, "")
                     appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
                     appSettings.setString(AppSettingsKeys.PERSONAL_DATA, data.fullName.orEmpty())
                     appSettings.setString(AppSettingsKeys.DEPARTMENT, data.department.orEmpty())
@@ -67,15 +68,19 @@ object CrmAuthUseCase : KoinComponent {
 
     suspend fun loginWithToken(token: String): Resource<Unit> {
         if (token.isBlank()) return Resource.Error(causes = tr("login_pustoy_token"))
-        appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
         runCatching { apiConfig.token = token }
-        return authenticateWithTokenAndFinalize()
+        return authenticateWithTokenAndFinalize(
+            onPermissionsGranted = { appSettings.setString(AppSettingsKeys.TOKEN_KEY, token) }
+        )
     }
 
-    private suspend fun authenticateWithTokenAndFinalize(): Resource<Unit> {
+    private suspend fun authenticateWithTokenAndFinalize(
+        onPermissionsGranted: () -> Unit = {}
+    ): Resource<Unit> {
         SessionPermissions.clear()
         return when (val permissions = repo.getPermission()) {
             is Resource.Success -> {
+                onPermissionsGranted()
                 SessionPermissions.replaceAll(permissions.data)
                 completeLoginSideEffects()
                 Resource.Success(Unit)

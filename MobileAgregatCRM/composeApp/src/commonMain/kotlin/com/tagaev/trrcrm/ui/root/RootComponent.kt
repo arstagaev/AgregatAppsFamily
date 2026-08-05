@@ -278,7 +278,6 @@ class DefaultRootComponent(
             is IRootComponent.Config.Settings ->
                 IRootComponent.Child.Settings(SettingsComponent(componentContext = ctx,
                     onLogoutAction = {
-                        appSettings.setString(AppSettingsKeys.EMAIL, "")
                         appSettings.setString(AppSettingsKeys.TOKEN_KEY, "")
                         openProductDemo()
                         replaceAllWithRestore(IRootComponent.Config.ProductDemo)
@@ -784,10 +783,8 @@ class DefaultRootComponent(
     }
 
     private fun resolveInitialConfig(): IRootComponent.Config {
-        val hasSavedCredentials = !appSettings.getStringOrNull(AppSettingsKeys.EMAIL).isNullOrBlank() &&
-            !appSettings.getStringOrNull(AppSettingsKeys.PASS).isNullOrBlank()
         val hasSavedToken = !appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
-        return if (hasSavedCredentials || hasSavedToken) {
+        return if (hasSavedToken) {
             IRootComponent.Config.Login
         } else {
             IRootComponent.Config.ProductDemo
