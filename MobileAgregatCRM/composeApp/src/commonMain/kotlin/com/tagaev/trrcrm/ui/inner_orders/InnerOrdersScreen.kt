@@ -151,6 +151,7 @@ fun InnerOrdersScreen(component: InnerOrdersComponent, modifier: Modifier = Modi
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    val photosViewerUploadPeriod by component.photosViewerUploadPeriod.collectAsState()
     var photosUploadEnabled by androidx.compose.runtime.remember { mutableStateOf(false) }
     var photosDownloadEnabled by androidx.compose.runtime.remember { mutableStateOf(false) }
     val cameraErrorSnackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
@@ -272,10 +273,12 @@ fun InnerOrdersScreen(component: InnerOrdersComponent, modifier: Modifier = Modi
     }
     if (isPhotosViewerOpen) {
         val number = photosViewerDocumentNumber
-        if (number != null) {
+        val uploadPeriod = photosViewerUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentPhotosViewerScreen(
                 documentNumber = number,
                 documentType = ImageDocumentType.InnerOrder,
+                uploadPeriod = uploadPeriod,
                 onBack = component::closePhotosViewer,
             )
         }
@@ -405,16 +408,17 @@ fun InnerOrdersScreen(component: InnerOrdersComponent, modifier: Modifier = Modi
             }
 
             val currentLinked = linkedDocuments.lastOrNull()
-            val activeInnerOrderNumber = (currentLinked as? TreeRootResolvedDocument.InnerOrder)?.value?.number
-                ?: complaint.number
-            androidx.compose.runtime.LaunchedEffect(activeInnerOrderNumber, photosDownloadEnabled) {
+            val activeInnerOrder = (currentLinked as? TreeRootResolvedDocument.InnerOrder)?.value
+            val activeInnerOrderNumber = activeInnerOrder?.number ?: complaint.number
+            val activeUploadPeriod = DocumentUploadPeriod.from(activeInnerOrder?.creationDate ?: complaint.creationDate)
+            androidx.compose.runtime.LaunchedEffect(activeInnerOrderNumber, photosDownloadEnabled, activeUploadPeriod) {
                 if (photosDownloadEnabled) {
-                    activeInnerOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+                    activeInnerOrderNumber?.let { component.refreshDocumentPhotoCount(it, activeUploadPeriod) }
                 }
             }
             val openDocumentPhotos: (() -> Unit)? =
                 if (photosDownloadEnabled && !activeInnerOrderNumber.isNullOrBlank()) {
-                    { component.requestOpenDocumentPhotos(activeInnerOrderNumber) }
+                    { component.requestOpenDocumentPhotos(activeInnerOrderNumber, activeUploadPeriod) }
                 } else {
                     null
                 }

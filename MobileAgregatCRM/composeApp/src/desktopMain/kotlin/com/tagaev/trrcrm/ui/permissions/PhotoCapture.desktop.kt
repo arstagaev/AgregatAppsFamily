@@ -42,4 +42,7 @@ actual fun FixatorCameraPreview(
     }
 }
 
-actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? = null
+actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? {
+    CameraFixatorLog.d("image_decoder decoder=desktop reason=desktop_decode_unimplemented size=${bytes.size}")
+    return null
+}

@@ -34,7 +34,11 @@
     <string name="upload_session_exhausted">Ushbu sessiyada bu hujjat uchun maksimal %1$s ta foto yuklangan. Yangi sessiyani boshlash uchun ilovani qayta ishga tushiring.</string>
     <string name="upload_idempotency_conflict">Qayta yuborish konflikti. Qayta urinib ko‘ring.</string>
     <string name="upload_document_type">Hujjat turi</string>
-    <string name="upload_document_date_missing">Hujjat yaratilgan sana ko‘rsatilmagan. Fotosuratlarni yuklash mumkin emas.</string>
+    <string name="upload_document_date_missing">Не указана дата создания hujjatа. Yuklash fotosuratй неkirishна.</string>
+    <string name="upload_unsupported_api_contract">Mijoz ImageMediator API bilan mos emas. Ilovani yangilang.</string>
+    <string name="upload_ambiguous_document_folder">Hujjat papkasini aniq topib bo‘lmadi. To‘liq raqam va davrni yuboring.</string>
+    <string name="upload_legacy_identity_incomplete">Hujjat ma’lumotlari yetarli emas. To‘liq raqam, tur va davrni ko‘rsating.</string>
+    <string name="upload_rate_limited">So‘rovlar limiti oshib ketdi. Kuting va keyinroq qayta urinib ko‘ring.</string>
     <string name="login_oshibka_vhoda">Kirish xatosi</string>
     <string name="login_oshibka_soedineniya">Ulanish xatosi</string>
     <string name="login_zagruzka">Yuklanmoqda ...</string>

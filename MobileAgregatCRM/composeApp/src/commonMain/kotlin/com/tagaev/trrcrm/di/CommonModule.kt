@@ -91,6 +91,7 @@ val commonModule = module {
     // --- Settings / JSON ---
     single<Json> { Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false } }
     single { AppSettings(get<Settings>(), get<Json>()) }
+    single { com.tagaev.trrcrm.data.accounts.AccountSessionStore(settings = get(), json = get()) }
     single { com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore(settings = get(), json = get()) }
 
     // --- Theme / Language ---

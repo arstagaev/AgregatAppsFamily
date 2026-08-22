@@ -1,6 +1,7 @@
 package com.tagaev.trrcrm.data.remote
 
 import com.tagaev.trrcrm.ui.i18n.tr
+import com.tagaev.trrcrm.ui.login.SessionExpiryBridge
 
 import io.ktor.client.plugins.*
 import kotlinx.serialization.json.Json
@@ -16,6 +17,7 @@ suspend inline fun <T> resourceify(
     runCatching { block() }.fold(
         onSuccess = { data -> Resource.Success(data) },
         onFailure = { t ->
+            SessionExpiryBridge.notifyIfExpired(t.message)
             when (t) {
                 is WarningException -> {
                     Resource.Error(t, friendlyError(t, "Не удалось выполнить запрос"))

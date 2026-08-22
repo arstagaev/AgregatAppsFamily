@@ -7,8 +7,8 @@ import compose.icons.LineAwesomeIcons
 import compose.icons.feathericons.Box
 import compose.icons.feathericons.Cpu
 import compose.icons.feathericons.DollarSign
-import compose.icons.feathericons.Grid
 import compose.icons.feathericons.Phone
+import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Truck
 import compose.icons.feathericons.Zap
 import compose.icons.lineawesomeicons.CarSideSolid
@@ -31,6 +31,6 @@ fun BottomNavItemIcon(id: BottomNavItemId) {
         BottomNavItemId.REPAIR_TEMPLATE_CATALOG -> Icon(FeatherIcons.Cpu, contentDescription = null)
         BottomNavItemId.EXPENSE_REQUESTS -> Icon(FeatherIcons.DollarSign, contentDescription = null)
         BottomNavItemId.QR_SCANNER -> Icon(LineAwesomeIcons.QrcodeSolid, contentDescription = null)
-        BottomNavItemId.MENU -> Icon(FeatherIcons.Grid, contentDescription = null)
+        BottomNavItemId.MENU -> Icon(FeatherIcons.Settings, contentDescription = null)
     }
 }

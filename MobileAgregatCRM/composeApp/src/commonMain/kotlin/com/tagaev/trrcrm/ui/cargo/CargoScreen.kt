@@ -136,6 +136,7 @@ fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    val photosViewerUploadPeriod by component.photosViewerUploadPeriod.collectAsState()
     var photosUploadEnabled by remember { mutableStateOf(false) }
     var photosDownloadEnabled by remember { mutableStateOf(false) }
     val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
@@ -223,10 +224,12 @@ fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
     }
     if (isPhotosViewerOpen) {
         val number = photosViewerDocumentNumber
-        if (number != null) {
+        val uploadPeriod = photosViewerUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentPhotosViewerScreen(
                 documentNumber = number,
                 documentType = ImageDocumentType.Delivery,
+                uploadPeriod = uploadPeriod,
                 onBack = component::closePhotosViewer,
             )
         }
@@ -277,18 +280,19 @@ fun CargoScreen(component: CargoComponent, modifier: Modifier = Modifier) {
             }
 
             val currentLinked = linkedDocuments.lastOrNull()
-            val activeCargoNumber = (currentLinked as? TreeRootResolvedDocument.Cargo)?.value?.number
-                ?: cargo.number
-            LaunchedEffect(activeCargoNumber, photosDownloadEnabled) {
+            val activeCargoDoc = (currentLinked as? TreeRootResolvedDocument.Cargo)?.value
+            val activeCargoNumber = activeCargoDoc?.number ?: cargo.number
+            val activeUploadPeriod = DocumentUploadPeriod.from(activeCargoDoc?.date ?: cargo.date)
+            LaunchedEffect(activeCargoNumber, photosDownloadEnabled, activeUploadPeriod) {
                 if (photosDownloadEnabled) {
                     activeCargoNumber.takeIf { it.isNotBlank() }?.let {
-                        component.refreshDocumentPhotoCount(it)
+                        component.refreshDocumentPhotoCount(it, activeUploadPeriod)
                     }
                 }
             }
             val openDocumentPhotos: (() -> Unit)? =
                 if (photosDownloadEnabled && activeCargoNumber.isNotBlank()) {
-                    { component.requestOpenDocumentPhotos(activeCargoNumber) }
+                    { component.requestOpenDocumentPhotos(activeCargoNumber, activeUploadPeriod) }
                 } else {
                     null
                 }

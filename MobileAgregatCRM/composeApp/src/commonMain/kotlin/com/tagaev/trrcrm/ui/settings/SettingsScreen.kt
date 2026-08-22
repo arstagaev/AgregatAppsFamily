@@ -26,11 +26,17 @@ import com.tagaev.trrcrm.ui.i18n.LanguageController
 import com.tagaev.trrcrm.ui.i18n.s
 import com.tagaev.trrcrm.ui.root.LocalAppSnackbar
 import com.tagaev.secrets.Secrets
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Bell
 import compose.icons.feathericons.Image
 import compose.icons.feathericons.LogOut
+import compose.icons.feathericons.ShoppingBag
 import compose.icons.feathericons.Sliders
+import compose.icons.feathericons.Users
+import com.tagaev.trrcrm.ui.updates.DesktopUpdatePanel
+import com.tagaev.trrcrm.updates.DesktopUpdateService
 
 /**
  * Minimal settings screen scaffold.
@@ -77,9 +83,12 @@ private fun SettingsMainScreen(
     val appSettings = koinInject<AppSettings>()
     val themeController = koinInject<ThemeController>()
     val languageController = koinInject<LanguageController>()
+    val desktopUpdateService = koinInject<DesktopUpdateService>()
     val currentTheme by themeController.mode.collectAsState()
     val currentLanguage by languageController.language.collectAsState()
+    val desktopUpdateState by desktopUpdateService.state.collectAsState()
     val showSnackbar = LocalAppSnackbar.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         DeveloperModeState.loadFrom(appSettings)
@@ -129,6 +138,16 @@ private fun SettingsMainScreen(
                                 }
                             }
                             .padding(vertical = 12.dp)
+                    )
+                    Divider()
+                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text(s("settings_pereyti_v_katalog")) },
+                        supportingContent = { Text(s("settings_otkryt_katalog_tovarov")) },
+                        leadingContent = { Icon(FeatherIcons.ShoppingBag, contentDescription = null) },
+                        modifier = Modifier.clickable { component.openCatalog() },
                     )
                     Divider()
                 }
@@ -215,12 +234,35 @@ private fun SettingsMainScreen(
 
                 item {
                     ListItem(
+                        headlineContent = { Text(s("settings_akkaunty")) },
+                        supportingContent = { Text(s("settings_upravlenie_akkauntami")) },
+                        leadingContent = { Icon(FeatherIcons.Users, contentDescription = null) },
+                        modifier = Modifier.clickable { component.openAccounts() },
+                    )
+                    Divider()
+                }
+
+                item {
+                    ListItem(
                         headlineContent = { Text(s("settings_vyyti")) },
                         supportingContent = { Text(s("settings_zavershit_sessiyu")) },
                         leadingContent = { Icon(FeatherIcons.LogOut, contentDescription = null) },
                         modifier = Modifier.clickable { showLogoutDialog = true }
                     )
                     Divider()
+                }
+
+                if (desktopUpdateState.supported) {
+                    item {
+                        DesktopUpdatePanel(
+                            state = desktopUpdateState,
+                            onCheck = { scope.launch { desktopUpdateService.checkForUpdates(manual = true) } },
+                            onInstall = { scope.launch { desktopUpdateService.installAvailableUpdate() } },
+                            onCancelDownload = desktopUpdateService::cancelDownload,
+                            onDismiss = desktopUpdateService::dismissAvailableUpdate,
+                            onClearError = desktopUpdateService::clearError,
+                        )
+                    }
                 }
             }
 

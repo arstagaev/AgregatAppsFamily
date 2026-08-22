@@ -154,6 +154,7 @@ fun EventsScreen(
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    val photosViewerUploadPeriod by component.photosViewerUploadPeriod.collectAsState()
     var photosUploadEnabled by remember { mutableStateOf(false) }
     var photosDownloadEnabled by remember { mutableStateOf(false) }
     val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
@@ -302,10 +303,12 @@ fun EventsScreen(
     }
     if (isPhotosViewerOpen) {
         val number = photosViewerDocumentNumber
-        if (number != null) {
+        val uploadPeriod = photosViewerUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentPhotosViewerScreen(
                 documentNumber = number,
                 documentType = ImageDocumentType.Event,
+                uploadPeriod = uploadPeriod,
                 onBack = component::closePhotosViewer,
             )
         }
@@ -356,16 +359,17 @@ fun EventsScreen(
                 }
 
                 val currentLinked = linkedDocuments.lastOrNull()
-                val activeEventNumber = (currentLinked as? TreeRootResolvedDocument.Event)?.value?.number
-                    ?: ev.number
-                LaunchedEffect(activeEventNumber, photosDownloadEnabled) {
+                val activeEvent = (currentLinked as? TreeRootResolvedDocument.Event)?.value
+                val activeEventNumber = activeEvent?.number ?: ev.number
+                val activeUploadPeriod = DocumentUploadPeriod.from(activeEvent?.date ?: ev.date)
+                LaunchedEffect(activeEventNumber, photosDownloadEnabled, activeUploadPeriod) {
                     if (photosDownloadEnabled) {
-                        activeEventNumber?.let { component.refreshDocumentPhotoCount(it) }
+                        activeEventNumber?.let { component.refreshDocumentPhotoCount(it, activeUploadPeriod) }
                     }
                 }
                 val openDocumentPhotos: (() -> Unit)? =
                     if (photosDownloadEnabled && !activeEventNumber.isNullOrBlank()) {
-                        { component.requestOpenDocumentPhotos(activeEventNumber) }
+                        { component.requestOpenDocumentPhotos(activeEventNumber, activeUploadPeriod) }
                     } else {
                         null
                     }

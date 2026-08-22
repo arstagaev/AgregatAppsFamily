@@ -14,6 +14,7 @@ import com.tagaev.trrcrm.data.remote.toCoreApiError
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
 import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
+import com.tagaev.trrcrm.data.accounts.AccountSessionStore
 import com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsSync
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.push.UnreadCountSync
@@ -36,42 +37,62 @@ object CrmAuthUseCase : KoinComponent {
     private val apiConfig: ApiConfig by inject()
     private val repo: MainRepository by inject()
     private val appScope: CoroutineScope by inject()
+    private val accountStore: AccountSessionStore by inject()
 
     private var coreHeartbeatJob: Job? = null
     private val heartbeatRecoveryMutex = Mutex()
 
+    fun stopSessionLoops() {
+        coreHeartbeatJob?.cancel()
+        coreHeartbeatJob = null
+    }
+
     suspend fun loginWithCredentials(user: String, pass: String): Resource<Unit> {
         val passHash = if (pass.length == 64) pass else pass.encodeUtf8().sha256().hex()
-        return when (val tokenRes = repo.getToken(username = user, password = passHash)) {
-            is Resource.Success -> {
-                val data = tokenRes.data
-                val token = data.token.orEmpty()
-                if (token.isBlank()) {
-                    Resource.Error(causes = tr("login_pustoy_token_ot_servera"))
-                } else {
-                    // Do not persist login or password hash. A token is enough to restore a session.
-                    appSettings.setString(AppSettingsKeys.EMAIL, "")
-                    appSettings.setString(AppSettingsKeys.PASS, "")
-                    appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
-                    appSettings.setString(AppSettingsKeys.PERSONAL_DATA, data.fullName.orEmpty())
-                    appSettings.setString(AppSettingsKeys.DEPARTMENT, data.department.orEmpty())
-                    runCatching { apiConfig.token = token }
-                    authenticateWithTokenAndFinalize()
+        return SessionExpiryBridge.suppressing {
+            when (val tokenRes = repo.getToken(username = user, password = passHash)) {
+                is Resource.Success -> {
+                    val data = tokenRes.data
+                    val token = data.token.orEmpty()
+                    if (token.isBlank()) {
+                        Resource.Error(causes = tr("login_pustoy_token_ot_servera"))
+                    } else {
+                        appSettings.setString(AppSettingsKeys.EMAIL, "")
+                        appSettings.setString(AppSettingsKeys.PASS, "")
+                        appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
+                        appSettings.setString(AppSettingsKeys.PERSONAL_DATA, data.fullName.orEmpty())
+                        appSettings.setString(AppSettingsKeys.DEPARTMENT, data.department.orEmpty())
+                        appSettings.setString(AppSettingsKeys.ACCOUNT_LOGIN, user.trim())
+                        runCatching { apiConfig.token = token }
+                        val result = authenticateWithTokenAndFinalize()
+                        if (result is Resource.Success) {
+                            accountStore.bindSuccessfulLogin(user.trim())
+                        }
+                        result
+                    }
                 }
+                is Resource.Error -> {
+                    Resource.Error(tokenRes.exception, tokenRes.causes ?: friendlyError(tokenRes.exception, tr("login_oshibka_avtorizatsii")))
+                }
+                is Resource.Loading -> Resource.Loading
             }
-            is Resource.Error -> {
-                Resource.Error(tokenRes.exception, tokenRes.causes ?: friendlyError(tokenRes.exception, tr("login_oshibka_avtorizatsii")))
-            }
-            is Resource.Loading -> Resource.Loading
         }
     }
 
     suspend fun loginWithToken(token: String): Resource<Unit> {
         if (token.isBlank()) return Resource.Error(causes = tr("login_pustoy_token"))
         runCatching { apiConfig.token = token }
-        return authenticateWithTokenAndFinalize(
-            onPermissionsGranted = { appSettings.setString(AppSettingsKeys.TOKEN_KEY, token) }
-        )
+        return SessionExpiryBridge.suppressing {
+            val result = authenticateWithTokenAndFinalize(
+                onPermissionsGranted = { appSettings.setString(AppSettingsKeys.TOKEN_KEY, token) }
+            )
+            if (result is Resource.Success) {
+                accountStore.bindSuccessfulLogin(
+                    appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN).orEmpty()
+                )
+            }
+            result
+        }
     }
 
     private suspend fun authenticateWithTokenAndFinalize(
@@ -123,7 +144,8 @@ object CrmAuthUseCase : KoinComponent {
             platform = pushPlatformId(),
             device_id = DeviceIdentity.stableDeviceId(),
             fcm_token = fcmToken,
-            login = appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
+            login = appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN)
+                ?: appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
             department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
             device_name = getPlatform().name,
             app_version = Secrets.VERSION,
@@ -132,6 +154,10 @@ object CrmAuthUseCase : KoinComponent {
         when (val res = repo.coreSessionBootstrap(req)) {
             is Resource.Success -> {
                 appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
+                accountStore.updateActiveToken(
+                    token = appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty(),
+                    coreSessionId = res.data.sessionId,
+                )
                 appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
                 println("CoreSession: bootstrap success mode=with_fcm")
                 UnreadCountSync.refreshAsync(reason = "bootstrap_success", force = true)

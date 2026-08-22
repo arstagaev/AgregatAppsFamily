@@ -61,7 +61,7 @@ import com.tagaev.trrcrm.ui.incoming_applications.IncomingApplicationsScreen
 import com.tagaev.trrcrm.ui.expense_requests.ExpenseRequestsScreen
 import com.tagaev.trrcrm.ui.repair_template_catalog.RepairTemplateCatalogScreen
 import com.tagaev.trrcrm.ui.inner_orders.InnerOrdersScreen
-import com.tagaev.trrcrm.ui.menu.MenuScreen
+import com.tagaev.trrcrm.ui.accounts.AccountSwitcherScreen
 import com.tagaev.trrcrm.ui.feed.FeedScreen
 import com.tagaev.trrcrm.ui.product_demo.ProductDemoScreen
 import com.tagaev.trrcrm.ui.qrscanner.QRScannerScreen
@@ -156,7 +156,8 @@ fun AppRoot(root: IRootComponent) {
                 bottomBar = {
                     AnimatedVisibility(
                         visible = activeChild !is IRootComponent.Child.Login &&
-                            activeChild !is IRootComponent.Child.ProductDemo
+                            activeChild !is IRootComponent.Child.ProductDemo &&
+                            activeChild !is IRootComponent.Child.AccountSwitcher
                     ) {
                         AppBottomNavBar2(
                             activeChild = activeChild,
@@ -195,7 +196,7 @@ fun AppRoot(root: IRootComponent) {
                             onNavigateHome = { root.openMainHome() },
                         )
                         is IRootComponent.Child.ProductDemo -> ProductDemoScreen(c.component)
-                        is IRootComponent.Child.Menu -> MenuScreen(c.component)
+                        is IRootComponent.Child.AccountSwitcher -> AccountSwitcherScreen(c.component)
                         is IRootComponent.Child.QRScanner -> QRScannerScreen(c.component)
                         is IRootComponent.Child.Login -> LoginScreen(c.component)
                     }
@@ -307,7 +308,7 @@ private fun handleBottomNavTabClick(
         BottomNavItemId.REPAIR_TEMPLATE_CATALOG -> root.openRepairTemplateCatalog(activeChild is IRootComponent.Child.RepairTemplateCatalog)
         BottomNavItemId.EXPENSE_REQUESTS -> root.openExpenseRequests(activeChild is IRootComponent.Child.ExpenseRequests)
         BottomNavItemId.QR_SCANNER -> if (activeChild !is IRootComponent.Child.QRScanner) root.openQRScanner()
-        BottomNavItemId.MENU -> if (activeChild !is IRootComponent.Child.Menu) root.openMenu()
+        BottomNavItemId.MENU -> if (activeChild !is IRootComponent.Child.Settings) root.openSettings()
     }
 }
 @Composable
@@ -416,10 +417,10 @@ fun AppBottomNavBar(
             )
 
             NavigationBarItem(
-                selected = activeChild is IRootComponent.Child.Menu,
+                selected = activeChild is IRootComponent.Child.Settings,
                 onClick = onMenu,
                 icon = { Icon(FeatherIcons.Grid, null) },
-                label = { Text(s("menu_menyu")) }
+                label = { Text(s("menu_nastroyki")) }
             )
 
 //            NavigationBarItem(

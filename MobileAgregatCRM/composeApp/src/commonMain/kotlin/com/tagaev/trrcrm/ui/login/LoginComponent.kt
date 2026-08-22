@@ -12,9 +12,8 @@ import org.koin.core.component.inject
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.Resource
-import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.friendlyError
-import com.tagaev.trrcrm.data.remote.toCoreApiError
+import com.tagaev.trrcrm.data.remote.isTokenAuthenticationError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -47,6 +46,9 @@ enum class StartupBlockReason {
  */
 interface ILoginComponent {
     val uiState: StateFlow<LoginUiState>
+    val mode: LoginMode
+    val lockedLogin: String
+    val displayName: String
 
     fun onLoginWithCredentials(user: String, pass: String)
     fun onLoginWithToken(token: String)
@@ -57,6 +59,9 @@ interface ILoginComponent {
 
 class LoginComponent(
     componentContext: ComponentContext,
+    override val mode: LoginMode = LoginMode.ColdStart,
+    override val lockedLogin: String = "",
+    override val displayName: String = "",
     private val onLoginSuccess: () -> Unit,
     private val onNoSavedAuth: () -> Unit = {},
     private val onBack: () -> Unit,
@@ -125,6 +130,19 @@ class LoginComponent(
     }
 
     private suspend fun continueAsUsual() {
+        if (mode == LoginMode.AddAccount) {
+            withContext(Dispatchers.Main.immediate) {
+                _uiState.value = LoginUiState.Idle
+            }
+            return
+        }
+        if (mode == LoginMode.Reauth) {
+            withContext(Dispatchers.Main.immediate) {
+                _uiState.value = LoginUiState.ReauthenticationRequired
+            }
+            return
+        }
+
         val savedToken = appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty()
         val hasLegacyCredentials = hasLegacyCredentials()
         val needsLegacyMigration = hasLegacyCredentials &&
@@ -204,6 +222,11 @@ class LoginComponent(
     }
 
     override fun onLoginWithCredentials(user: String, pass: String) {
+        val expected = lockedLogin.trim()
+        if (expected.isNotBlank() && !user.trim().equals(expected, ignoreCase = true)) {
+            _uiState.value = LoginUiState.Error(tr("login_reauth_login_mismatch"))
+            return
+        }
         startCredentialsLogin(user, pass, isLegacyMigration = false)
     }
 

@@ -61,6 +61,13 @@ data class DocumentUploadPeriod(
     }
 
     companion object {
+        fun fromResolved(year: Int?, month: Int?, fallback: DocumentUploadPeriod): DocumentUploadPeriod =
+            if (year != null && month != null && month in 1..12) {
+                DocumentUploadPeriod(year, month)
+            } else {
+                fallback
+            }
+
         fun from(date: LocalDateTime?): DocumentUploadPeriod? =
             date?.let { DocumentUploadPeriod(it.year, it.month.ordinal + 1) }
 
@@ -116,6 +123,7 @@ data class ImageMediatorLimits(
 data class ImageMediatorCanUploadResponse(
     val allowed: Boolean,
     @SerialName("document_number") val documentNumber: String,
+    @SerialName("resolved_document_number") val resolvedDocumentNumber: String? = null,
     @SerialName("api_version") val apiVersion: String? = null,
     @SerialName("document_type") val documentType: String? = null,
     @SerialName("resolved_year") val resolvedYear: Int? = null,
@@ -139,6 +147,9 @@ data class UploadAvailability(
     val uploadedInAppRun: Int,
     val folderFound: Boolean = true,
     val allowed: Boolean = true,
+    val resolvedDocumentNumber: String? = null,
+    val resolvedYear: Int? = null,
+    val resolvedMonth: Int? = null,
 ) {
     val availableNow: Int
         get() = minOf(
@@ -185,6 +196,9 @@ data class UploadAvailability(
                 uploadedInAppRun = uploadedInAppRun.coerceAtLeast(0),
                 folderFound = response.folderFound,
                 allowed = response.allowed,
+                resolvedDocumentNumber = response.resolvedDocumentNumber ?: response.documentNumber,
+                resolvedYear = response.resolvedYear,
+                resolvedMonth = response.resolvedMonth,
             )
         }
     }
@@ -206,6 +220,7 @@ data class ImageMediatorUploadedFile(
 @Serializable
 data class ImageMediatorUploadResponse(
     @SerialName("document_number") val documentNumber: String,
+    @SerialName("resolved_document_number") val resolvedDocumentNumber: String? = null,
     @SerialName("resolved_year") val resolvedYear: Int? = null,
     @SerialName("resolved_month") val resolvedMonth: Int? = null,
     @SerialName("ftp_folder_path") val ftpFolderPath: String? = null,
@@ -223,6 +238,7 @@ data class ImageMediatorUploadResult(
 @Serializable
 data class ImageMediatorImageCountResponse(
     @SerialName("document_number") val documentNumber: String,
+    @SerialName("resolved_document_number") val resolvedDocumentNumber: String? = null,
     @SerialName("resolved_year") val resolvedYear: Int? = null,
     @SerialName("resolved_month") val resolvedMonth: Int? = null,
     val count: Int,
@@ -238,6 +254,7 @@ data class ImageMediatorImageMeta(
 @Serializable
 data class ImageMediatorImageListResponse(
     @SerialName("document_number") val documentNumber: String,
+    @SerialName("resolved_document_number") val resolvedDocumentNumber: String? = null,
     @SerialName("resolved_year") val resolvedYear: Int? = null,
     @SerialName("resolved_month") val resolvedMonth: Int? = null,
     val page: Int,

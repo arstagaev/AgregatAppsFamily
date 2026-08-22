@@ -33,7 +33,7 @@ enum class BottomNavItemId(val wire: String) {
             REPAIR_TEMPLATE_CATALOG -> tr("nav_kalkulyatsiya")
             EXPENSE_REQUESTS -> tr("nav_zayavki_rashod_ds")
             QR_SCANNER -> tr("nav_qr_skaner")
-            MENU -> tr("menu_menyu")
+            MENU -> tr("menu_nastroyki")
         }
 
     val permission: KnownPermission?
@@ -67,7 +67,7 @@ enum class BottomNavItemId(val wire: String) {
         REPAIR_TEMPLATE_CATALOG -> child is IRootComponent.Child.RepairTemplateCatalog
         EXPENSE_REQUESTS -> child is IRootComponent.Child.ExpenseRequests
         QR_SCANNER -> child is IRootComponent.Child.QRScanner
-        MENU -> child is IRootComponent.Child.Menu
+            MENU -> child is IRootComponent.Child.Settings
     }
 
     companion object {
@@ -105,6 +105,6 @@ fun IRootComponent.Child.toBottomNavItemId(): BottomNavItemId? = when (this) {
     is IRootComponent.Child.RepairTemplateCatalog -> BottomNavItemId.REPAIR_TEMPLATE_CATALOG
     is IRootComponent.Child.ExpenseRequests -> BottomNavItemId.EXPENSE_REQUESTS
     is IRootComponent.Child.QRScanner -> BottomNavItemId.QR_SCANNER
-    is IRootComponent.Child.Menu -> BottomNavItemId.MENU
+    is IRootComponent.Child.Settings -> BottomNavItemId.MENU
     else -> null
 }

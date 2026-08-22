@@ -127,6 +127,7 @@ fun WorkOrdersScreen(
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    val photosViewerUploadPeriod by component.photosViewerUploadPeriod.collectAsState()
     var photosUploadEnabled by remember { mutableStateOf(false) }
     var photosDownloadEnabled by remember { mutableStateOf(false) }
 
@@ -253,10 +254,12 @@ fun WorkOrdersScreen(
     }
     if (isPhotosViewerOpen) {
         val number = photosViewerDocumentNumber
-        if (number != null) {
+        val uploadPeriod = photosViewerUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentPhotosViewerScreen(
                 documentNumber = number,
                 documentType = ImageDocumentType.WorkOrder,
+                uploadPeriod = uploadPeriod,
                 onBack = component::closePhotosViewer,
             )
         }
@@ -308,16 +311,17 @@ fun WorkOrdersScreen(
             }
 
             val currentLinked = linkedDocuments.lastOrNull()
-            val activeOrderNumber = (currentLinked as? TreeRootResolvedDocument.WorkOrder)?.value?.number
-                ?: order.number
-            LaunchedEffect(activeOrderNumber, photosDownloadEnabled) {
+            val activeWorkOrder = (currentLinked as? TreeRootResolvedDocument.WorkOrder)?.value
+            val activeOrderNumber = activeWorkOrder?.number ?: order.number
+            val activeUploadPeriod = DocumentUploadPeriod.from(activeWorkOrder?.date ?: order.date)
+            LaunchedEffect(activeOrderNumber, photosDownloadEnabled, activeUploadPeriod) {
                 if (photosDownloadEnabled) {
-                    activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+                    activeOrderNumber?.let { component.refreshDocumentPhotoCount(it, activeUploadPeriod) }
                 }
             }
             val openDocumentPhotos: (() -> Unit)? =
                 if (photosDownloadEnabled && !activeOrderNumber.isNullOrBlank()) {
-                    { component.requestOpenDocumentPhotos(activeOrderNumber) }
+                    { component.requestOpenDocumentPhotos(activeOrderNumber, activeUploadPeriod) }
                 } else {
                     null
                 }

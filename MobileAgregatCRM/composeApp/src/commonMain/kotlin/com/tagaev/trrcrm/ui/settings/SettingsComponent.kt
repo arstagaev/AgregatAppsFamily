@@ -6,6 +6,7 @@ import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
+import com.tagaev.trrcrm.data.accounts.AccountSessionStore
 import com.tagaev.trrcrm.data.db.EventsCacheStore
 import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.toCoreApiError
@@ -14,6 +15,7 @@ import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.push.disablePushDeliveryForLoggedOutUser
 import com.tagaev.trrcrm.pushPlatformId
+import com.tagaev.trrcrm.ui.login.CrmAuthUseCase
 import com.tagaev.trrcrm.utils.SessionPermissions
 import com.tagaev.trrcrm.navigation.BottomNavItemId
 import com.tagaev.trrcrm.navigation.BottomNavLayoutItem
@@ -48,6 +50,8 @@ interface ISettingsComponent : BottomNavLayoutEditorHost {
     fun consumeMuteError()
     fun onWriteToDeveloper()
     fun onLogout()
+    fun openCatalog()
+    fun openAccounts()
     fun back()
     fun openBottomNavEditor()
     fun closeBottomNavEditor()
@@ -60,10 +64,13 @@ class SettingsComponent(
     componentContext: ComponentContext,
     private val onBack: () -> Unit,
     private val onWriteToDeveloperAction: () -> Unit = {},
-    private val onLogoutAction: () -> Unit
+    private val onLogoutAction: () -> Unit,
+    private val onOpenCatalog: () -> Unit = {},
+    private val onOpenAccounts: () -> Unit = {},
 ) : ISettingsComponent, KoinComponent, ComponentContext by componentContext {
     private val eventsCacheStore: EventsCacheStore by inject()
     private val settings: AppSettings by inject()
+    private val accountStore: AccountSessionStore by inject()
     private val repository: MainRepository by inject()
     private val appScope: CoroutineScope by inject()
     private val muteUpdateMutex = Mutex()
@@ -343,6 +350,8 @@ class SettingsComponent(
         SessionPermissions.clear()
         BottomNavLayoutState.applySaved(BottomNavLayoutResolver.defaultLayout())
         settings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
+        accountStore.removeActiveAccount()
+        CrmAuthUseCase.stopSessionLoops()
         settings.clearForLogoutPreservingInstallIdentity()
         NotificationsUnreadState.setCount(0)
         disablePushDeliveryForLoggedOutUser()
@@ -355,6 +364,13 @@ class SettingsComponent(
 
 
     override fun back() = onBack()
+
+    override fun openCatalog() = onOpenCatalog()
+
+    override fun openAccounts() {
+        accountStore.ensureMigrated()
+        onOpenAccounts()
+    }
 
     override fun openBottomNavEditor() {
         closeAllSubScreens(exceptBottomNav = true)

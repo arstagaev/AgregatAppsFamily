@@ -27,6 +27,10 @@ FULL = {
     "Можно загрузить сейчас: %1$s": "Hozir yuklash mumkin: %1$s",
     "В этой сессии уже загружено максимум %1$s фото для этого документа. Перезапустите приложение, чтобы начать новую сессию.": "Ushbu sessiyada bu hujjat uchun maksimal %1$s ta foto yuklangan. Yangi sessiyani boshlash uchun ilovani qayta ishga tushiring.",
     "Конфликт повторной отправки. Попробуйте ещё раз.": "Qayta yuborish konflikti. Qayta urinib ko‘ring.",
+    "Клиент несовместим с API ImageMediator. Обновите приложение.": "Mijoz ImageMediator API bilan mos emas. Ilovani yangilang.",
+    "Не удалось однозначно найти папку документа. Передайте полный номер и период.": "Hujjat papkasini aniq topib bo‘lmadi. To‘liq raqam va davrni yuboring.",
+    "Недостаточно данных документа. Укажите полный номер, тип и период.": "Hujjat ma’lumotlari yetarli emas. To‘liq raqam, tur va davrni ko‘rsating.",
+    "Превышен лимит запросов. Подождите и повторите позже.": "So‘rovlar limiti oshib ketdi. Kuting va keyinroq qayta urinib ko‘ring.",
     "Тип документа": "Hujjat turi",
 
     "Загрузка недоступна. Осталось фото: %1$s": "Yuklash mavjud emas. Qolgan foto: %1$s",

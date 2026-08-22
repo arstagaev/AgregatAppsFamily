@@ -65,11 +65,13 @@ import com.tagaev.trrcrm.models.WorkOrderDto
 import com.tagaev.trrcrm.utils.DefaultValuesConst
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.remote.ImageMediatorApi
+import com.tagaev.trrcrm.data.remote.ImageMediatorException
 import com.tagaev.trrcrm.data.remote.canUploadBlockedMessage
 import com.tagaev.trrcrm.data.remote.toImageMediatorError
 import com.tagaev.trrcrm.domain.exceedsHardMax
 import com.tagaev.trrcrm.domain.isValidDocumentNumber
 import com.tagaev.trrcrm.domain.normalizeDocumentNumber
+import com.tagaev.trrcrm.domain.resolvedDocumentNumber
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCache
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheKey
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheStats
@@ -764,7 +766,7 @@ class MainRepository(
 
         val normalizedNumber = normalizeDocumentNumber(documentNumber)
         if (!isValidDocumentNumber(normalizedNumber)) {
-            return Resource.Error(causes = "Номер документа: 6–12 цифр")
+            return Resource.Error(causes = tr("complectation_nekorrektnyy_nomer_dokumenta"))
         }
 
         val oversized = photos.withIndex().firstOrNull { (_, bytes) -> exceedsHardMax(bytes.size) }
@@ -777,10 +779,21 @@ class MainRepository(
         val key = DocumentUploadKey(documentType, normalizedNumber)
         var folderLimit: Int? = null
         var availability: UploadAvailability? = null
+        var uploadNumber = normalizedNumber
+        var uploadPeriodEffective = uploadPeriod
 
         when (val precheck = imageMediatorApi.canUpload(token, normalizedNumber, uploadPeriod, documentType)) {
             is Resource.Success -> {
                 val data = precheck.data
+                uploadNumber = resolvedDocumentNumber(
+                    data.resolvedDocumentNumber ?: data.documentNumber,
+                    normalizedNumber,
+                )
+                uploadPeriodEffective = DocumentUploadPeriod.fromResolved(
+                    data.resolvedYear,
+                    data.resolvedMonth,
+                    uploadPeriod,
+                )
                 folderLimit = data.limits?.effectiveMaxPhotos()
                 val remaining = data.limits?.effectiveRemaining() ?: 0
                 if (!data.folderFound || !data.allowed || remaining <= 0) {
@@ -813,9 +826,9 @@ class MainRepository(
             when (
                 val upload = imageMediatorApi.uploadPhotos(
                     agrToken = token,
-                    documentNumber = normalizedNumber,
+                    documentNumber = uploadNumber,
                     files = photos,
-                    uploadPeriod = uploadPeriod,
+                    uploadPeriod = uploadPeriodEffective,
                     documentType = documentType,
                     idempotencyKey = idempotencyKey,
                 )
@@ -826,7 +839,10 @@ class MainRepository(
                     uploadSessionQuotaTracker.commit(reservation, confirmedCount = confirmed)
                     Resource.Success(
                         ImageMediatorUploadResult(
-                            documentNumber = data.documentNumber,
+                            documentNumber = resolvedDocumentNumber(
+                                data.resolvedDocumentNumber ?: data.documentNumber,
+                                normalizedNumber,
+                            ),
                             storedFilenames = data.uploadedFiles.mapNotNull { it.storedFilename },
                             ftpFolderPath = data.ftpFolderPath,
                             resolvedYear = data.resolvedYear,
@@ -863,6 +879,7 @@ class MainRepository(
 
     suspend fun getFixatorDocumentPhotoCount(
         documentNumber: String,
+        uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<Int> {
         val token = settings.getString(AppSettingsKeys.TOKEN_KEY, "").trim()
@@ -873,18 +890,33 @@ class MainRepository(
         if (!isValidDocumentNumber(normalizedNumber)) {
             return Resource.Success(0)
         }
-        return when (val result = imageMediatorApi.getDocumentPhotoCount(token, normalizedNumber, documentType)) {
-            is Resource.Success -> Resource.Success(result.data)
-            is Resource.Error -> Resource.Error(
-                exception = result.exception,
-                causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить количество фотографий"),
+        return when (
+            val result = imageMediatorApi.getDocumentPhotoCount(
+                token,
+                normalizedNumber,
+                uploadPeriod,
+                documentType,
             )
+        ) {
+            is Resource.Success -> Resource.Success(result.data)
+            is Resource.Error -> {
+                val status = (result.exception as? ImageMediatorException)?.statusCode
+                if (status == 404) {
+                    Resource.Success(0)
+                } else {
+                    Resource.Error(
+                        exception = result.exception,
+                        causes = result.causes ?: result.exception.toImageMediatorError("Не удалось загрузить количество фотографий"),
+                    )
+                }
+            }
             is Resource.Loading -> Resource.Loading
         }
     }
 
     suspend fun listFixatorDocumentImages(
         documentNumber: String,
+        uploadPeriod: DocumentUploadPeriod,
         page: Int,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<ImageMediatorImageListResponse> {
@@ -894,12 +926,20 @@ class MainRepository(
         }
         val normalizedNumber = normalizeDocumentNumber(documentNumber)
         if (!isValidDocumentNumber(normalizedNumber)) {
-            return Resource.Error(causes = "Номер документа: 6–12 цифр")
+            return Resource.Error(causes = tr("complectation_nekorrektnyy_nomer_dokumenta"))
         }
         if (page < 1) {
             return Resource.Error(causes = "Некорректный номер страницы")
         }
-        return when (val result = imageMediatorApi.listDocumentImages(token, normalizedNumber, page, documentType)) {
+        return when (
+            val result = imageMediatorApi.listDocumentImages(
+                token,
+                normalizedNumber,
+                uploadPeriod,
+                page,
+                documentType,
+            )
+        ) {
             is Resource.Success -> Resource.Success(result.data)
             is Resource.Error -> Resource.Error(
                 exception = result.exception,

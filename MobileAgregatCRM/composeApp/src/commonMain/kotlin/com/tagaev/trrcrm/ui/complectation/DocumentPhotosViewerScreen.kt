@@ -47,11 +47,14 @@ import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.userFacingMessage
+import com.tagaev.trrcrm.domain.resolvedDocumentNumber
+import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorImageMeta
 import com.tagaev.trrcrm.ui.common.ZoomableImagePreview
 import com.tagaev.trrcrm.ui.common.rememberBusyActionGate
-import com.tagaev.trrcrm.ui.permissions.decodePhotoThumbnail
+import com.tagaev.trrcrm.ui.permissions.CameraFixatorLog
+import com.tagaev.trrcrm.ui.permissions.decodePhotoThumbnailLogged
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.RefreshCw
@@ -82,6 +85,7 @@ private data class DocumentPhotosPageUi(
 fun DocumentPhotosViewerScreen(
     documentNumber: String,
     documentType: ImageDocumentType = ImageDocumentType.Complects,
+    uploadPeriod: DocumentUploadPeriod,
     onBack: () -> Unit,
 ) {
     val repository = koinInject<MainRepository>()
@@ -92,6 +96,8 @@ fun DocumentPhotosViewerScreen(
     var pageError by remember { mutableStateOf<String?>(null) }
     var pageUi by remember { mutableStateOf<DocumentPhotosPageUi?>(null) }
     var currentPage by remember { mutableStateOf(1) }
+    var resolvedNumber by remember(documentNumber) { mutableStateOf(documentNumber) }
+    var resolvedPeriod by remember(uploadPeriod) { mutableStateOf(uploadPeriod) }
     val cellStates = remember { mutableStateMapOf<String, DocumentPhotoCellState>() }
     var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
 
@@ -104,12 +110,16 @@ fun DocumentPhotosViewerScreen(
         cellStates[image.imageId] = DocumentPhotoCellState.Loading
         when (val result = repository.downloadFixatorDocumentImage(
             documentType = documentType,
-            documentNumber = documentNumber,
+            documentNumber = resolvedNumber,
             imageId = image.imageId,
             contentUrl = image.contentUrl,
         )) {
             is Resource.Success -> {
-                val bitmap = decodePhotoThumbnail(result.data)
+                val bitmap = decodePhotoThumbnailLogged(
+                    bytes = result.data,
+                    imageId = image.imageId,
+                    contentUrl = image.contentUrl,
+                )
                 if (bitmap != null) {
                     cellStates[image.imageId] = DocumentPhotoCellState.Loaded(bitmap)
                 } else {
@@ -117,6 +127,9 @@ fun DocumentPhotosViewerScreen(
                 }
             }
             is Resource.Error -> {
+                CameraFixatorLog.d(
+                    "image_download_failed id=${image.imageId} url=${image.contentUrl} reason=http_or_network message=${result.causes}",
+                )
                 cellStates[image.imageId] = DocumentPhotoCellState.Error(
                     userFacingMessage(
                         result.causes ?: s("complectation_ne_udalos_zagruzit_fotografii"),
@@ -147,9 +160,18 @@ fun DocumentPhotosViewerScreen(
         pageError = null
         cellStates.clear()
         try {
-            when (val result = repository.listFixatorDocumentImages(documentNumber, page, documentType)) {
+            when (val result = repository.listFixatorDocumentImages(resolvedNumber, resolvedPeriod, page, documentType)) {
                 is Resource.Success -> {
                     val data = result.data
+                    resolvedNumber = resolvedDocumentNumber(
+                        data.resolvedDocumentNumber ?: data.documentNumber,
+                        resolvedNumber,
+                    )
+                    resolvedPeriod = DocumentUploadPeriod.fromResolved(
+                        data.resolvedYear,
+                        data.resolvedMonth,
+                        resolvedPeriod,
+                    )
                     pageUi = DocumentPhotosPageUi(
                         page = data.page,
                         totalPages = data.totalPages.coerceAtLeast(1),
@@ -183,12 +205,14 @@ fun DocumentPhotosViewerScreen(
 
     fun refreshPhotos() {
         photoActionGate.launch(scope) {
-            repository.clearFixatorDocumentPhotoCache(documentType, documentNumber)
+            repository.clearFixatorDocumentPhotoCache(documentType, resolvedNumber)
             loadPageInternal(currentPage)
         }
     }
 
-    LaunchedEffect(documentNumber) {
+    LaunchedEffect(documentNumber, uploadPeriod) {
+        resolvedNumber = documentNumber
+        resolvedPeriod = uploadPeriod
         currentPage = 1
         photoActionGate.run {
             loadPageInternal(1)

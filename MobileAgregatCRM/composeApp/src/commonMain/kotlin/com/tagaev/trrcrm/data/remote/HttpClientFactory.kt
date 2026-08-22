@@ -47,9 +47,9 @@ object HttpClientFactory {
             maxRetries = 2
             retryIf { request, response ->
                 request.method != HttpMethod.Post &&
+                    response.status != HttpStatusCode.TooManyRequests &&
                     (response.status.value >= 500 ||
-                        response.status == HttpStatusCode.RequestTimeout ||
-                        response.status == HttpStatusCode.TooManyRequests)
+                        response.status == HttpStatusCode.RequestTimeout)
             }
             retryOnExceptionIf { request, cause ->
                 request.method != HttpMethod.Post && isTransientNetworkFailure(cause)

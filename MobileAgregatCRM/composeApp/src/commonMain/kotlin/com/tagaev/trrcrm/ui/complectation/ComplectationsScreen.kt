@@ -130,6 +130,7 @@ fun ComplectationsScreen(
     val isDocumentPhotoCountUiLoading = isDocumentPhotoCountLoading || !documentPhotoCountLoaded
     val isPhotosViewerOpen by component.isPhotosViewerOpen.collectAsState()
     val photosViewerDocumentNumber by component.photosViewerDocumentNumber.collectAsState()
+    val photosViewerUploadPeriod by component.photosViewerUploadPeriod.collectAsState()
     val transientWarning by component.transientWarning.collectAsState()
 
     val cameraErrorSnackbarHostState = remember { SnackbarHostState() }
@@ -272,10 +273,12 @@ fun ComplectationsScreen(
     }
     if (isPhotosViewerOpen) {
         val number = photosViewerDocumentNumber
-        if (number != null) {
+        val uploadPeriod = photosViewerUploadPeriod
+        if (number != null && uploadPeriod != null) {
             DocumentPhotosViewerScreen(
                 documentNumber = number,
                 documentType = ImageDocumentType.Complects,
+                uploadPeriod = uploadPeriod,
                 onBack = component::closePhotosViewer,
             )
         }
@@ -312,14 +315,15 @@ fun ComplectationsScreen(
             } else {
                 complectationRootListStateKey(order)
             }
-            val activeOrderNumber = (currentLinked as? TreeRootResolvedDocument.Complectation)?.value?.number
-                ?: order.number
-            LaunchedEffect(activeOrderNumber) {
-                activeOrderNumber?.let { component.refreshDocumentPhotoCount(it) }
+            val activeComplectation = (currentLinked as? TreeRootResolvedDocument.Complectation)?.value
+            val activeOrderNumber = activeComplectation?.number ?: order.number
+            val activeUploadPeriod = DocumentUploadPeriod.from(activeComplectation?.date ?: order.date)
+            LaunchedEffect(activeOrderNumber, activeUploadPeriod) {
+                activeOrderNumber?.let { component.refreshDocumentPhotoCount(it, activeUploadPeriod) }
             }
             val openDocumentPhotos: (() -> Unit)? =
                 if (!activeOrderNumber.isNullOrBlank()) {
-                    { component.requestOpenDocumentPhotos(activeOrderNumber) }
+                    { component.requestOpenDocumentPhotos(activeOrderNumber, activeUploadPeriod) }
                 } else {
                     null
                 }

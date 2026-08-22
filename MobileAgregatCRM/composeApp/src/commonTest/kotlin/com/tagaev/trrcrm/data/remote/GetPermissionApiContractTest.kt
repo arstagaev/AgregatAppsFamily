@@ -1,7 +1,7 @@
 package com.tagaev.trrcrm.data.remote
 
 import com.tagaev.trrcrm.models.UserPermissionEntryDto
-import com.tagaev.trrcrm.ui.login.isTokenAuthenticationError
+import com.tagaev.trrcrm.data.remote.isTokenAuthenticationError
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.ContentType

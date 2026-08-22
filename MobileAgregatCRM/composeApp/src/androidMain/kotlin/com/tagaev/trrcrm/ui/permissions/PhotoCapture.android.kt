@@ -255,13 +255,18 @@ actual fun FixatorCameraPreview(
 }
 
 actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? {
-    return runCatching {
-        if (bytes.isEmpty()) return@runCatching null
+    if (bytes.isEmpty()) return null
+    return try {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         val srcW = bounds.outWidth
         val srcH = bounds.outHeight
-        if (srcW <= 0 || srcH <= 0) return@runCatching null
+        if (srcW <= 0 || srcH <= 0) {
+            CameraFixatorLog.d(
+                "image_decoder decoder=bitmapfactory outMimeType=${bounds.outMimeType} out=${srcW}x${srcH} reason=bounds_undecodable",
+            )
+            return null
+        }
 
         var sampleSize = 1
         val longEdge = maxOf(srcW, srcH)
@@ -271,7 +276,12 @@ actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? {
 
         val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
         val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-            ?: return@runCatching null
+        if (decoded == null) {
+            CameraFixatorLog.d(
+                "image_decoder decoder=bitmapfactory outMimeType=${bounds.outMimeType} out=${srcW}x${srcH} reason=decodeByteArray_null",
+            )
+            return null
+        }
 
         val (targetW, targetH) = computeTargetSize(
             decoded.width,
@@ -286,5 +296,8 @@ actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? {
             decoded
         }
         display.asImageBitmap()
-    }.getOrNull()
+    } catch (error: Throwable) {
+        CameraFixatorLog.d("image_decoder decoder=bitmapfactory message=${error.message}")
+        null
+    }
 }

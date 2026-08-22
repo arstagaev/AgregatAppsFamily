@@ -97,6 +97,7 @@ class ComplectationComponent(
     val documentPhotoCountLoaded: StateFlow<Boolean> = photoSession.documentPhotoCountLoaded
     val isPhotosViewerOpen: StateFlow<Boolean> = photoSession.isPhotosViewerOpen
     val photosViewerDocumentNumber: StateFlow<String?> = photoSession.photosViewerDocumentNumber
+    val photosViewerUploadPeriod = photoSession.photosViewerUploadPeriod
 
     override fun selectItemFromList(guid: String?) {
         _selectedOrderGuid.value = guid
@@ -122,11 +123,11 @@ class ComplectationComponent(
 
     fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
 
-    fun refreshDocumentPhotoCount(documentNumber: String) =
-        photoSession.refreshDocumentPhotoCount(documentNumber)
+    fun refreshDocumentPhotoCount(documentNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
+        photoSession.refreshDocumentPhotoCount(documentNumber, uploadPeriod)
 
-    fun requestOpenDocumentPhotos(documentNumber: String) =
-        photoSession.requestOpenDocumentPhotos(documentNumber)
+    fun requestOpenDocumentPhotos(documentNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
+        photoSession.requestOpenDocumentPhotos(documentNumber, uploadPeriod)
 
     fun closePhotosViewer() = photoSession.closePhotosViewer()
 

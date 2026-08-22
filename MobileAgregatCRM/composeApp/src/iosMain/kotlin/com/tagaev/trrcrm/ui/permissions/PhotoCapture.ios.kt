@@ -368,9 +368,9 @@ private fun NSData.toByteArray(): ByteArray {
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? {
-    return runCatching {
-        if (bytes.isEmpty()) return@runCatching null
-        val source = Image.makeFromEncoded(bytes) ?: return@runCatching null
+    if (bytes.isEmpty()) return null
+    return try {
+        val source = Image.makeFromEncoded(bytes)
         val (targetW, targetH) = computeTargetSize(
             source.width,
             source.height,
@@ -382,7 +382,10 @@ actual fun decodePhotoThumbnail(bytes: ByteArray): ImageBitmap? {
             source
         }
         display.toComposeImageBitmap()
-    }.getOrNull()
+    } catch (error: Throwable) {
+        CameraFixatorLog.d("image_decoder decoder=skia message=${error.message}")
+        null
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)

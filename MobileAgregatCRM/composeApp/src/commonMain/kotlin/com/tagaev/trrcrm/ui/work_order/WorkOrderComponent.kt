@@ -67,15 +67,16 @@ class WorkOrdersComponent(
     val documentPhotoCountLoaded = photoSession.documentPhotoCountLoaded
     val isPhotosViewerOpen = photoSession.isPhotosViewerOpen
     val photosViewerDocumentNumber = photoSession.photosViewerDocumentNumber
+    val photosViewerUploadPeriod = photoSession.photosViewerUploadPeriod
 
     fun requestOpenCamera(rawNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
         photoSession.requestOpenCamera(rawNumber, uploadPeriod)
     fun closeCamera() = photoSession.closeCamera()
     fun consumeCameraPrecheckError() = photoSession.consumeCameraPrecheckError()
-    fun refreshDocumentPhotoCount(documentNumber: String) =
-        photoSession.refreshDocumentPhotoCount(documentNumber)
-    fun requestOpenDocumentPhotos(documentNumber: String) =
-        photoSession.requestOpenDocumentPhotos(documentNumber)
+    fun refreshDocumentPhotoCount(documentNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
+        photoSession.refreshDocumentPhotoCount(documentNumber, uploadPeriod)
+    fun requestOpenDocumentPhotos(documentNumber: String, uploadPeriod: com.tagaev.trrcrm.models.DocumentUploadPeriod?) =
+        photoSession.requestOpenDocumentPhotos(documentNumber, uploadPeriod)
     fun closePhotosViewer() = photoSession.closePhotosViewer()
     suspend fun isPhotosUploadEnabled() = photoSession.isUploadEnabled()
     suspend fun isPhotosDownloadEnabled() = photoSession.isDownloadEnabled()

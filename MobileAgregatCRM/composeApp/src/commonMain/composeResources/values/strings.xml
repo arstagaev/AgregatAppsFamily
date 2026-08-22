@@ -35,6 +35,10 @@
     <string name="upload_idempotency_conflict">Конфликт повторной отправки. Попробуйте ещё раз.</string>
     <string name="upload_document_type">Тип документа</string>
     <string name="upload_document_date_missing">Не указана дата создания документа. Загрузка фотографий недоступна.</string>
+    <string name="upload_unsupported_api_contract">Клиент несовместим с API ImageMediator. Обновите приложение.</string>
+    <string name="upload_ambiguous_document_folder">Не удалось однозначно найти папку документа. Передайте полный номер и период.</string>
+    <string name="upload_legacy_identity_incomplete">Недостаточно данных документа. Укажите полный номер, тип и период.</string>
+    <string name="upload_rate_limited">Превышен лимит запросов. Подождите и повторите позже.</string>
     <string name="login_oshibka_vhoda">Ошибка входа</string>
     <string name="login_oshibka_soedineniya">Ошибка соединения</string>
     <string name="login_zagruzka">Загрузка ...</string>

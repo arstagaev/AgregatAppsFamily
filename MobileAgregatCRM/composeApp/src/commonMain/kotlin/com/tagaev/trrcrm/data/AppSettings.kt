@@ -50,6 +50,10 @@ object AppSettingsKeys {
     const val EMAIL     = "EMAIL"
     const val PASS      = "PASS"
     const val TOKEN_KEY = "TOKEN_KEY"
+    const val ACCOUNT_LOGIN = "ACCOUNT_LOGIN"
+    const val ACCOUNTS_JSON = "ACCOUNTS_JSON_V1"
+    const val ACCOUNTS_ACTIVE_ID = "ACCOUNTS_ACTIVE_ID_V1"
+    const val ACCOUNTS_PIN_LOCKOUT_JSON = "ACCOUNTS_PIN_LOCKOUT_JSON_V1"
     const val TOKEN_ONLY_AUTH_MIGRATION_COMPLETED = "TOKEN_ONLY_AUTH_MIGRATION_COMPLETED"
 
     const val LAST_UPDATE = "LAST_UPDATE"
@@ -248,6 +252,9 @@ class AppSettings(
         val preservedPushToggleUpdatedAt = getLong(AppSettingsKeys.PUSH_FEATURE_TOGGLE_UPDATED_AT_MS, 0L)
         val preservedMobileFlagsJson = getStringOrNull(AppSettingsKeys.MOBILE_FEATURE_FLAGS_JSON)
         val preservedMobileFlagsRevision = getStringOrNull(AppSettingsKeys.MOBILE_FEATURE_FLAGS_REVISION)
+        val preservedAccountsJson = getStringOrNull(AppSettingsKeys.ACCOUNTS_JSON)
+        val preservedAccountsActiveId = getStringOrNull(AppSettingsKeys.ACCOUNTS_ACTIVE_ID)
+        val preservedPinLockout = getStringOrNull(AppSettingsKeys.ACCOUNTS_PIN_LOCKOUT_JSON)
 
         clearAll()
 
@@ -260,5 +267,8 @@ class AppSettings(
         }
         preservedMobileFlagsJson?.let { setString(AppSettingsKeys.MOBILE_FEATURE_FLAGS_JSON, it) }
         preservedMobileFlagsRevision?.let { setString(AppSettingsKeys.MOBILE_FEATURE_FLAGS_REVISION, it) }
+        preservedAccountsJson?.let { setString(AppSettingsKeys.ACCOUNTS_JSON, it) }
+        preservedAccountsActiveId?.let { setString(AppSettingsKeys.ACCOUNTS_ACTIVE_ID, it) }
+        preservedPinLockout?.let { setString(AppSettingsKeys.ACCOUNTS_PIN_LOCKOUT_JSON, it) }
     }
 }

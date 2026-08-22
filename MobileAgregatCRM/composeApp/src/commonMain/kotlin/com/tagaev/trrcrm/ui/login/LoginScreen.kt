@@ -84,7 +84,7 @@ fun LoginScreen(component: ILoginComponent) {
     var showErrorDialog by rememberSaveable { mutableStateOf(false) }
     var currentError by remember { mutableStateOf("") }
 
-    var keepSplash by rememberSaveable { mutableStateOf(true) }
+    var keepSplash by rememberSaveable { mutableStateOf(component.mode == LoginMode.ColdStart) }
     val startupBlocked = uiState as? LoginUiState.StartupBlocked
     var errorDialogTitle by remember { mutableStateOf(s("login_oshibka_vhoda")) }
     var dialogIsStartupBlocked by remember { mutableStateOf(false) }
@@ -117,12 +117,14 @@ fun LoginScreen(component: ILoginComponent) {
                 currentError = s("login_server_nedostupen_ili_prevysheno_vremya_ozhidaniya")
             }
             else -> {
-                // Navigation / success / idle — hold splash briefly
                 showErrorDialog = false
-                keepSplash = true
-                kotlinx.coroutines.delay(SPLASH_HOLD_MS)
-                // Only drop splash if we haven't gone back to Loading in the meantime
-                if (uiState !is LoginUiState.Loading) keepSplash = false
+                if (component.mode != LoginMode.ColdStart) {
+                    keepSplash = false
+                } else {
+                    keepSplash = true
+                    kotlinx.coroutines.delay(SPLASH_HOLD_MS)
+                    if (uiState !is LoginUiState.Loading) keepSplash = false
+                }
             }
         }
     }
@@ -142,7 +144,12 @@ fun LoginScreen(component: ILoginComponent) {
 //    var pass by rememberSaveable { mutableStateOf("eVpfmkGAHWr%") }
 
     var user by rememberSaveable {
-        mutableStateOf(appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = ""))
+        mutableStateOf(
+            component.lockedLogin.ifBlank {
+                appSettings.getString(AppSettingsKeys.ACCOUNT_LOGIN, defaultValue = "")
+                    .ifBlank { appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = "") }
+            }
+        )
     }
     var pass by rememberSaveable { mutableStateOf("") }
 
@@ -239,11 +246,22 @@ fun LoginScreen(component: ILoginComponent) {
 
                     Spacer(Modifier.height(20.dp))
                     Column(Modifier.padding(horizontal = 24.dp)) {
+                        if (component.displayName.isNotBlank()) {
+                            Text(
+                                text = s("login_reauth_for", component.displayName),
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                         when (mode) {
                             Mode.Credentials -> {
                                 OutlinedTextField(
                                     value = user,
-                                    onValueChange = { user = it },
+                                    onValueChange = { if (component.lockedLogin.isBlank()) user = it },
+                                    enabled = component.lockedLogin.isBlank(),
                                     label = { Text(s("login_login")) },
                                     singleLine = true,
                                     colors = tfColors,

@@ -147,6 +147,7 @@ fun DocumentCameraScreen(
     var showUploadSuccessDialog by remember { mutableStateOf(false) }
     var uploadQuota by remember(documentNumber, initialQuota) { mutableStateOf(initialQuota) }
     var quotaLoadError by remember { mutableStateOf<String?>(null) }
+    var pendingUploadIdempotencyKey by remember { mutableStateOf<String?>(null) }
 
     val sessionMax = uploadQuota?.availableNow ?: MAX_PHOTOS_PER_UPLOAD_FALLBACK
     val isUploading = uploadStatus is UploadUiStatus.Uploading
@@ -154,6 +155,11 @@ fun DocumentCameraScreen(
     val hasReachedPhotoLimit = photos.size >= sessionMax
     val canCapture = cameraControls != null && !isCameraBusy && !hasReachedPhotoLimit && quotaLoadError == null
     val canAddFromGallery = !isCameraBusy && !hasReachedPhotoLimit && quotaLoadError == null
+    val pendingPhotoIdentity = photos.joinToString(separator = ",") { it.id }
+
+    LaunchedEffect(documentNumber, pendingPhotoIdentity) {
+        pendingUploadIdempotencyKey = null
+    }
 
     fun showCameraSnackbar(message: String, kind: CameraSnackbarKind = CameraSnackbarKind.Default) {
         snackbarKind = kind
@@ -406,16 +412,21 @@ fun DocumentCameraScreen(
                                     photoStorage.readPendingPhotoBytes(documentNumber, entry)
                                 }
                             }
+                            val idempotencyKey = pendingUploadIdempotencyKey
+                                ?: ImageMediatorApi.generateIdempotencyKey().also {
+                                    pendingUploadIdempotencyKey = it
+                                }
                             when (
                                 val result = repository.uploadFixatorPhotos(
                                     documentNumber = documentNumber,
                                     photos = photoBytes,
                                     uploadPeriod = uploadPeriod,
                                     documentType = documentType,
-                                    idempotencyKey = ImageMediatorApi.generateIdempotencyKey(),
+                                    idempotencyKey = idempotencyKey,
                                 )
                             ) {
                                 is Resource.Success -> {
+                                    pendingUploadIdempotencyKey = null
                                     CameraFixatorLog.d(
                                         "upload_success files=${result.data.storedFilenames.size} folder=${result.data.ftpFolderPath}",
                                     )
