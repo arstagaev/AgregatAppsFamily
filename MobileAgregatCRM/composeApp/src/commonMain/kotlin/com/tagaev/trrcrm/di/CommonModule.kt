@@ -93,6 +93,14 @@ val commonModule = module {
     single { AppSettings(get<Settings>(), get<Json>()) }
     single { com.tagaev.trrcrm.data.accounts.AccountSessionStore(settings = get(), json = get()) }
     single { com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsStore(settings = get(), json = get()) }
+    single {
+        com.tagaev.trrcrm.push.CoreSessionCoordinator(
+            settings = get(),
+            gateway = com.tagaev.trrcrm.push.MainRepositoryCoreSessionGateway(get()),
+            accountStore = get(),
+            appScope = get(),
+        )
+    }
 
     // --- Theme / Language ---
     single { ThemeController(get()) }

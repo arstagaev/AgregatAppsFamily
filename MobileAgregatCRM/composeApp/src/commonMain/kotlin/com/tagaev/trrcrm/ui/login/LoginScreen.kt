@@ -145,8 +145,10 @@ fun LoginScreen(component: ILoginComponent) {
 
     var user by rememberSaveable {
         mutableStateOf(
-            component.lockedLogin.ifBlank {
-                appSettings.getString(AppSettingsKeys.ACCOUNT_LOGIN, defaultValue = "")
+            when {
+                component.mode == LoginMode.AddAccount -> ""
+                component.lockedLogin.isNotBlank() -> component.lockedLogin
+                else -> appSettings.getString(AppSettingsKeys.ACCOUNT_LOGIN, defaultValue = "")
                     .ifBlank { appSettings.getString(AppSettingsKeys.EMAIL, defaultValue = "") }
             }
         )

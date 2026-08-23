@@ -105,6 +105,42 @@ class DocumentPhotoCacheTest {
         }
     }
 
+    @Test
+    fun writeAndRead_pdfAndCyrillicNumber() = runTest {
+        val root = createTempRoot()
+        val cache = DocumentPhotoCache(storageRoot = root, fileSystem = fileSystem)
+        val key = DocumentPhotoCacheKey(
+            documentType = "Complects",
+            documentNumber = "АР0000337",
+            imageId = "img_pdf_test",
+        )
+        val bytes = "%PDF-1.4 cached".encodeToByteArray()
+        try {
+            cache.writeBytes(key, bytes)
+            assertContentEquals(bytes, cache.readBytes(key))
+        } finally {
+            deleteRecursively(root)
+        }
+    }
+
+    @Test
+    fun clearAll_removesJpegAndPdf() = runTest {
+        val root = createTempRoot()
+        val cache = DocumentPhotoCache(storageRoot = root, fileSystem = fileSystem)
+        val jpegKey = DocumentPhotoCacheKey("Complects", "0000549041", "img_jpeg")
+        val pdfKey = DocumentPhotoCacheKey("Complects", "ТСК0000777", "img_pdf")
+        try {
+            cache.writeBytes(jpegKey, byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte()))
+            cache.writeBytes(pdfKey, "%PDF-1.4".encodeToByteArray())
+            val stats = cache.clearAll()
+            assertEquals(2, stats.deletedFiles)
+            assertNull(cache.readBytes(jpegKey))
+            assertNull(cache.readBytes(pdfKey))
+        } finally {
+            deleteRecursively(root)
+        }
+    }
+
     private fun createTempRoot(): okio.Path {
         val root = FileSystem.SYSTEM_TEMPORARY_DIRECTORY /
             "document-photo-cache-test-${Random.nextLong()}"

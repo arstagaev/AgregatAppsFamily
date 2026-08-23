@@ -1,6 +1,7 @@
 package com.tagaev.trrcrm.data
 
 import com.tagaev.trrcrm.ui.i18n.tr
+import com.tagaev.trrcrm.ui.permissions.inspectImagePayload
 
 import com.tagaev.data.models.qrscanner.QRResponseTRS
 import com.tagaev.trrcrm.data.remote.ApiConfig
@@ -68,10 +69,12 @@ import com.tagaev.trrcrm.data.remote.ImageMediatorApi
 import com.tagaev.trrcrm.data.remote.ImageMediatorException
 import com.tagaev.trrcrm.data.remote.canUploadBlockedMessage
 import com.tagaev.trrcrm.data.remote.toImageMediatorError
-import com.tagaev.trrcrm.domain.exceedsHardMax
+import com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason
+import com.tagaev.trrcrm.domain.ImageMediatorUploadPart
 import com.tagaev.trrcrm.domain.isValidDocumentNumber
 import com.tagaev.trrcrm.domain.normalizeDocumentNumber
 import com.tagaev.trrcrm.domain.resolvedDocumentNumber
+import com.tagaev.trrcrm.domain.validateUploadBatch
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCache
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheKey
 import com.tagaev.trrcrm.data.fixator.DocumentPhotoCacheStats
@@ -112,6 +115,12 @@ class MainRepository(
     private val uploadSessionQuotaTracker: UploadSessionQuotaTracker by inject()
     private val mobileFeatureFlags: MobileFeatureFlagsStore by inject()
 
+    private fun authorizedConfig(): ApiConfig {
+        val token = settings.getString(AppSettingsKeys.TOKEN_KEY, defaultValue = "NULL")
+        cfg.token = token
+        return cfg
+    }
+
     suspend fun loadEvents(
         type: String? = null,
         name: String? = null,
@@ -123,7 +132,7 @@ class MainRepository(
         filterVal: String?,
     ): Resource<List<EventItemDto>> {
         return api.getEvents(
-            api = cfg.copy(token = settings.getString(AppSettingsKeys.TOKEN_KEY, defaultValue = "NULL")),
+            api = authorizedConfig(),
             type = type ?: DefaultValuesConst.TYPE,
             name = name ?: DefaultValuesConst.NAME,
             count = count ?: DefaultValuesConst.COUNT,
@@ -139,15 +148,15 @@ class MainRepository(
 
     suspend fun probeStartup(): Resource<Unit> = api.probeStartup(cfg)
 
-    suspend fun getPermission(): Resource<List<UserPermissionEntryDto>> = api.getPermission(cfg)
+    suspend fun getPermission(): Resource<List<UserPermissionEntryDto>> = api.getPermission(authorizedConfig())
 
     suspend fun sendMessage(number: String, date: String, message: String): Resource<SentMessageResponse> =
-        api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
+        api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
 
-    suspend fun getTRSData(decodedCode: String): Resource<QRResponseTRS> = api.getTRSData(apiConfig = cfg, decodedCode = decodedCode)
+    suspend fun getTRSData(decodedCode: String): Resource<QRResponseTRS> = api.getTRSData(apiConfig = authorizedConfig(), decodedCode = decodedCode)
 
     suspend fun loadEvents(ncount: Int, currentRefine: RefineState): Resource<List<EventItemDto>> =
-        api.getEvents(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getEvents(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 //        runCatching {  }
 //            .fold(
 //                onSuccess = { Resource.Success(it) },
@@ -160,31 +169,31 @@ class MainRepository(
 //            )
 
     suspend fun loadCargos(ncount: Int, currentRefine: RefineState): Resource<List<CargoDto>> =
-        api.getCargos(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getCargos(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadComplaints(ncount: Int, currentRefine: RefineState): Resource<List<ComplaintDto>> =
-        api.getComplaints(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getComplaints(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadInnerOrders(ncount: Int, currentRefine: RefineState): Resource<List<InnerOrderDto>> =
-        api.getInnerOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getInnerOrders(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadBuyerOrders(ncount: Int, currentRefine: RefineState): Resource<List<BuyerOrderDto>> =
-        api.getBuyerOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getBuyerOrders(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadSupplierOrders(ncount: Int, currentRefine: RefineState): Resource<List<SupplierOrderDto>> =
-        api.getSupplierOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getSupplierOrders(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadIncomingApplications(ncount: Int, currentRefine: RefineState): Resource<List<IncomingApplicationDto>> =
-        api.getIncomingApplications(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getIncomingApplications(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadExpenseRequests(ncount: Int, currentRefine: RefineState): Resource<List<ExpenseRequestDto>> =
-        api.getExpenseRequests(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getExpenseRequests(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadRepairTemplateCatalog(ncount: Int, currentRefine: RefineState): Resource<List<RepairTemplateCatalogItemDto>> =
-        api.getRepairTemplateCatalog(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
+        api.getRepairTemplateCatalog(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, ""))
 
     suspend fun loadWorkOrders(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
-        runCatching { api.loadWorkOrders(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
+        runCatching { api.loadWorkOrders(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
             .fold(
                 onSuccess = { Resource.Success(it) },
                 onFailure = {
@@ -196,7 +205,7 @@ class MainRepository(
             )
 
     suspend fun loadComplectations(ncount: Int, currentRefine: RefineState): Resource<List<WorkOrderDto>> =
-        runCatching { api.loadComplectations(cfg, ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
+        runCatching { api.loadComplectations(authorizedConfig(), ncount, currentRefine, settings.getString(AppSettingsKeys.DEPARTMENT, "")) }
             .fold(
                 onSuccess = { Resource.Success(it) },
                 onFailure = {
@@ -320,37 +329,37 @@ class MainRepository(
         number: String,
         date: String,
         message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
+    ): Resource<SentMessageResponse> = api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.EVENT, number = number, date = date, message = message)
 
     suspend fun sendMessageInnerOrder(
         number: String,
         date: String,
         message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.INNER_ORDER, number = number, date = date, message = message)
+    ): Resource<SentMessageResponse> = api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.INNER_ORDER, number = number, date = date, message = message)
 
     suspend fun sendMessageComplaint(
         number: String,
         date: String,
         message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.COMPLAINT, number = number, date = date, message = message)
+    ): Resource<SentMessageResponse> = api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.COMPLAINT, number = number, date = date, message = message)
 
     suspend fun sendMessageToWorkOrder(
         number: String,
         date: String,
         message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.WORK_ORDER, number = number, date = date, message = message)
+    ): Resource<SentMessageResponse> = api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.WORK_ORDER, number = number, date = date, message = message)
 
     suspend fun sendMessageToComplectation(
         number: String,
         date: String,
         message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.COMPLECTATION, number = number, date = date, message = message)
+    ): Resource<SentMessageResponse> = api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.COMPLECTATION, number = number, date = date, message = message)
 
     suspend fun sendMessageBuyerOrder(
         number: String,
         date: String,
         message: String
-    ): Resource<SentMessageResponse> = api.sendMessage(api = cfg, documentType = DocumentTypes.BUYER_ORDER, number = number, date = date, message = message)
+    ): Resource<SentMessageResponse> = api.sendMessage(api = authorizedConfig(), documentType = DocumentTypes.BUYER_ORDER, number = number, date = date, message = message)
 
     suspend fun sendMessageEventPUSH(
         docId: String,
@@ -433,7 +442,7 @@ class MainRepository(
             is Resource.Error -> {
                 if (shouldFallbackToLegacyPush(coreRes.causes ?: coreRes.exception?.message)) {
                     api.sendThreadMessage(
-                        api = cfg,
+                        api = authorizedConfig(),
                         docId = docId,
                         docTitle = docTitle,
                         authorName = authorName,
@@ -733,7 +742,8 @@ class MainRepository(
                 if (data.availableNow <= 0) {
                     val causes = when {
                         data.sessionRemaining <= 0 -> uploadSessionExhaustedMessage()
-                        !data.folderFound -> tr("upload_folder_unavailable")
+                        !data.allowed && !data.folderFound -> tr("upload_folder_unavailable")
+                        !data.allowed -> tr("upload_unavailable_now")
                         else -> tr(
                             "upload_doc_full",
                             data.maxPhotosPerDocument ?: 500,
@@ -751,7 +761,7 @@ class MainRepository(
 
     suspend fun uploadFixatorPhotos(
         documentNumber: String,
-        photos: List<ByteArray>,
+        photos: List<ImageMediatorUploadPart>,
         uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
         idempotencyKey: String = ImageMediatorApi.generateIdempotencyKey(),
@@ -769,11 +779,18 @@ class MainRepository(
             return Resource.Error(causes = tr("complectation_nekorrektnyy_nomer_dokumenta"))
         }
 
-        val oversized = photos.withIndex().firstOrNull { (_, bytes) -> exceedsHardMax(bytes.size) }
-        if (oversized != null) {
-            return Resource.Error(
-                causes = "Фото ${oversized.index + 1} превышает 5 МБ. Переснимите или удалите его.",
-            )
+        when (val batchError = validateUploadBatch(photos)) {
+            ImageMediatorFileRejectReason.ImageTooLarge ->
+                return Resource.Error(causes = tr("upload_image_too_large"))
+            ImageMediatorFileRejectReason.DocumentTooLarge ->
+                return Resource.Error(causes = tr("upload_document_too_large"))
+            ImageMediatorFileRejectReason.RequestTooLarge ->
+                return Resource.Error(causes = tr("upload_request_too_large"))
+            ImageMediatorFileRejectReason.TooManyFiles ->
+                return Resource.Error(causes = tr("upload_select_at_most_n", 10))
+            ImageMediatorFileRejectReason.UnsupportedType ->
+                return Resource.Error(causes = tr("upload_unsupported_file_type"))
+            null -> Unit
         }
 
         val key = DocumentUploadKey(documentType, normalizedNumber)
@@ -796,7 +813,7 @@ class MainRepository(
                 )
                 folderLimit = data.limits?.effectiveMaxPhotos()
                 val remaining = data.limits?.effectiveRemaining() ?: 0
-                if (!data.folderFound || !data.allowed || remaining <= 0) {
+                if (!data.allowed || remaining <= 0) {
                     return Resource.Error(causes = canUploadBlockedMessage(data))
                 }
                 val sessionRemaining = uploadSessionQuotaTracker.remaining(key)
@@ -971,7 +988,10 @@ class MainRepository(
         runCatching {
             documentPhotoCache.readBytes(cacheKey)
         }.getOrNull()?.let { cached ->
-            return Resource.Success(cached)
+            val sniff = inspectImagePayload(cached).sniff
+            if (sniff != "html" && sniff != "json") {
+                return Resource.Success(cached)
+            }
         }
 
         return when (val result = imageMediatorApi.downloadImageContent(token, contentUrl)) {
@@ -1002,8 +1022,8 @@ class MainRepository(
         documentPhotoCache.clearAll()
 
 
-    //          api.sendMessage(api = cfg, number = number, date = date, message = message)
-//        runCatching { api.sendMessage(api = cfg, number = number,date = date, message = message) }
+    //          api.sendMessage(api = authorizedConfig(), number = number, date = date, message = message)
+//        runCatching { api.sendMessage(api = authorizedConfig(), number = number,date = date, message = message) }
 //            .fold(
 //                onSuccess = { Resource.Success(it) },
 //                onFailure = {

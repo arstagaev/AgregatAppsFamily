@@ -2,32 +2,22 @@ package com.tagaev.trrcrm.ui.login
 
 import com.tagaev.trrcrm.ui.i18n.tr
 
-import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.ApiConfig
-import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
-import com.tagaev.trrcrm.data.remote.toCoreApiError
-import com.tagaev.trrcrm.getPlatform
-import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
-import com.tagaev.trrcrm.models.CoreSessionHeartbeatRequest
+import com.tagaev.trrcrm.data.accounts.AccountSlot
 import com.tagaev.trrcrm.data.accounts.AccountSessionStore
+import com.tagaev.trrcrm.data.accounts.AddAccountResult
 import com.tagaev.trrcrm.data.featureflags.MobileFeatureFlagsSync
-import com.tagaev.trrcrm.push.PushRegistrationCoordinator
-import com.tagaev.trrcrm.push.UnreadCountSync
+import com.tagaev.trrcrm.push.CoreSessionCoordinator
+import com.tagaev.trrcrm.push.CoreSessionResult
 import com.tagaev.trrcrm.push.triggerPostLoginPushPermissionCheck
-import com.tagaev.trrcrm.pushPlatformId
-import com.tagaev.trrcrm.utils.DeviceIdentity
 import com.tagaev.trrcrm.utils.SessionPermissions
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import okio.ByteString.Companion.encodeUtf8
@@ -38,13 +28,10 @@ object CrmAuthUseCase : KoinComponent {
     private val repo: MainRepository by inject()
     private val appScope: CoroutineScope by inject()
     private val accountStore: AccountSessionStore by inject()
-
-    private var coreHeartbeatJob: Job? = null
-    private val heartbeatRecoveryMutex = Mutex()
+    private val coreSession: CoreSessionCoordinator by inject()
 
     fun stopSessionLoops() {
-        coreHeartbeatJob?.cancel()
-        coreHeartbeatJob = null
+        coreSession.stopHeartbeat()
     }
 
     suspend fun loginWithCredentials(user: String, pass: String): Resource<Unit> {
@@ -57,6 +44,13 @@ object CrmAuthUseCase : KoinComponent {
                     if (token.isBlank()) {
                         Resource.Error(causes = tr("login_pustoy_token_ot_servera"))
                     } else {
+                        val pendingAdd = accountStore.snapshot().pendingCreateNewSlot
+                        val previous = if (pendingAdd) accountStore.activeAccount() else null
+                        rejectIfCannotBind(
+                            fullName = data.fullName.orEmpty(),
+                            login = user.trim(),
+                            previous = previous,
+                        )?.let { return@suppressing it }
                         appSettings.setString(AppSettingsKeys.EMAIL, "")
                         appSettings.setString(AppSettingsKeys.PASS, "")
                         appSettings.setString(AppSettingsKeys.TOKEN_KEY, token)
@@ -64,9 +58,9 @@ object CrmAuthUseCase : KoinComponent {
                         appSettings.setString(AppSettingsKeys.DEPARTMENT, data.department.orEmpty())
                         appSettings.setString(AppSettingsKeys.ACCOUNT_LOGIN, user.trim())
                         runCatching { apiConfig.token = token }
-                        val result = authenticateWithTokenAndFinalize()
-                        if (result is Resource.Success) {
-                            accountStore.bindSuccessfulLogin(user.trim())
+                        val result = authenticateWithTokenAndFinalize(forceBootstrap = true)
+                        if (result is Resource.Error && previous != null) {
+                            restorePreviousSlot(previous)
                         }
                         result
                     }
@@ -81,30 +75,30 @@ object CrmAuthUseCase : KoinComponent {
 
     suspend fun loginWithToken(token: String): Resource<Unit> {
         if (token.isBlank()) return Resource.Error(causes = tr("login_pustoy_token"))
+        rejectIfCannotBind(
+            fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty(),
+            login = appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN).orEmpty(),
+            previous = if (accountStore.snapshot().pendingCreateNewSlot) accountStore.activeAccount() else null,
+        )?.let { return it }
         runCatching { apiConfig.token = token }
         return SessionExpiryBridge.suppressing {
-            val result = authenticateWithTokenAndFinalize(
-                onPermissionsGranted = { appSettings.setString(AppSettingsKeys.TOKEN_KEY, token) }
+            authenticateWithTokenAndFinalize(
+                onPermissionsGranted = { appSettings.setString(AppSettingsKeys.TOKEN_KEY, token) },
+                forceBootstrap = false,
             )
-            if (result is Resource.Success) {
-                accountStore.bindSuccessfulLogin(
-                    appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN).orEmpty()
-                )
-            }
-            result
         }
     }
 
     private suspend fun authenticateWithTokenAndFinalize(
-        onPermissionsGranted: () -> Unit = {}
+        onPermissionsGranted: () -> Unit = {},
+        forceBootstrap: Boolean,
     ): Resource<Unit> {
         SessionPermissions.clear()
         return when (val permissions = repo.getPermission()) {
             is Resource.Success -> {
                 onPermissionsGranted()
                 SessionPermissions.replaceAll(permissions.data)
-                completeLoginSideEffects()
-                Resource.Success(Unit)
+                finalizeAuthenticatedSession(forceBootstrap = forceBootstrap)
             }
             is Resource.Error -> {
                 Resource.Error(
@@ -116,96 +110,107 @@ object CrmAuthUseCase : KoinComponent {
         }
     }
 
-    private fun completeLoginSideEffects() {
-        startCoreHeartbeatLoop()
+    private suspend fun finalizeAuthenticatedSession(forceBootstrap: Boolean): Resource<Unit> {
+        val pendingAdd = accountStore.snapshot().pendingCreateNewSlot
+        val previous = if (pendingAdd) accountStore.activeAccount() else null
+        rejectIfCannotBind(
+            fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty(),
+            login = appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN).orEmpty(),
+            previous = previous,
+        )?.let { return it }
+        val bindResult = accountStore.bindSuccessfulLogin(
+            appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN).orEmpty()
+        )
+        when (bindResult) {
+            AddAccountResult.DuplicateIdentity -> {
+                restoreAfterRejectedBind(previous)
+                return Resource.Error(causes = tr("accounts_duplicate_identity"))
+            }
+            AddAccountResult.LimitReached -> {
+                restoreAfterRejectedBind(previous)
+                return Resource.Error(causes = tr("accounts_limit"))
+            }
+            else -> Unit
+        }
+        val createdNewSlot = bindResult is AddAccountResult.Created
+
         triggerPostLoginPushPermissionCheck()
         appScope.launch {
             repo.refreshPushFeatureToggleIfNeeded(force = true)
             MobileFeatureFlagsSync.refreshNow(reason = "login", force = true)
-            bootstrapCoreSessionAndStartHeartbeat()
         }
-        PushRegistrationCoordinator.registerIfReady(preferredPlatform = pushPlatformId())
-    }
-
-    private suspend fun bootstrapCoreSessionAndStartHeartbeat() {
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
-        val fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN)?.trim()?.takeIf { it.isNotBlank() }
-        if (fullName.isBlank()) {
-            println("CoreSession: bootstrap skipped (missing_user)")
-            return
+        val bootstrap = if (forceBootstrap) {
+            coreSession.bootstrapCurrentUserAfterCrmLogin()
+        } else {
+            coreSession.ensureActiveSession(reason = "login_token")
         }
-        if (fcmToken == null) {
-            appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, true)
-            println("CoreSession: bootstrap deferred (missing_fcm_token); waiting token to retry")
-            return
-        }
-        val req = CoreSessionBootstrapRequest(
-            full_name = fullName,
-            platform = pushPlatformId(),
-            device_id = DeviceIdentity.stableDeviceId(),
-            fcm_token = fcmToken,
-            login = appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN)
-                ?: appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
-            department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
-            device_name = getPlatform().name,
-            app_version = Secrets.VERSION,
-        )
-
-        when (val res = repo.coreSessionBootstrap(req)) {
-            is Resource.Success -> {
-                appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
-                accountStore.updateActiveToken(
-                    token = appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty(),
-                    coreSessionId = res.data.sessionId,
-                )
-                appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
-                println("CoreSession: bootstrap success mode=with_fcm")
-                UnreadCountSync.refreshAsync(reason = "bootstrap_success", force = true)
-                startCoreHeartbeatLoop()
+        return when (bootstrap) {
+            is CoreSessionResult.Ok -> {
+                coreSession.commitAndStartHeartbeat(bootstrap.sessionId)
+                accountStore.snapshotActiveFromSettings()
+                Resource.Success(Unit)
             }
-            is Resource.Error -> {
-                val mapped = res.exception.toCoreApiError(res.causes ?: "bootstrap failed")
-                if (mapped.kind == CoreApiErrorKind.Validation) {
-                    appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, true)
+            CoreSessionResult.DeferredMissingFcm -> {
+                if (pendingAdd) {
+                    coreSession.stopHeartbeat()
+                    appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, "")
                 }
-                println("CoreSession: bootstrap failed mode=with_fcm ${res.causes ?: res.exception?.message}")
+                accountStore.snapshotActiveFromSettings()
+                Resource.Success(Unit)
             }
-            is Resource.Loading -> Unit
-        }
-    }
-
-    private fun startCoreHeartbeatLoop() {
-        if (coreHeartbeatJob?.isActive == true) return
-        coreHeartbeatJob = appScope.launch {
-            while (true) {
-                delay(5 * 60 * 1000L)
-                val sessionId = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty()
-                if (sessionId.isBlank()) continue
-                val heartbeatReq = CoreSessionHeartbeatRequest(
-                    sessionId = sessionId,
-                    fcmToken = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN),
-                    appVersion = Secrets.VERSION
-                )
-                when (val hb = repo.coreSessionHeartbeat(heartbeatReq)) {
-                    is Resource.Success -> Unit
-                    is Resource.Error -> {
-                        val mapped = hb.exception.toCoreApiError(hb.causes ?: "Heartbeat failed")
-                        if (mapped.kind == CoreApiErrorKind.NotFound) {
-                            recoverCoreSessionAfterHeartbeat404()
-                        } else {
-                            println("CoreSession: heartbeat failed ${hb.causes ?: hb.exception?.message}")
-                        }
-                    }
-                    is Resource.Loading -> Unit
+            CoreSessionResult.SkippedMissingUser -> {
+                accountStore.snapshotActiveFromSettings()
+                Resource.Success(Unit)
+            }
+            is CoreSessionResult.Error -> {
+                if (previous != null) {
+                    rollbackCreatedSlot(previous, createdNewSlot)
+                    Resource.Error(causes = bootstrap.message)
+                } else {
+                    Resource.Success(Unit)
                 }
             }
         }
     }
 
-    private suspend fun recoverCoreSessionAfterHeartbeat404() {
-        heartbeatRecoveryMutex.withLock {
-            println("CoreSession: heartbeat returned 404, attempting transparent re-bootstrap")
-            bootstrapCoreSessionAndStartHeartbeat()
+    private fun rejectIfCannotBind(
+        fullName: String,
+        login: String,
+        previous: AccountSlot?,
+    ): Resource<Unit>? {
+        return when (accountStore.preflightLoginBind(fullName, login)) {
+            AddAccountResult.DuplicateIdentity -> {
+                restoreAfterRejectedBind(previous)
+                Resource.Error(causes = tr("accounts_duplicate_identity"))
+            }
+            AddAccountResult.LimitReached -> {
+                restoreAfterRejectedBind(previous)
+                Resource.Error(causes = tr("accounts_limit"))
+            }
+            else -> null
         }
+    }
+
+    private fun rollbackCreatedSlot(previous: AccountSlot, createdNewSlot: Boolean) {
+        if (createdNewSlot) {
+            val createdId = accountStore.activeAccount()?.id
+            if (createdId != null && createdId != previous.id) {
+                accountStore.removeAccount(createdId)
+            }
+        }
+        accountStore.activate(previous.id)
+        restorePreviousSlot(previous)
+    }
+
+    private fun restoreAfterRejectedBind(previous: AccountSlot?) {
+        accountStore.clearPendingCreateNewSlot()
+        val restore = previous ?: accountStore.activeAccount() ?: return
+        restorePreviousSlot(restore)
+    }
+
+    private fun restorePreviousSlot(previous: AccountSlot) {
+        accountStore.clearPendingCreateNewSlot()
+        accountStore.applySlotToSettings(previous)
+        runCatching { apiConfig.token = previous.token }
     }
 }

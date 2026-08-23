@@ -1,22 +1,17 @@
 package com.tagaev.trrcrm.push
 
-import com.tagaev.secrets.Secrets
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.getPlatform
 import com.tagaev.trrcrm.utils.DeviceIdentity
 import com.tagaev.trrcrm.data.MainRepository
-import com.tagaev.trrcrm.data.remote.Resource
-import com.tagaev.trrcrm.models.CoreSessionBootstrapRequest
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -158,69 +153,13 @@ object PushRegistrationCoordinator : KoinComponent {
     private val appSettings: AppSettings by inject()
     private val appScope: CoroutineScope by inject()
     private val repository: MainRepository by inject()
-    private var registerInFlight = false
-    private var bootstrapRetryInFlight = false
-    private val sessionRecoveryMutex = Mutex()
+    private val coreSession: CoreSessionCoordinator by inject()
 
-    fun registerIfReady(preferredPlatform: String? = null) {
+    fun registerIfReady(@Suppress("UNUSED_PARAMETER") preferredPlatform: String? = null) {
         appScope.launch {
             repository.refreshPushFeatureToggleIfNeeded(force = false)
         }
-
-        val pushEnabled = appSettings.getBool(AppSettingsKeys.PUSH_FEATURE_TOGGLE_ENABLED, true)
-        if (!pushEnabled) {
-            println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped(push_disabled)")
-            return
-        }
-
-        val platform = preferredPlatform ?: pushPlatformId()
-        if (platform == "ios") {
-            val apnsReady = appSettings.getBool(AppSettingsKeys.IOS_APNS_READY, false)
-            if (!apnsReady) {
-                println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped(missing_apns_ready)")
-                return
-            }
-        }
-
-        val token = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN).orEmpty()
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty()
-
-        if (token.isBlank() || fullName.isBlank()) {
-            val reason = when {
-                token.isBlank() && fullName.isBlank() -> "missing_token_and_user"
-                token.isBlank() -> "missing_token"
-                else -> "missing_user"
-            }
-            println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped($reason)")
-            return
-        }
-
-        val fingerprint = "$platform|$fullName|$token|${DeviceIdentity.stableDeviceId()}"
-        val lastFingerprint = appSettings.getStringOrNull(AppSettingsKeys.PUSH_REGISTER_LAST_FINGERPRINT).orEmpty()
-        if (lastFingerprint == fingerprint) {
-            println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped(already_registered_fingerprint)")
-            return
-        }
-        if (lastFingerprint.isNotBlank() && lastFingerprint != fingerprint) {
-            println("PUSH_SERVICE: PushRegistrationCoordinator register_rebind(user_or_token_changed)")
-        }
-        if (registerInFlight) {
-            println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped(in_flight)")
-            return
-        }
-
-        println("PUSH_SERVICE: PushRegistrationCoordinator register_attempt(platform=$platform, token_len=${token.length}, user_len=${fullName.length})")
-        registerInFlight = true
-        PushRegistration.registerCurrentUserToken(
-            fullName = fullName,
-            platform = platform,
-            token = token
-        ) { success ->
-            registerInFlight = false
-            if (success) {
-                appSettings.setString(AppSettingsKeys.PUSH_REGISTER_LAST_FINGERPRINT, fingerprint)
-            }
-        }
+        println("PUSH_SERVICE: PushRegistrationCoordinator register_skipped(bootstrap_owns_active_user)")
     }
 
     fun onTokenReceived(token: String, preferredPlatform: String? = null) {
@@ -238,105 +177,13 @@ object PushRegistrationCoordinator : KoinComponent {
             val changeType = if (existingToken.isBlank()) "initial" else "rotated"
             println("PUSH_SERVICE: PushRegistrationCoordinator token_saved(change=$changeType)")
         }
-        registerIfReady(preferredPlatform = preferredPlatform)
-        retryCoreBootstrapAfterTokenIfNeeded(platform = platform, token = token)
-    }
-
-    private fun retryCoreBootstrapAfterTokenIfNeeded(platform: String, token: String) {
-        val pendingRetry = appSettings.getBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
-        if (!pendingRetry) return
-
-        val existingSessionId = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
-        if (existingSessionId.isNotBlank()) {
-            appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
-            println("CoreSession: pending token bootstrap retry cleared (session already exists)")
-            return
-        }
-
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
-        if (fullName.isBlank()) {
-            println("CoreSession: pending token bootstrap retry skipped (missing_user)")
-            return
-        }
-
-        if (bootstrapRetryInFlight) {
-            println("CoreSession: pending token bootstrap retry skipped (in_flight)")
-            return
-        }
-
-        bootstrapRetryInFlight = true
-        println("CoreSession: pending token bootstrap retry attempt")
         appScope.launch {
-            try {
-                val request = CoreSessionBootstrapRequest(
-                    full_name = fullName,
-                    platform = platform,
-                    device_id = DeviceIdentity.stableDeviceId(),
-                    fcm_token = token,
-                    login = appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
-                    department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
-                    device_name = getPlatform().name,
-                    app_version = Secrets.VERSION,
-                )
-                when (val res = repository.coreSessionBootstrap(request)) {
-                    is Resource.Success -> {
-                        appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
-                        appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
-                        println("CoreSession: pending token bootstrap retry success")
-                        UnreadCountSync.refreshAsync(reason = "bootstrap_retry_success", force = true)
-                    }
-                    is Resource.Error -> {
-                        println("CoreSession: pending token bootstrap retry failed ${res.causes ?: res.exception?.message}")
-                    }
-                    is Resource.Loading -> Unit
-                }
-            } finally {
-                bootstrapRetryInFlight = false
-            }
+            coreSession.onFcmToken(token)
         }
     }
 
-    suspend fun recoverCoreSessionNow(reason: String, forceRebootstrap: Boolean = false): Boolean = sessionRecoveryMutex.withLock {
-        val existingSession = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
-        if (existingSession.isNotBlank() && !forceRebootstrap) return@withLock true
-        if (forceRebootstrap && existingSession.isNotBlank()) {
-            appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, "")
-            println("CoreSession: recover forcing re-bootstrap reason=$reason")
-        }
-
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
-        val token = appSettings.getStringOrNull(AppSettingsKeys.FCM_TOKEN).orEmpty().trim()
-        val platform = pushPlatformId()
-
-        if (fullName.isBlank() || token.isBlank()) {
-            println("CoreSession: recover skipped reason=$reason missing_user_or_fcm")
-            return@withLock false
-        }
-
-        println("CoreSession: recover attempt reason=$reason")
-        val request = CoreSessionBootstrapRequest(
-            full_name = fullName,
-            platform = platform,
-            device_id = DeviceIdentity.stableDeviceId(),
-            fcm_token = token,
-            login = appSettings.getStringOrNull(AppSettingsKeys.EMAIL),
-            department = appSettings.getStringOrNull(AppSettingsKeys.DEPARTMENT),
-            device_name = getPlatform().name,
-            app_version = Secrets.VERSION,
-        )
-
-        return@withLock when (val res = repository.coreSessionBootstrap(request)) {
-            is Resource.Success -> {
-                appSettings.setString(AppSettingsKeys.CORE_SESSION_ID, res.data.sessionId)
-                appSettings.setBool(AppSettingsKeys.CORE_BOOTSTRAP_RETRY_ON_TOKEN, false)
-                println("CoreSession: recover success reason=$reason")
-                true
-            }
-            is Resource.Error -> {
-                println("CoreSession: recover failed reason=$reason ${res.causes ?: res.exception?.message}")
-                false
-            }
-            is Resource.Loading -> false
-        }
+    suspend fun recoverCoreSessionNow(reason: String, forceRebootstrap: Boolean = false): Boolean {
+        println("CoreSession: recover delegate reason=$reason force=$forceRebootstrap")
+        return coreSession.recover(reason = reason, forceRebootstrap = forceRebootstrap)
     }
 }

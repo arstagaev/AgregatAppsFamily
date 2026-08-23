@@ -77,6 +77,11 @@ class UploadSessionQuotaTracker(
         }
     }
 
+    suspend fun reset() = mutex.withLock {
+        uploaded.clear()
+        reserved.clear()
+    }
+
     private fun remainingLocked(key: DocumentUploadKey): Int {
         val used = (uploaded[key] ?: 0) + (reserved[key] ?: 0)
         return (maxPerDocument - used).coerceAtLeast(0)

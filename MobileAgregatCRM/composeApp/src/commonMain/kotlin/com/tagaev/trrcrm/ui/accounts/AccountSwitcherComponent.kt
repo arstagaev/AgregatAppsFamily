@@ -5,7 +5,6 @@ import com.arkivanov.essenty.backhandler.BackCallback
 import com.arkivanov.essenty.lifecycle.subscribe
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
-import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.accounts.AccountSessionCaches
 import com.tagaev.trrcrm.data.accounts.AccountSessionStore
 import com.tagaev.trrcrm.data.accounts.AccountSlot
@@ -13,19 +12,19 @@ import com.tagaev.trrcrm.data.accounts.MAX_SAVED_ACCOUNTS
 import com.tagaev.trrcrm.data.accounts.PinVerifyResult
 import com.tagaev.trrcrm.data.accounts.SetPinResult
 import com.tagaev.trrcrm.data.db.EventsCacheStore
+import com.tagaev.trrcrm.data.db.FavoritesStore
 import com.tagaev.trrcrm.data.remote.ApiConfig
-import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
-import com.tagaev.trrcrm.push.PushRegistration
+import com.tagaev.trrcrm.push.CoreSessionCoordinator
+import com.tagaev.trrcrm.push.CoreSessionResult
 import com.tagaev.trrcrm.push.disablePushDeliveryForLoggedOutUser
-import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.ui.i18n.tr
-import com.tagaev.trrcrm.ui.login.CrmAuthUseCase
-import com.tagaev.trrcrm.ui.login.SessionExpiryBridge
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -39,6 +38,7 @@ data class AccountSwitcherUiState(
     val pinError: String? = null,
     val infoDialog: String? = null,
     val confirmDeleteId: String? = null,
+    val confirmRemovePinId: String? = null,
 )
 
 sealed interface PinDialogState {
@@ -59,9 +59,14 @@ interface IAccountSwitcherComponent {
     fun onAddAccount()
     fun onAccountClick(accountId: String)
     fun onSetPinClick(accountId: String)
+    fun onRemovePinClick(accountId: String)
+    fun confirmRemovePin()
+    fun cancelRemovePin()
     fun onDeleteClick(accountId: String)
     fun confirmDelete()
     fun cancelDelete()
+    fun onUnlockAccountSelected(accountId: String)
+    fun onForgotPin()
     fun onPinDigit(digit: String)
     fun onPinBackspace()
     fun dismissPinDialog()
@@ -72,14 +77,19 @@ class AccountSwitcherComponent(
     private val onBackToHost: () -> Unit,
     private val onAddAccountRequested: () -> Unit,
     private val onAccountActivated: () -> Unit,
+    private val onForgotPinRequested: (AccountSlot) -> Unit,
     private val onNoAccountsLeft: () -> Unit,
 ) : IAccountSwitcherComponent, ComponentContext by componentContext, KoinComponent {
     private val store: AccountSessionStore by inject()
     private val settings: AppSettings by inject()
     private val apiConfig: ApiConfig by inject()
-    private val repository: MainRepository by inject()
     private val eventsCacheStore: EventsCacheStore by inject()
+    private val favoritesStore: FavoritesStore by inject()
     private val appScope: CoroutineScope by inject()
+    private val coreSession: CoreSessionCoordinator by inject()
+    private val documentPhotoCache: com.tagaev.trrcrm.data.fixator.DocumentPhotoCache by inject()
+    private val uploadQuotaTracker: com.tagaev.trrcrm.data.fixator.UploadSessionQuotaTracker by inject()
+    private var switchInFlight = false
 
     private val _uiState = MutableStateFlow(AccountSwitcherUiState())
     override val uiState: StateFlow<AccountSwitcherUiState> = _uiState
@@ -92,12 +102,16 @@ class AccountSwitcherComponent(
     init {
         store.ensureMigrated()
         refresh()
+        maybeShowInactivityUnlockPad()
         backHandler.register(backCallback)
         observeAccountsJob = appScope.launch {
             store.snapshotFlow.collect { refresh() }
         }
         lifecycle.subscribe(
-            onResume = { refresh() },
+            onResume = {
+                refresh()
+                maybeShowInactivityUnlockPad()
+            },
             onDestroy = { observeAccountsJob?.cancel() },
         )
     }
@@ -110,7 +124,17 @@ class AccountSwitcherComponent(
             activeAccountId = snapshot.activeAccountId,
             canAdd = snapshot.accounts.size < MAX_SAVED_ACCOUNTS,
             needsPinGate = store.needsPinGate(),
-            showPinStatus = snapshot.accounts.size >= 2,
+            showPinStatus = snapshot.accounts.isNotEmpty(),
+        )
+    }
+
+    private fun maybeShowInactivityUnlockPad() {
+        if (!store.shouldLockForInactivity() || !store.allPinsReady()) return
+        if (_uiState.value.pinDialog !is PinDialogState.Hidden) return
+        val id = store.activeAccount()?.id ?: store.accounts().firstOrNull()?.id ?: return
+        _uiState.value = _uiState.value.copy(
+            pinDialog = PinDialogState.EnterPin(id),
+            pinError = null,
         )
     }
 
@@ -119,7 +143,11 @@ class AccountSwitcherComponent(
             _uiState.value = _uiState.value.copy(infoDialog = tr("accounts_pin_gate_message"))
             return
         }
-        onBackToHost()
+        if (store.shouldLockForInactivity()) {
+            _uiState.value = _uiState.value.copy(infoDialog = tr("accounts_enter_pin_to_continue"))
+            return
+        }
+        restartHostSessionLikeAccountSwitch()
     }
 
     override fun consumeInfoDialog() {
@@ -142,7 +170,11 @@ class AccountSwitcherComponent(
             return
         }
         val hasActiveToken = !settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
-        if (accountId == _uiState.value.activeAccountId && hasActiveToken) return
+        val inactivityLocked = store.shouldLockForInactivity()
+        if (accountId == _uiState.value.activeAccountId && hasActiveToken && !inactivityLocked) {
+            restartHostSessionLikeAccountSwitch()
+            return
+        }
         val target = store.accounts().firstOrNull { it.id == accountId } ?: return
         if (store.accounts().size >= 2) {
             if (!target.hasPin) {
@@ -165,6 +197,38 @@ class AccountSwitcherComponent(
         )
     }
 
+    override fun onRemovePinClick(accountId: String) {
+        if (store.accounts().size != 1) return
+        _uiState.value = _uiState.value.copy(confirmRemovePinId = accountId)
+    }
+
+    override fun cancelRemovePin() {
+        _uiState.value = _uiState.value.copy(confirmRemovePinId = null)
+    }
+
+    override fun confirmRemovePin() {
+        val accountId = _uiState.value.confirmRemovePinId ?: return
+        _uiState.value = _uiState.value.copy(confirmRemovePinId = null)
+        store.clearPin(accountId)
+        refresh()
+    }
+
+    override fun onUnlockAccountSelected(accountId: String) {
+        val dialog = _uiState.value.pinDialog as? PinDialogState.EnterPin ?: return
+        if (dialog.accountId == accountId) return
+        _uiState.value = _uiState.value.copy(
+            pinDialog = PinDialogState.EnterPin(accountId),
+            pinError = null,
+        )
+    }
+
+    override fun onForgotPin() {
+        val dialog = _uiState.value.pinDialog as? PinDialogState.EnterPin ?: return
+        val slot = store.accounts().firstOrNull { it.id == dialog.accountId } ?: return
+        dismissPinDialog()
+        onForgotPinRequested(slot)
+    }
+
     override fun onDeleteClick(accountId: String) {
         _uiState.value = _uiState.value.copy(confirmDeleteId = accountId)
     }
@@ -177,11 +241,22 @@ class AccountSwitcherComponent(
         val accountId = _uiState.value.confirmDeleteId ?: return
         _uiState.value = _uiState.value.copy(confirmDeleteId = null)
         val wasActive = accountId == store.snapshot().activeAccountId
+        val remainingCount = store.accounts().size
         val slot = store.accounts().firstOrNull { it.id == accountId }
         if (wasActive && slot != null) {
-            unregisterSlot(slot)
-            AccountSessionCaches.clearCrmUserCaches(settings, eventsCacheStore)
-            CrmAuthUseCase.stopSessionLoops()
+            val isLast = remainingCount <= 1
+            appScope.launch {
+                if (isLast) {
+                    coreSession.logoutActive(deactivateDeviceToken = true)
+                } else {
+                    coreSession.stopHeartbeat()
+                }
+            }
+            AccountSessionCaches.clearCrmUserCaches(settings, eventsCacheStore, favoritesStore)
+            appScope.launch {
+                uploadQuotaTracker.reset()
+                runCatching { documentPhotoCache.clearAll() }
+            }
             disablePushDeliveryForLoggedOutUser()
             settings.setString(AppSettingsKeys.TOKEN_KEY, "")
             settings.setString(AppSettingsKeys.PERSONAL_DATA, "")
@@ -198,6 +273,7 @@ class AccountSwitcherComponent(
     }
 
     override fun onPinDigit(digit: String) {
+        if (switchInFlight) return
         when (val dialog = _uiState.value.pinDialog) {
             is PinDialogState.EnterPin -> {
                 val next = (dialog.entry + digit).take(4)
@@ -275,7 +351,14 @@ class AccountSwitcherComponent(
         when (val result = store.verifyPin(accountId, pin)) {
             PinVerifyResult.Ok -> {
                 dismissPinDialog()
-                switchTo(accountId)
+                store.markAppScreenOpened()
+                val activeId = store.activeAccount()?.id
+                val hasActiveToken = !settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
+                if (accountId == activeId && hasActiveToken) {
+                    onAccountActivated()
+                } else {
+                    switchTo(accountId)
+                }
             }
             is PinVerifyResult.Wrong -> {
                 val message = if (result.warnAfterFive) {
@@ -302,40 +385,55 @@ class AccountSwitcherComponent(
         }
     }
 
-    private fun switchTo(accountId: String) {
-        val previous = store.activeAccount()
-        store.snapshotActiveFromSettings()
-        if (previous != null && previous.id != accountId) {
-            unregisterSlot(previous)
+    private fun restartHostSessionLikeAccountSwitch() {
+        val token = store.activeAccount()?.token
+            ?: settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty()
+        if (token.isBlank()) {
+            onBackToHost()
+            return
         }
-        CrmAuthUseCase.stopSessionLoops()
-        AccountSessionCaches.clearCrmUserCaches(settings, eventsCacheStore)
-        val activated = store.activate(accountId) ?: return
-        runCatching { apiConfig.token = activated.token }
+        wipeUserListsAndRestartHost(token)
+    }
+
+    private fun wipeUserListsAndRestartHost(token: String) {
+        AccountSessionCaches.clearCrmUserCaches(settings, eventsCacheStore, favoritesStore)
+        appScope.launch {
+            uploadQuotaTracker.reset()
+            runCatching { documentPhotoCache.clearAll() }
+        }
+        if (token.isNotBlank()) {
+            runCatching { apiConfig.token = token }
+        }
+        store.markAppScreenOpened()
         onAccountActivated()
     }
 
-    private fun unregisterSlot(slot: AccountSlot) {
-        val sessionId = slot.coreSessionId.ifBlank {
-            settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty()
-        }
-        if (sessionId.isNotBlank()) {
-            appScope.launch {
-                SessionExpiryBridge.suppressing {
-                    repository.coreSessionLogout(
-                        CoreSessionLogoutRequest(
-                            sessionId = sessionId,
-                            deactivateDeviceToken = true,
-                        )
-                    )
+    private fun switchTo(accountId: String) {
+        if (switchInFlight) return
+        val target = store.accounts().firstOrNull { it.id == accountId } ?: return
+        switchInFlight = true
+        appScope.launch {
+            try {
+                val result = coreSession.switchTo(target)
+                withContext(Dispatchers.Main.immediate) {
+                    when (result) {
+                        is CoreSessionResult.Ok,
+                        CoreSessionResult.DeferredMissingFcm -> {
+                            wipeUserListsAndRestartHost(target.token)
+                        }
+                        is CoreSessionResult.Error -> {
+                            _uiState.value = _uiState.value.copy(infoDialog = result.message)
+                        }
+                        CoreSessionResult.SkippedMissingUser -> {
+                            _uiState.value = _uiState.value.copy(infoDialog = tr("accounts_switch_failed"))
+                        }
+                    }
+                }
+            } finally {
+                withContext(Dispatchers.Main.immediate) {
+                    switchInFlight = false
                 }
             }
-        }
-        if (slot.fullName.isNotBlank()) {
-            PushRegistration.logoutCurrentDevice(
-                fullName = slot.fullName,
-                platform = pushPlatformId(),
-            )
         }
     }
 }

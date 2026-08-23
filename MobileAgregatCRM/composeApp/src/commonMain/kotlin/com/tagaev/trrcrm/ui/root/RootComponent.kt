@@ -33,6 +33,7 @@ import com.tagaev.trrcrm.ui.master_screen.DeepLinkOpenResult
 import com.tagaev.trrcrm.ui.master_screen.IListMaster
 import com.tagaev.trrcrm.ui.master_screen.MasterPanel
 import com.tagaev.trrcrm.data.accounts.AccountSessionStore
+import com.tagaev.trrcrm.push.CoreSessionCoordinator
 import com.tagaev.trrcrm.ui.accounts.AccountSwitcherComponent
 import com.tagaev.trrcrm.ui.login.LoginMode
 import com.tagaev.trrcrm.ui.login.SessionExpiryBridge
@@ -46,6 +47,7 @@ import com.tagaev.trrcrm.ui.settings.ISettingsComponent
 import com.tagaev.trrcrm.ui.settings.SettingsComponent
 import com.tagaev.trrcrm.ui.supplier_order.SupplierOrdersComponent
 import com.tagaev.trrcrm.ui.work_order.WorkOrdersComponent
+import com.arkivanov.essenty.lifecycle.subscribe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -157,10 +159,31 @@ class DefaultRootComponent(
     init {
         DeepLinkBridge.setRoot(this)
         SessionExpiryBridge.setRoot(this)
+        lifecycle.subscribe(
+            onResume = {
+                appScope.launch {
+                    val shouldLock = accountStore.shouldLockForInactivity()
+                    if (shouldLock) {
+                        val active = childStack.value.active.configuration
+                        if (active !is IRootComponent.Config.AccountSwitcher &&
+                            active !is IRootComponent.Config.Login
+                        ) {
+                            withContext(Dispatchers.Main.immediate) {
+                                replaceAllWithRestore(IRootComponent.Config.AccountSwitcher)
+                            }
+                        }
+                    } else if (accountStore.accounts().isNotEmpty()) {
+                        accountStore.markAppScreenOpened()
+                    }
+                    coreSession.ensureActiveSession(reason = "root_resume")
+                }
+            }
+        )
     }
 
     private val appSettings: AppSettings by inject()
     private val accountStore: AccountSessionStore by inject()
+    private val coreSession: CoreSessionCoordinator by inject()
     private val appScope: CoroutineScope by inject()
     private val api: EventsApi by inject()
 
@@ -265,7 +288,21 @@ class DefaultRootComponent(
                                 IRootComponent.Config.Login(mode = LoginMode.AddAccount)
                             )
                         },
-                        onAccountActivated = { restartActiveSession() },
+                        onAccountActivated = {
+                            appScope.launch(Dispatchers.Main.immediate) {
+                                restartActiveSession()
+                            }
+                        },
+                        onForgotPinRequested = { slot ->
+                            accountStore.markPendingForgotPin(slot.id)
+                            bringToFrontWithRestore(
+                                IRootComponent.Config.Login(
+                                    mode = LoginMode.Reauth,
+                                    lockedLogin = slot.login,
+                                    displayName = slot.displayName,
+                                )
+                            )
+                        },
                         onNoAccountsLeft = {
                             replaceAllWithRestore(IRootComponent.Config.ProductDemo)
                         },
@@ -318,6 +355,9 @@ class DefaultRootComponent(
                     onBack = {
                         if (cfg.mode == LoginMode.AddAccount) {
                             accountStore.clearPendingCreateNewSlot()
+                        }
+                        if (cfg.mode == LoginMode.Reauth) {
+                            accountStore.clearPendingForgotPin()
                         }
                         nav.pop()
                     },
@@ -521,12 +561,17 @@ class DefaultRootComponent(
         // If we're currently on Login screen, always store the deep link.
         // Login flow may auto-navigate to Events on success; pendingDeepLink prevents that override.
         val currentConfig = childStack.value.active.configuration
-        if (currentConfig is IRootComponent.Config.Login) {
-            println("PUSH_SERVICE DEEPLINK: onDeepLink on Login; store pending deep link (isLoggedIn=$isLoggedIn)")
+        val pinLocked = accountStore.needsPinGate() || accountStore.shouldLockForInactivity()
+        if (currentConfig is IRootComponent.Config.Login || pinLocked) {
+            println("PUSH_SERVICE DEEPLINK: onDeepLink gated; store pending deep link (isLoggedIn=$isLoggedIn, pinLocked=$pinLocked)")
             pendingDeepLink = listOf(normalizedScreen, normalizedDocId, resolutionContext.messageHint, title)
-            if (!isLoggedIn) {
+            if (pinLocked && currentConfig !is IRootComponent.Config.AccountSwitcher && currentConfig !is IRootComponent.Config.Login) {
+                replaceAllWithRestore(IRootComponent.Config.AccountSwitcher)
+            }
+            if (currentConfig is IRootComponent.Config.Login && !isLoggedIn) {
                 return
             }
+            if (pinLocked) return
         }
         println("PUSH_SERVICE DEEPLINK: ")
         val config = mapScreenToConfig(normalizedScreen) ?: run {
@@ -754,7 +799,7 @@ class DefaultRootComponent(
 
     private fun resolveInitialConfig(): IRootComponent.Config {
         accountStore.ensureMigrated()
-        if (accountStore.needsPinGate()) {
+        if (accountStore.needsPinGate() || accountStore.shouldLockForInactivity()) {
             return IRootComponent.Config.AccountSwitcher
         }
         val hasSavedToken = !appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
@@ -772,11 +817,16 @@ class DefaultRootComponent(
     private fun onAuthenticated() {
         accountStore.ensureMigrated()
         val loginCfg = childStack.value.active.configuration as? IRootComponent.Config.Login
-        if (loginCfg?.mode == LoginMode.AddAccount || accountStore.needsPinGate()) {
+        if (loginCfg?.mode == LoginMode.AddAccount ||
+            loginCfg?.mode == LoginMode.Reauth && accountStore.needsPinGate() ||
+            accountStore.needsPinGate()
+        ) {
             val switcherUnderLogin = childStack.value.items.any {
                 it.configuration is IRootComponent.Config.AccountSwitcher
             }
-            if (loginCfg?.mode == LoginMode.AddAccount && switcherUnderLogin) {
+            if ((loginCfg?.mode == LoginMode.AddAccount || loginCfg?.mode == LoginMode.Reauth) &&
+                switcherUnderLogin
+            ) {
                 nav.pop()
             } else {
                 replaceAllWithRestore(IRootComponent.Config.AccountSwitcher)
@@ -825,13 +875,9 @@ class DefaultRootComponent(
     }
 
     private fun leaveAccountSwitcher() {
-        if (accountStore.needsPinGate()) return
-        val hasSettingsUnder = childStack.value.items.any {
-            it.configuration is IRootComponent.Config.Settings
-        }
+        if (accountStore.needsPinGate() || accountStore.shouldLockForInactivity()) return
         val hasToken = !appSettings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).isNullOrBlank()
         when {
-            hasSettingsUnder -> nav.pop()
             hasToken -> restartActiveSession()
             accountStore.accounts().isNotEmpty() -> Unit
             else -> replaceAllWithRestore(IRootComponent.Config.ProductDemo)

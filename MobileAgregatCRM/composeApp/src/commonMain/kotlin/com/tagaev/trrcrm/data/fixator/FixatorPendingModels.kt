@@ -14,6 +14,7 @@ data class FixatorPendingPhotoEntry(
     val id: String,
     val fileName: String,
     val createdAtEpochMs: Long,
+    val mimeType: String = "image/jpeg",
 )
 
 enum class GallerySaveResult {

@@ -19,3 +19,6 @@ INSERT OR REPLACE INTO favorites(number, created_at) VALUES (?, ?);
 -- delete
 deleteByNumber:
 DELETE FROM favorites WHERE number = ?;
+
+deleteAll:
+DELETE FROM favorites;

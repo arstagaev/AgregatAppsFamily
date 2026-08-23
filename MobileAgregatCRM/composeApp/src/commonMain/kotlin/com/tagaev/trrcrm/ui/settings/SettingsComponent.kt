@@ -6,17 +6,16 @@ import com.arkivanov.decompose.ComponentContext
 import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
+import com.tagaev.trrcrm.data.accounts.AccountSessionCaches
 import com.tagaev.trrcrm.data.accounts.AccountSessionStore
 import com.tagaev.trrcrm.data.db.EventsCacheStore
+import com.tagaev.trrcrm.data.db.FavoritesStore
 import com.tagaev.trrcrm.data.remote.CoreApiErrorKind
 import com.tagaev.trrcrm.data.remote.toCoreApiError
+import com.tagaev.trrcrm.push.CoreSessionCoordinator
 import com.tagaev.trrcrm.push.NotificationsUnreadState
-import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.push.PushRegistrationCoordinator
 import com.tagaev.trrcrm.push.disablePushDeliveryForLoggedOutUser
-import com.tagaev.trrcrm.pushPlatformId
-import com.tagaev.trrcrm.ui.login.CrmAuthUseCase
-import com.tagaev.trrcrm.utils.SessionPermissions
 import com.tagaev.trrcrm.navigation.BottomNavItemId
 import com.tagaev.trrcrm.navigation.BottomNavLayoutItem
 import com.tagaev.trrcrm.navigation.BottomNavLayoutResolver
@@ -69,10 +68,13 @@ class SettingsComponent(
     private val onOpenAccounts: () -> Unit = {},
 ) : ISettingsComponent, KoinComponent, ComponentContext by componentContext {
     private val eventsCacheStore: EventsCacheStore by inject()
+    private val favoritesStore: FavoritesStore by inject()
     private val settings: AppSettings by inject()
     private val accountStore: AccountSessionStore by inject()
     private val repository: MainRepository by inject()
     private val appScope: CoroutineScope by inject()
+    private val coreSession: CoreSessionCoordinator by inject()
+    private val uploadQuotaTracker: com.tagaev.trrcrm.data.fixator.UploadSessionQuotaTracker by inject()
     private val muteUpdateMutex = Mutex()
     private var muteRequestVersion: Long = 0L
     private val bottomNavEditor = BottomNavLayoutEditorController(settings)
@@ -321,42 +323,21 @@ class SettingsComponent(
     }
 
     override fun onLogout() {
-
-        val fullName = settings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA) // from your settings / repository
-        val platform = pushPlatformId()
-        val coreSessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty()
-
-        if (coreSessionId.isNotBlank()) {
-            appScope.launch {
-                repository.coreSessionLogout(
-                    com.tagaev.trrcrm.models.CoreSessionLogoutRequest(
-                        sessionId = coreSessionId,
-                        deactivateDeviceToken = true
-                    )
-                )
-            }
+        val isLastAccount = accountStore.accounts().size <= 1
+        appScope.launch {
+            coreSession.logoutActive(deactivateDeviceToken = isLastAccount)
         }
 
-        if (!fullName.isNullOrBlank()) {
-            // FCM token optional here; platform+fullName is enough
-            PushRegistration.logoutCurrentDevice(
-                fullName = fullName,
-                platform = platform
-            )
+        AccountSessionCaches.clearCrmUserCaches(settings, eventsCacheStore, favoritesStore)
+        appScope.launch {
+            uploadQuotaTracker.reset()
+            runCatching { repository.clearDocumentPhotoCache() }
         }
-
-        eventsCacheStore.clearAll()
-
-        SessionPermissions.clear()
         BottomNavLayoutState.applySaved(BottomNavLayoutResolver.defaultLayout())
-        settings.setInt(AppSettingsKeys.NOTIFICATIONS_UNREAD_COUNT, 0)
         accountStore.removeActiveAccount()
-        CrmAuthUseCase.stopSessionLoops()
         settings.clearForLogoutPreservingInstallIdentity()
         NotificationsUnreadState.setCount(0)
         disablePushDeliveryForLoggedOutUser()
-//        settings.setString(AppSettingsKeys.WORK_ORDERS_REFINE_STATE,"")
-//        settings.setString(AppSettingsKeys.EVENTS_REFINE_STATE,"")
 
         onLogoutAction.invoke()
     }

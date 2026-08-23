@@ -45,7 +45,10 @@ class AccountSessionStore(
 
     fun ensureMigrated() {
         val state = loadState()
-        if (state.accounts.isNotEmpty()) return
+        if (state.accounts.isNotEmpty()) {
+            collapseDuplicateFullNames()
+            return
+        }
         val token = settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty()
         if (token.isBlank()) return
         val slot = AccountSlot(
@@ -88,26 +91,49 @@ class AccountSessionStore(
         )
     }
 
-    fun bindSuccessfulLogin(login: String) {
+    fun bindSuccessfulLogin(login: String): AddAccountResult? {
         ensureMigrated()
         val state = loadState()
         val normalizedLogin = login.trim()
-        if (state.pendingCreateNewSlot) {
-            when (val result = addOrReuseFromSettings(normalizedLogin)) {
-                is AddAccountResult.Created,
-                is AddAccountResult.Reused -> saveState(loadState().copy(pendingCreateNewSlot = false))
-                AddAccountResult.LimitReached -> saveState(state.copy(pendingCreateNewSlot = false))
+        val forgotId = state.pendingForgotPinAccountId
+        if (!forgotId.isNullOrBlank()) {
+            val target = state.accounts.firstOrNull { it.id == forgotId }
+                ?: state.accounts.firstOrNull { it.login.equals(normalizedLogin, ignoreCase = true) }
+            if (target != null) {
+                val updated = target.withCurrentSession(settings).let { slot ->
+                    val withLogin = if (normalizedLogin.isNotBlank()) slot.copy(login = normalizedLogin) else slot
+                    withLogin.copy(pinSalt = "", pinHash = "")
+                }
+                if (hasFullNameConflict(state.accounts, updated.fullName, excludeId = updated.id)) {
+                    return AddAccountResult.DuplicateIdentity
+                }
+                saveState(
+                    state.copy(
+                        accounts = state.accounts.map { if (it.id == updated.id) updated else it },
+                        activeAccountId = updated.id,
+                        pendingForgotPinAccountId = null,
+                        pendingCreateNewSlot = false,
+                    )
+                )
+                persistActiveLogin(updated.login)
+            } else {
+                saveState(state.copy(pendingForgotPinAccountId = null, pendingCreateNewSlot = false))
             }
-            return
+            return null
+        }
+        if (state.pendingCreateNewSlot) {
+            return addOrReuseFromSettings(normalizedLogin)
         }
         val active = state.accounts.firstOrNull { it.id == state.activeAccountId }
             ?: state.accounts.firstOrNull()
         if (active == null) {
-            addOrReuseFromSettings(normalizedLogin)
-            return
+            return addOrReuseFromSettings(normalizedLogin)
         }
         val updated = active.withCurrentSession(settings).let { slot ->
             if (normalizedLogin.isNotBlank()) slot.copy(login = normalizedLogin) else slot
+        }
+        if (hasFullNameConflict(state.accounts, updated.fullName, excludeId = updated.id)) {
+            return AddAccountResult.DuplicateIdentity
         }
         saveState(
             state.copy(
@@ -116,6 +142,7 @@ class AccountSessionStore(
             )
         )
         persistActiveLogin(updated.login)
+        return null
     }
 
     fun addOrReuseFromSettings(login: String): AddAccountResult {
@@ -129,19 +156,20 @@ class AccountSessionStore(
             token = settings.getStringOrNull(AppSettingsKeys.TOKEN_KEY).orEmpty(),
             coreSessionId = settings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty(),
         )
-        val existing = state.accounts.firstOrNull { slot ->
-            (normalizedLogin.isNotBlank() && slot.login.equals(normalizedLogin, ignoreCase = true)) ||
-                (candidate.fullName.isNotBlank() && slot.fullName.equals(candidate.fullName, ignoreCase = true) &&
-                    slot.login.equals(normalizedLogin, ignoreCase = true))
+        val existingByLogin = state.accounts.firstOrNull { slot ->
+            normalizedLogin.isNotBlank() && slot.login.equals(normalizedLogin, ignoreCase = true)
         }
-        if (existing != null) {
-            val merged = existing.copy(
-                login = normalizedLogin.ifBlank { existing.login },
-                fullName = candidate.fullName.ifBlank { existing.fullName },
-                department = candidate.department.ifBlank { existing.department },
-                token = candidate.token.ifBlank { existing.token },
-                coreSessionId = candidate.coreSessionId.ifBlank { existing.coreSessionId },
+        if (existingByLogin != null) {
+            val merged = existingByLogin.copy(
+                login = normalizedLogin.ifBlank { existingByLogin.login },
+                fullName = candidate.fullName.ifBlank { existingByLogin.fullName },
+                department = candidate.department.ifBlank { existingByLogin.department },
+                token = candidate.token.ifBlank { existingByLogin.token },
+                coreSessionId = candidate.coreSessionId.ifBlank { existingByLogin.coreSessionId },
             )
+            if (hasFullNameConflict(state.accounts, merged.fullName, excludeId = merged.id)) {
+                return AddAccountResult.DuplicateIdentity
+            }
             saveState(
                 state.copy(
                     accounts = state.accounts.map { if (it.id == merged.id) merged else it },
@@ -151,6 +179,9 @@ class AccountSessionStore(
             )
             persistActiveLogin(merged.login)
             return AddAccountResult.Reused(merged)
+        }
+        if (hasFullNameConflict(state.accounts, candidate.fullName, excludeId = null)) {
+            return AddAccountResult.DuplicateIdentity
         }
         if (state.accounts.size >= MAX_SAVED_ACCOUNTS) return AddAccountResult.LimitReached
         saveState(
@@ -200,6 +231,47 @@ class AccountSessionStore(
             state.copy(accounts = state.accounts.map { if (it.id == accountId) updated else it })
         )
         return SetPinResult.Ok
+    }
+
+    fun clearPin(accountId: String): ClearPinResult {
+        val state = loadState()
+        if (state.accounts.size != 1) return ClearPinResult.NotAllowed
+        val slot = state.accounts.firstOrNull { it.id == accountId } ?: return ClearPinResult.AccountMissing
+        saveState(
+            state.copy(
+                accounts = state.accounts.map {
+                    if (it.id == accountId) slot.copy(pinSalt = "", pinHash = "") else it
+                }
+            )
+        )
+        return ClearPinResult.Ok
+    }
+
+    fun markPendingForgotPin(accountId: String) {
+        saveState(
+            loadState().copy(
+                pendingForgotPinAccountId = accountId,
+                pendingCreateNewSlot = false,
+            )
+        )
+    }
+
+    fun clearPendingForgotPin() {
+        saveState(loadState().copy(pendingForgotPinAccountId = null))
+    }
+
+    fun markAppScreenOpened(now: Long = nowMs()) {
+        settings.setLong(AppSettingsKeys.ACCOUNTS_LAST_APP_SCREEN_OPENED_MS, now)
+    }
+
+    fun lastAppScreenOpenedMs(): Long =
+        settings.getLong(AppSettingsKeys.ACCOUNTS_LAST_APP_SCREEN_OPENED_MS, 0L)
+
+    fun shouldLockForInactivity(now: Long = nowMs()): Boolean {
+        if (loadState().accounts.size < 2) return false
+        val lastOpened = lastAppScreenOpenedMs()
+        if (lastOpened <= 0L) return false
+        return now - lastOpened >= PIN_INACTIVITY_LOCK_MS
     }
 
     fun verifyPin(accountId: String, pin: String): PinVerifyResult {
@@ -320,6 +392,85 @@ class AccountSessionStore(
     private fun persistActiveLogin(login: String) {
         settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, login)
     }
+
+    fun wouldRejectDuplicateFullName(fullName: String, login: String): Boolean {
+        ensureMigrated()
+        if (normalizeFullName(fullName).isBlank()) return false
+        val state = loadState()
+        val normalizedLogin = login.trim()
+        val excludeId = bindExcludeAccountId(state, normalizedLogin)
+        return hasFullNameConflict(state.accounts, fullName, excludeId)
+    }
+
+    fun preflightLoginBind(fullName: String, login: String): AddAccountResult? {
+        if (wouldRejectDuplicateFullName(fullName, login)) return AddAccountResult.DuplicateIdentity
+        val state = loadState()
+        if (!state.pendingForgotPinAccountId.isNullOrBlank()) return null
+        val creatingNew = state.pendingCreateNewSlot || state.accounts.isEmpty()
+        if (!creatingNew) return null
+        val normalizedLogin = login.trim()
+        val reusesLogin = state.accounts.any { slot ->
+            normalizedLogin.isNotBlank() && slot.login.equals(normalizedLogin, ignoreCase = true)
+        }
+        if (reusesLogin) return null
+        if (state.accounts.size >= MAX_SAVED_ACCOUNTS) return AddAccountResult.LimitReached
+        return null
+    }
+
+    private fun bindExcludeAccountId(state: AccountStoreState, login: String): String? {
+        val forgotId = state.pendingForgotPinAccountId
+        if (!forgotId.isNullOrBlank()) return forgotId
+        if (state.pendingCreateNewSlot) {
+            return state.accounts.firstOrNull { slot ->
+                login.isNotBlank() && slot.login.equals(login, ignoreCase = true)
+            }?.id
+        }
+        return state.activeAccountId ?: state.accounts.firstOrNull()?.id
+    }
+
+    private fun collapseDuplicateFullNames() {
+        val state = loadState()
+        if (state.accounts.size < 2) return
+        val dropIds = linkedSetOf<String>()
+        state.accounts
+            .groupBy { normalizeFullName(it.fullName) }
+            .filter { (name, slots) -> name.isNotBlank() && slots.size > 1 }
+            .forEach { (_, slots) ->
+                val preferred = slots.firstOrNull { it.id == state.activeAccountId }
+                    ?: slots.firstOrNull { it.hasPin }
+                    ?: slots.first()
+                slots.filter { it.id != preferred.id }.forEach { dropIds += it.id }
+            }
+        if (dropIds.isEmpty()) return
+        val remaining = state.accounts.filterNot { it.id in dropIds }
+        val activeId = when {
+            remaining.any { it.id == state.activeAccountId } -> state.activeAccountId
+            else -> remaining.firstOrNull()?.id
+        }
+        saveState(state.copy(accounts = remaining, activeAccountId = activeId))
+        remaining.firstOrNull { it.id == activeId }?.let { persistActiveLogin(it.login) }
+    }
+
+    private fun hasFullNameConflict(
+        accounts: List<AccountSlot>,
+        fullName: String,
+        excludeId: String?,
+    ): Boolean {
+        if (normalizeFullName(fullName).isBlank()) return false
+        return accounts.any { slot ->
+            slot.id != excludeId && sameFullName(slot.fullName, fullName)
+        }
+    }
+
+    private fun sameFullName(leftName: String, rightName: String): Boolean {
+        val left = normalizeFullName(leftName)
+        val right = normalizeFullName(rightName)
+        if (left.isBlank() || right.isBlank()) return false
+        return left == right
+    }
+
+    private fun normalizeFullName(value: String): String =
+        value.trim().replace(Regex("\\s+"), " ").lowercase()
 
     private fun AccountSlot.withCurrentSession(appSettings: AppSettings): AccountSlot = copy(
         login = appSettings.getStringOrNull(AppSettingsKeys.ACCOUNT_LOGIN).orEmpty()

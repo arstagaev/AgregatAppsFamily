@@ -6,6 +6,8 @@ import com.tagaev.trrcrm.data.AppSettings
 import com.tagaev.trrcrm.data.AppSettingsKeys
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.FilterState
+import com.tagaev.trrcrm.data.accounts.AccountSessionCaches
+import com.tagaev.trrcrm.data.accounts.AccountSessionStore
 import com.tagaev.trrcrm.data.db.EventsCacheStore
 import com.tagaev.trrcrm.data.remote.ApiConfig
 import com.tagaev.trrcrm.data.remote.EventsApi
@@ -51,7 +53,14 @@ class MainListComponent(
     private val api: EventsApi by inject()
     private val apiConfig: ApiConfig by inject()
     private val eventsCacheStore: EventsCacheStore by inject()
+    private val accountSessionStore: AccountSessionStore by inject()
     private val repo by lazy { MainRepository(api, apiConfig) }
+
+    private fun currentListOwner(): String =
+        AccountSessionCaches.currentListOwner(appSettings, accountSessionStore)
+
+    private fun canCommitListFor(startedOwner: String): Boolean =
+        AccountSessionCaches.canCommitListCache(startedOwner, currentListOwner())
 
     private val backCallback = BackCallback { /* NO HANDLE */ }
 
@@ -120,9 +129,11 @@ class MainListComponent(
 
     override suspend fun fullRefresh() {
         println("fullRefresh> 0")
+        val startedOwner = currentListOwner()
         dept = appSettings.getString(AppSettingsKeys.DEPARTMENT,"NO DEFINED")
         requestsCounter++
         mutex.withLock {
+            if (!canCommitListFor(startedOwner)) return@withLock
             val filters: FilterState = appSettings.loadFilters()
             val filterReqVal = normalizeFilterForRequest(filters.filterVal)
             // Reset pagination to the first page on a full refresh
@@ -146,6 +157,7 @@ class MainListComponent(
                 filterVal = filterReqVal
             )
             println("fullRefresh> 1")
+            if (!canCommitListFor(startedOwner)) return@withLock
             when (res) {
                 is Resource.Success -> {
                     // Replace items & advance offset
@@ -177,6 +189,7 @@ class MainListComponent(
                         _resource.value = res
                     }
                     delay(500)
+                    if (!canCommitListFor(startedOwner)) return@withLock
                     _resource.value = Resource.Error(causes = res.causes)
                     println("fullRefresh> Error ${res.causes}  ${res.exception?.message}")
                 }
@@ -191,8 +204,10 @@ class MainListComponent(
     /** Loads the next page and appends to the current list. Call from "Загрузить ещё (+10)". */
     override suspend fun loadMore(increment: Int) {
         mutex.withLock {
+            val startedOwner = currentListOwner()
             // Enforce max 1 request / 5s across all entry points
             awaitRateLimit()
+            if (!canCommitListFor(startedOwner)) return@withLock
 
             // _resource.value = Resource.Loading  // removed eager loading state
 
@@ -209,6 +224,7 @@ class MainListComponent(
                 filterVal = filterValNormalized
             )
 
+            if (!canCommitListFor(startedOwner)) return@withLock
             when (res) {
                 is Resource.Success -> {
                     val incoming = res.data

@@ -42,6 +42,7 @@ fun imageMediatorErrorMessage(
         code == "unsupported_api_contract" -> tr("upload_unsupported_api_contract")
         code == "ambiguous_document_folder" -> tr("upload_ambiguous_document_folder")
         code == "legacy_document_identity_incomplete" -> tr("upload_legacy_identity_incomplete")
+        code == ImageMediatorApi.UNEXPECTED_HTML_OR_JSON -> tr("complectation_ne_udalos_zagruzit_fotografii")
         statusCode == 400 -> tr("error_nekorrektnye_dannye_ili_format_izobrazheniya")
         statusCode == 401 -> tr("error_sessiya_istekla_voydite_zanovo")
         statusCode == 404 -> tr("upload_folder_unavailable")
@@ -85,12 +86,12 @@ fun Throwable?.toImageMediatorError(
  * Priority: folder unavailable → document full (remaining == 0) → generic.
  */
 fun canUploadBlockedMessage(response: ImageMediatorCanUploadResponse): String {
-    if (!response.folderFound) {
-        return tr("upload_folder_unavailable")
-    }
     val remaining = response.limits?.effectiveRemaining()
     val maxPhotos = response.limits?.effectiveMaxPhotos() ?: 500
     if (!response.allowed) {
+        if (!response.folderFound) {
+            return tr("upload_folder_unavailable")
+        }
         return when {
             remaining != null && remaining <= 0 -> tr("upload_doc_full", maxPhotos)
             else -> tr("upload_unavailable_now")
@@ -104,3 +105,17 @@ fun canUploadBlockedMessage(response: ImageMediatorCanUploadResponse): String {
 
 fun uploadSessionExhaustedMessage(): String =
     tr("upload_session_exhausted", MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN)
+
+fun imageMediatorFileRejectMessage(reason: com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason): String =
+    when (reason) {
+        com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason.UnsupportedType ->
+            tr("upload_unsupported_file_type")
+        com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason.ImageTooLarge ->
+            tr("upload_image_too_large")
+        com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason.DocumentTooLarge ->
+            tr("upload_document_too_large")
+        com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason.RequestTooLarge ->
+            tr("upload_request_too_large")
+        com.tagaev.trrcrm.domain.ImageMediatorFileRejectReason.TooManyFiles ->
+            tr("upload_select_at_most_n", 10)
+    }

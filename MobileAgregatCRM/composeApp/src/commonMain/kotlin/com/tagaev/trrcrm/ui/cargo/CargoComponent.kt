@@ -114,14 +114,16 @@ class CargoComponent(
     override fun fullRefresh() {
         println(">>> fullRefresh")
         appScope.launch {
-            //_workOrders.value = Resource.Loading
-            _cargos.value = Resource.Success(data = loadedCargos, additionalLoading = true)
-
+            val capturedGeneration = com.tagaev.trrcrm.data.accounts.AccountSessionCaches.listGeneration()
+            loadedCargos.clear()
+            loadedKeys.clear()
+            _cargos.value = Resource.Loading
 
             _refineState.value = loadRefineState()
             _ncount.value = 0
 
             val result = repository.loadCargos(0, refineState.value)
+            if (!com.tagaev.trrcrm.data.accounts.AccountSessionCaches.isCurrentListGeneration(capturedGeneration)) return@launch
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()

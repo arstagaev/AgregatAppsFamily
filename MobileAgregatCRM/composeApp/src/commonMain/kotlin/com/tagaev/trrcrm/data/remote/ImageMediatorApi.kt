@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.data.remote
 
+import com.tagaev.trrcrm.domain.ImageMediatorUploadPart
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageMediatorCanUploadRequest
@@ -46,10 +47,12 @@ class ImageMediatorApi(
         uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
     ): Resource<ImageMediatorCanUploadResponse> = resourceify {
+        val idempotencyKey = generateIdempotencyKey()
         val response = postWithLimitedRetry {
             client.post(buildUrl("/api/v1/uploads/can-upload")) {
                 expectSuccess = false
                 imageMediatorHeaders(agrToken)
+                header("Idempotency-Key", idempotencyKey)
                 contentType(ContentType.Application.Json)
                 setBody(
                     ImageMediatorCanUploadRequest(
@@ -127,13 +130,13 @@ class ImageMediatorApi(
     suspend fun uploadPhotos(
         agrToken: String,
         documentNumber: String,
-        files: List<ByteArray>,
+        files: List<ImageMediatorUploadPart>,
         uploadPeriod: DocumentUploadPeriod,
         documentType: ImageDocumentType = ImageDocumentType.Complects,
         idempotencyKey: String,
     ): Resource<ImageMediatorUploadResponse> = resourceify {
         require(files.isNotEmpty()) { "No files to upload" }
-        val totalBytes = files.sumOf { it.size.toLong() }
+        val totalBytes = files.sumOf { it.bytes.size.toLong() }
         CameraFixatorLog.d(
             "upload_request files=${files.size} totalBytes=$totalBytes document=$documentNumber type=${documentType.wireName}",
         )
@@ -149,15 +152,15 @@ class ImageMediatorApi(
                             append("document_name", documentType.wireName)
                             append("year", uploadPeriod.year.toString())
                             append("month", uploadPeriod.month.toString())
-                            files.forEachIndexed { index, bytes ->
+                            files.forEach { part ->
                                 append(
                                     key = "files[]",
-                                    value = bytes,
+                                    value = part.bytes,
                                     headers = io.ktor.http.Headers.build {
-                                        append(HttpHeaders.ContentType, "image/jpeg")
+                                        append(HttpHeaders.ContentType, part.mimeType)
                                         append(
                                             HttpHeaders.ContentDisposition,
-                                            "filename=\"photo_$index.jpg\"",
+                                            "filename=\"${part.fileName.replace("\"", "")}\"",
                                         )
                                     },
                                 )
@@ -200,6 +203,22 @@ class ImageMediatorApi(
         }
         val bytes = response.readRawBytes()
         val inspection = inspectImagePayload(bytes)
+        val contentTypeLower = contentType.orEmpty().lowercase()
+        val isHtmlOrJson = "text/html" in contentTypeLower ||
+            inspection.sniff == "html" ||
+            inspection.sniff == "json"
+        if (isHtmlOrJson) {
+            val prefix = bytes.decodeToString().take(80).replace('\n', ' ')
+            CameraFixatorLog.d(
+                "image_download_failed $headerSummary ${inspection.toLogFields()} reason=html_or_json bodyPrefix=$prefix",
+            )
+            throw ImageMediatorException(
+                statusCode = response.status.value,
+                url = requestUrl,
+                responseBody = prefix,
+                errorCode = UNEXPECTED_HTML_OR_JSON,
+            )
+        }
         val outcome = if (inspection.structuralReason == null) "image_download_ok" else "image_download_suspect"
         CameraFixatorLog.d("$outcome $headerSummary ${inspection.toLogFields()}")
         return bytes
@@ -269,6 +288,7 @@ class ImageMediatorApi(
     companion object {
         const val IMAGE_MEDIATOR_API_CONTRACT = "1.7"
         const val CONTRACT_HEADER = "X-ImageMediator-Contract"
+        const val UNEXPECTED_HTML_OR_JSON = "unexpected_html_or_json"
 
         fun encodeDocumentNumberPathSegment(documentNumber: String): String =
             documentNumber.encodeURLPathPart()

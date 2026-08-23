@@ -214,4 +214,201 @@ class AccountSessionStoreTest {
         assertEquals("A", settings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA))
         assertEquals("tok-b", store.accounts().first { it.login == "b" }.token)
     }
+
+    @Test
+    fun singleAccountUpgradePathNeverLocksAndCanClearOptionalPin() {
+        var now = 1_000L
+        val (store, settings) = store(now = { now }) {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "Ivan")
+            setString(AppSettingsKeys.DEPARTMENT, "Kazan")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "ivan")
+            setLong(AppSettingsKeys.ACCOUNTS_LAST_APP_SCREEN_OPENED_MS, 1_000L)
+        }
+        store.ensureMigrated()
+        val id = store.activeAccount()!!.id
+        assertEquals(SetPinResult.Ok, store.setPin(id, "1234"))
+        now = 1_000L + (2L * 60L * 60L * 1000L)
+        assertFalse(store.needsPinGate())
+        assertFalse(store.shouldLockForInactivity())
+        assertEquals(ClearPinResult.Ok, store.clearPin(id))
+        assertFalse(store.activeAccount()!!.hasPin)
+    }
+
+    @Test
+    fun missingLastOpenedDoesNotLockTwoAccountsAfterUpdate() {
+        val (store, settings) = store {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "A User")
+            setString(AppSettingsKeys.DEPARTMENT, "A")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "a")
+        }
+        store.ensureMigrated()
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "B User")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "B")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "b")
+        store.markPendingCreateNewSlot()
+        store.bindSuccessfulLogin("b")
+        store.accounts().forEach { store.setPin(it.id, "1111") }
+        assertFalse(store.shouldLockForInactivity())
+        assertEquals(0L, settings.getLong(AppSettingsKeys.ACCOUNTS_LAST_APP_SCREEN_OPENED_MS, 0L))
+    }
+
+    @Test
+    fun twoAccountsLockAfterOneHourAndUnlockAfterMarkOpened() {
+        var now = 10_000L
+        val (store, settings) = store(now = { now }) {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "A User")
+            setString(AppSettingsKeys.DEPARTMENT, "A")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "a")
+        }
+        store.ensureMigrated()
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "B User")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "B")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "b")
+        store.markPendingCreateNewSlot()
+        store.bindSuccessfulLogin("b")
+        store.accounts().forEach { store.setPin(it.id, "2222") }
+        store.markAppScreenOpened(now)
+        now += PIN_INACTIVITY_LOCK_MS - 1
+        assertFalse(store.shouldLockForInactivity())
+        now += 2
+        assertTrue(store.shouldLockForInactivity())
+        assertEquals(ClearPinResult.NotAllowed, store.clearPin(store.accounts().first().id))
+        store.markAppScreenOpened(now)
+        assertFalse(store.shouldLockForInactivity())
+    }
+
+    @Test
+    fun addAccountRejectsSameFullNameEvenWithDifferentDepartment() {
+        val (store, settings) = store {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "Ivan Ivanov")
+            setString(AppSettingsKeys.DEPARTMENT, "Kazan")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "ivan")
+        }
+        store.ensureMigrated()
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "ivan  ivanov")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "Moscow")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "ivan.other")
+        store.markPendingCreateNewSlot()
+        assertTrue(store.wouldRejectDuplicateFullName("ivan  ivanov", "ivan.other"))
+        assertEquals(AddAccountResult.DuplicateIdentity, store.bindSuccessfulLogin("ivan.other"))
+        assertEquals(1, store.accounts().size)
+        store.markPendingCreateNewSlot()
+        assertEquals(
+            AddAccountResult.DuplicateIdentity,
+            store.preflightLoginBind("Ivan Ivanov", "ivan.other"),
+        )
+    }
+
+    @Test
+    fun inPlaceLoginRejectsFullNameOwnedByAnotherSlot() {
+        val (store, settings) = store {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "A User")
+            setString(AppSettingsKeys.DEPARTMENT, "A")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "a")
+        }
+        store.ensureMigrated()
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "B User")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "B")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "b")
+        store.markPendingCreateNewSlot()
+        store.bindSuccessfulLogin("b")
+        val slotA = store.accounts().first { it.login == "a" }
+        store.activate(slotA.id)
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b2")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "B User")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "B")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "b-alias")
+        assertEquals(AddAccountResult.DuplicateIdentity, store.bindSuccessfulLogin("b-alias"))
+        assertEquals("a", store.activeAccount()?.login)
+        assertEquals(2, store.accounts().size)
+    }
+
+    @Test
+    fun collapseKeepsCurrentSlotWhenFullNamesMatch() {
+        val (store, settings) = store {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "Same Name")
+            setString(AppSettingsKeys.DEPARTMENT, "A")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "a")
+        }
+        store.ensureMigrated()
+        val firstId = store.accounts().single().id
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "Other Name")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "B")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "b")
+        store.markPendingCreateNewSlot()
+        store.bindSuccessfulLogin("b")
+        val secondId = store.accounts().first { it.login == "b" }.id
+        val raw = store.snapshot()
+        val duplicated = raw.copy(
+            accounts = raw.accounts.map { slot ->
+                if (slot.id == firstId) slot.copy(fullName = "Same Name") else slot.copy(fullName = "same name")
+            },
+            activeAccountId = secondId,
+        )
+        settings.setString(
+            AppSettingsKeys.ACCOUNTS_JSON,
+            json.encodeToString(AccountStoreState.serializer(), duplicated),
+        )
+        settings.setString(AppSettingsKeys.ACCOUNTS_ACTIVE_ID, secondId)
+        store.ensureMigrated()
+        assertEquals(1, store.accounts().size)
+        assertEquals(secondId, store.activeAccount()?.id)
+        assertEquals("b", store.activeAccount()?.login)
+    }
+
+    @Test
+    fun sameLoginReusesSlotInsteadOfDuplicate() {
+        val (store, settings) = store {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "Ivan Ivanov")
+            setString(AppSettingsKeys.DEPARTMENT, "Kazan")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "ivan")
+        }
+        store.ensureMigrated()
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-a2")
+        store.markPendingCreateNewSlot()
+        val result = store.bindSuccessfulLogin("ivan")
+        assertIs<AddAccountResult.Reused>(result)
+        assertEquals(1, store.accounts().size)
+        assertEquals("tok-a2", store.accounts().single().token)
+    }
+
+    @Test
+    fun forgotPinReauthClearsPinOnThatSlot() {
+        val (store, settings) = store {
+            setString(AppSettingsKeys.TOKEN_KEY, "tok-a")
+            setString(AppSettingsKeys.PERSONAL_DATA, "A User")
+            setString(AppSettingsKeys.DEPARTMENT, "A")
+            setString(AppSettingsKeys.ACCOUNT_LOGIN, "a")
+        }
+        store.ensureMigrated()
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b")
+        settings.setString(AppSettingsKeys.PERSONAL_DATA, "B User")
+        settings.setString(AppSettingsKeys.DEPARTMENT, "B")
+        settings.setString(AppSettingsKeys.ACCOUNT_LOGIN, "b")
+        store.markPendingCreateNewSlot()
+        store.bindSuccessfulLogin("b")
+        val slotB = store.accounts().first { it.login == "b" }
+        store.setPin(store.accounts().first { it.login == "a" }.id, "1111")
+        store.setPin(slotB.id, "2222")
+        store.markPendingForgotPin(slotB.id)
+        settings.setString(AppSettingsKeys.TOKEN_KEY, "tok-b-new")
+        store.bindSuccessfulLogin("b")
+        val updated = store.accounts().first { it.login == "b" }
+        assertFalse(updated.hasPin)
+        assertEquals("tok-b-new", updated.token)
+        assertTrue(store.needsPinGate())
+        assertTrue(store.accounts().first { it.login == "a" }.hasPin)
+    }
 }

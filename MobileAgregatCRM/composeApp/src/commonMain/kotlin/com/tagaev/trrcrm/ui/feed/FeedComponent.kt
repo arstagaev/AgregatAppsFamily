@@ -250,6 +250,7 @@ class FeedComponent(
     private suspend fun loadPage(targetPage: Int, replace: Boolean, expectedGeneration: Long) {
         requestMutex.withLock {
             if (replace) {
+                _items.value = emptyList()
                 _isRefreshing.value = true
                 if (_items.value.isEmpty()) {
                     _isLoadingFirstPage.value = true

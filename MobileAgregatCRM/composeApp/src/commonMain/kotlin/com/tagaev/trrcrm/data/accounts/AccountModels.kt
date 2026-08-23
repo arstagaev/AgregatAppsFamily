@@ -8,6 +8,7 @@ const val PIN_ATTEMPTS_PER_WINDOW = 10
 const val PIN_WARN_AFTER_FAILURES = 5
 const val PIN_LOCK_FIRST_MS = 10L * 60L * 1000L
 const val PIN_LOCK_SECOND_MS = 60L * 60L * 1000L
+const val PIN_INACTIVITY_LOCK_MS = 60L * 60L * 1000L
 
 @Serializable
 data class AccountSlot(
@@ -38,6 +39,7 @@ data class AccountStoreState(
     val accounts: List<AccountSlot> = emptyList(),
     val activeAccountId: String? = null,
     val pendingCreateNewSlot: Boolean = false,
+    val pendingForgotPinAccountId: String? = null,
 )
 
 @Serializable
@@ -67,4 +69,11 @@ sealed interface AddAccountResult {
     data class Created(val slot: AccountSlot) : AddAccountResult
     data class Reused(val slot: AccountSlot) : AddAccountResult
     data object LimitReached : AddAccountResult
+    data object DuplicateIdentity : AddAccountResult
+}
+
+sealed interface ClearPinResult {
+    data object Ok : ClearPinResult
+    data object NotAllowed : ClearPinResult
+    data object AccountMissing : ClearPinResult
 }

@@ -275,11 +275,11 @@
     <string name="work_order_tsena">цена</string>
     <string name="complectation_ne_udalos_proverit_vozmozhnost_zagruzki">Yuklash imkoniyatini tekshirib bo‘lmadi</string>
     <string name="complectation_ne_udalos_poluchit_dannye_qr">Amalga oshmadi получить данные QR</string>
-    <string name="complectation_otkryt_fotografii">Открыть fotosuratи</string>
-    <string name="complectation_otkryt_fotografii_photocount">Открыть fotosuratи %1$s</string>
+    <string name="complectation_otkryt_fotografii">Fayllarni ochish</string>
+    <string name="complectation_otkryt_fotografii_photocount">Fayllarni ochish %1$s</string>
     <string name="complectation_ne_udalos_zagruzit_komplektatsii">Amalga oshmadi загрузить комплектации</string>
-    <string name="complectation_ne_udalos_otobrazit_foto">Amalga oshmadi отобразить foto</string>
-    <string name="complectation_ne_udalos_zagruzit_fotografii">Amalga oshmadi загрузить fotosuratи</string>
+    <string name="complectation_ne_udalos_otobrazit_foto">Faylni ko‘rsatib bo‘lmadi</string>
+    <string name="complectation_ne_udalos_zagruzit_fotografii">Fayllarni yuklab bo‘lmadi</string>
     <string name="complectation_poisk_komplektatsii_ne_zavershen">Qidiruv комплектации не завершён</string>
     <string name="complectation_kamera_number">Kamera (%1$s)</string>
     <string name="complectation_skanirovat_qr">Сканировать QR</string>
@@ -288,9 +288,9 @@
     <string name="complectation_dalee">Далее</string>
     <string name="complectation_dobavit_zapis">Добавить запись</string>
     <string name="complectation_dobavit_foto">добавить foto</string>
-    <string name="complectation_fotografii_documentnumber">Fotosuratи %1$s</string>
-    <string name="complectation_vsego_ui_totalcount_foto_kotoroe_bylo_snyato_s_prilo">Всего: %1$s. Foto которое было снято с приложения появится здесь в течении нескольких минут.</string>
-    <string name="complectation_fotografiy_net">Fotosuratй нет</string>
+    <string name="complectation_fotografii_documentnumber">Fayllar %1$s</string>
+    <string name="complectation_vsego_ui_totalcount_foto_kotoroe_bylo_snyato_s_prilo">Jami: %1$s. Ilovadan yuklangan fayl bu yerda bir necha daqiqadan so‘ng paydo bo‘ladi.</string>
+    <string name="complectation_fotografiy_net">Fayllar yo‘q</string>
     <string name="complectation_nekorrektnyy_nomer_dokumenta">Hujjat raqami noto‘g‘ri</string>
     <string name="complectation_v_qr_net_nomera_komplektatsii">В QR нет номера комплектации</string>
     <string name="complectation_komplektatsiya_resolvednumber_ne_naydena">Комплектация №%1$s не найдена</string>
@@ -653,7 +653,7 @@
     <string name="complectation_pokazany_vse_zapisey">Barcha %1$s yozuv ko‘rsatilgan</string>
     <string name="complectation_pokazany_poslednie_10">So‘nggi 10 ta ko‘rsatilgan, jami %1$s</string>
     <string name="complectation_avtor_it">Muallif: %1$s</string>
-    <string name="complectation_fotografiy_ne_zagruzheno">Fotolar yuklanmagan</string>
+    <string name="complectation_fotografiy_ne_zagruzheno">Fayllar yuklanmagan</string>
     <string name="refine_vid_remonta_title">Ta’mir turi</string>
     <string name="details_tovary_summa_rub">Tovarlar (summa: %1$s so‘m)</string>
     <string name="doc_kind_sobytie">Hodisa</string>

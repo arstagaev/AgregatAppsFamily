@@ -33,14 +33,17 @@ internal class FixatorPendingManifestStore(
         documentNumber: String,
         documentName: String,
         normalizedBytes: ByteArray,
+        storedFileName: String? = null,
+        mimeType: String = "image/jpeg",
     ): FixatorPendingPhotoEntry = withContext(Dispatchers.Default) {
         val dir = pendingDir(root, documentNumber)
         fileSystem.createDirectories(dir)
         val id = generatePhotoId()
         val entry = FixatorPendingPhotoEntry(
             id = id,
-            fileName = "$id.jpg",
+            fileName = storedFileName ?: com.tagaev.trrcrm.domain.pendingStoredFileName(id, mimeType),
             createdAtEpochMs = currentTimeMillis(),
+            mimeType = mimeType,
         )
         val photoPath = dir / entry.fileName
         fileSystem.write(photoPath) { write(normalizedBytes) }

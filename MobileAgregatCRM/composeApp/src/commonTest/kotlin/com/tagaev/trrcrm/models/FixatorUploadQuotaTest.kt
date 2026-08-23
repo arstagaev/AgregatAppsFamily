@@ -186,6 +186,25 @@ class FixatorUploadQuotaTest {
     }
 
     @Test
+    fun from_allowedTrueFolderNotFound_stillHasRemaining() {
+        val response = ImageMediatorCanUploadResponse(
+            allowed = true,
+            documentNumber = "0000198950",
+            folderFound = false,
+            limits = ImageMediatorLimits(
+                remaining = 10,
+                maxFilesPerRequest = 10,
+                maxPhotosPerDocument = 15,
+            ),
+        )
+        val availability = UploadAvailability.from(response, sessionRemaining = 15, uploadedInAppRun = 0)
+        assertEquals(10, availability.serverRemaining)
+        assertEquals(10, availability.availableNow)
+        assertTrue(availability.allowed)
+        assertTrue(!availability.folderFound)
+    }
+
+    @Test
     fun canUploadBlocked_folderUnavailable() {
         val message = canUploadBlockedMessage(
             ImageMediatorCanUploadResponse(

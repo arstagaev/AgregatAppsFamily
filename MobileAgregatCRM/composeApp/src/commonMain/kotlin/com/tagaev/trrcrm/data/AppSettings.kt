@@ -54,6 +54,7 @@ object AppSettingsKeys {
     const val ACCOUNTS_JSON = "ACCOUNTS_JSON_V1"
     const val ACCOUNTS_ACTIVE_ID = "ACCOUNTS_ACTIVE_ID_V1"
     const val ACCOUNTS_PIN_LOCKOUT_JSON = "ACCOUNTS_PIN_LOCKOUT_JSON_V1"
+    const val ACCOUNTS_LAST_APP_SCREEN_OPENED_MS = "ACCOUNTS_LAST_APP_SCREEN_OPENED_MS_V1"
     const val TOKEN_ONLY_AUTH_MIGRATION_COMPLETED = "TOKEN_ONLY_AUTH_MIGRATION_COMPLETED"
 
     const val LAST_UPDATE = "LAST_UPDATE"
@@ -180,6 +181,7 @@ class AppSettings(
     fun getStringOrNull(key: String) = settings.getStringOrNull(key = key)
     fun getString(key: String, defaultValue: String) = settings.getString(key = key, defaultValue = defaultValue)
     fun setString(key: String, newValue: String) = settings.putString(key = key, value = newValue)
+    fun remove(key: String) = settings.remove(key)
 
     // ---------- Filters ----------
     fun loadFilters(): FilterState = FilterState(
@@ -255,6 +257,7 @@ class AppSettings(
         val preservedAccountsJson = getStringOrNull(AppSettingsKeys.ACCOUNTS_JSON)
         val preservedAccountsActiveId = getStringOrNull(AppSettingsKeys.ACCOUNTS_ACTIVE_ID)
         val preservedPinLockout = getStringOrNull(AppSettingsKeys.ACCOUNTS_PIN_LOCKOUT_JSON)
+        val preservedLastAppScreenOpenedMs = getLong(AppSettingsKeys.ACCOUNTS_LAST_APP_SCREEN_OPENED_MS, 0L)
 
         clearAll()
 
@@ -270,5 +273,8 @@ class AppSettings(
         preservedAccountsJson?.let { setString(AppSettingsKeys.ACCOUNTS_JSON, it) }
         preservedAccountsActiveId?.let { setString(AppSettingsKeys.ACCOUNTS_ACTIVE_ID, it) }
         preservedPinLockout?.let { setString(AppSettingsKeys.ACCOUNTS_PIN_LOCKOUT_JSON, it) }
+        if (preservedLastAppScreenOpenedMs > 0L) {
+            setLong(AppSettingsKeys.ACCOUNTS_LAST_APP_SCREEN_OPENED_MS, preservedLastAppScreenOpenedMs)
+        }
     }
 }

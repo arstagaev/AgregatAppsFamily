@@ -8,6 +8,7 @@ enum class CoreApiErrorKind {
     Unauthorized,
     Forbidden,
     NotFound,
+    Conflict,
     Validation,
     Server,
     Timeout,
@@ -44,6 +45,7 @@ fun CoreApiException.normalizedErrorCode(): String {
             403 -> "forbidden"
             404 -> "not_found"
             408 -> "timeout"
+            409 -> "identity_ambiguity"
             422 -> "validation_error"
             in 500..599 -> "server_error"
             else -> "http_$statusCode"
@@ -98,6 +100,7 @@ private fun statusToKind(code: Int): CoreApiErrorKind = when (code) {
     401 -> CoreApiErrorKind.Unauthorized
     403 -> CoreApiErrorKind.Forbidden
     404 -> CoreApiErrorKind.NotFound
+    409 -> CoreApiErrorKind.Conflict
     422 -> CoreApiErrorKind.Validation
     in 500..599 -> CoreApiErrorKind.Server
     else -> CoreApiErrorKind.Unknown

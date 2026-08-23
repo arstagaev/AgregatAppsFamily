@@ -2,13 +2,14 @@ package com.tagaev.trrcrm.ui.permissions
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_UPLOAD_REQUEST
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
 @Composable
-actual fun rememberGalleryPhotoPicker(
-    onResult: (List<ByteArray>) -> Unit,
+actual fun rememberDocumentFilePicker(
+    onResult: (List<PickedLocalFile>) -> Unit,
 ): (maxItems: Int) -> Unit {
     val callback = remember(onResult) { onResult }
 
@@ -19,17 +20,25 @@ actual fun rememberGalleryPhotoPicker(
                 return@remember
             }
             val chooser = JFileChooser().apply {
-                dialogTitle = "Выберите фотографии"
+                dialogTitle = "Выберите файлы"
                 isMultiSelectionEnabled = maxItems > 1
                 fileSelectionMode = JFileChooser.FILES_ONLY
                 fileFilter = FileNameExtensionFilter(
-                    "Изображения",
+                    "Фото и документы",
                     "jpg",
                     "jpeg",
                     "png",
                     "webp",
                     "heic",
                     "heif",
+                    "pdf",
+                    "doc",
+                    "docx",
+                    "xls",
+                    "xlsx",
+                    "txt",
+                    "rtf",
+                    "csv",
                 )
             }
             val result = chooser.showOpenDialog(null)
@@ -37,13 +46,21 @@ actual fun rememberGalleryPhotoPicker(
                 callback(emptyList())
                 return@remember
             }
-            val files = chooser.selectedFiles
-                .toList()
-                .take(maxItems.coerceAtLeast(1))
-            val bytesList = files.mapNotNull { file ->
-                runCatching { File(file.absolutePath).readBytes() }.getOrNull()
-            }
-            callback(bytesList)
+            val selected = if (chooser.isMultiSelectionEnabled) {
+                chooser.selectedFiles.toList()
+            } else {
+                listOfNotNull(chooser.selectedFile)
+            }.take(maxItems.coerceAtLeast(1))
+            callback(
+                selected.mapNotNull { file ->
+                    runCatching {
+                        PickedLocalFile(
+                            bytes = File(file.absolutePath).readBytes(),
+                            fileName = file.name,
+                        )
+                    }.getOrNull()
+                },
+            )
         }
     }
 }

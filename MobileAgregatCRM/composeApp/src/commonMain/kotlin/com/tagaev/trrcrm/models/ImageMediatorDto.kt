@@ -183,7 +183,7 @@ data class UploadAvailability(
         ): UploadAvailability {
             val limits = response.limits
             val serverRemaining = when {
-                !response.folderFound || !response.allowed -> 0
+                !response.allowed -> 0
                 else -> limits?.effectiveRemaining() ?: 0
             }
             return UploadAvailability(
@@ -249,6 +249,8 @@ data class ImageMediatorImageMeta(
     @SerialName("image_id") val imageId: String,
     @SerialName("content_url") val contentUrl: String,
     @SerialName("size_bytes") val sizeBytes: Long? = null,
+    @SerialName("original_filename") val originalFilename: String? = null,
+    @SerialName("stored_filename") val storedFilename: String? = null,
 )
 
 @Serializable

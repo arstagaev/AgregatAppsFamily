@@ -52,6 +52,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.TopAppBar
@@ -64,25 +66,35 @@ import com.tagaev.trrcrm.data.fixator.GallerySaveResult
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.userFacingMessage
 import com.tagaev.trrcrm.domain.FixatorPhotoNormalizationException
+import com.tagaev.trrcrm.domain.ImageMediatorFileKind
+import com.tagaev.trrcrm.domain.ImageMediatorFilePrepareResult
+import com.tagaev.trrcrm.domain.ImageMediatorUploadPart
+import com.tagaev.trrcrm.domain.classifyImageMediatorFile
+import com.tagaev.trrcrm.domain.displayFileStem
+import com.tagaev.trrcrm.domain.jpegUploadPart
+import com.tagaev.trrcrm.domain.kindFromMime
 import com.tagaev.trrcrm.domain.normalizeFixatorPhoto
-import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.DocumentUploadPeriod
+import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorUploadResult
-import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_DOCUMENT_PER_APP_RUN
 import com.tagaev.trrcrm.models.MAX_PHOTOS_PER_UPLOAD_REQUEST
 import com.tagaev.trrcrm.models.UploadAvailability
 import com.tagaev.trrcrm.data.remote.ImageMediatorApi
+import com.tagaev.trrcrm.data.remote.imageMediatorFileRejectMessage
 import com.tagaev.trrcrm.ui.common.rememberBusyActionGate
 import com.tagaev.trrcrm.ui.permissions.CameraFixatorLog
 import com.tagaev.trrcrm.ui.permissions.CameraPermissionGate
 import com.tagaev.trrcrm.ui.permissions.FixatorCameraControls
 import com.tagaev.trrcrm.ui.permissions.FixatorCameraPreview
 import com.tagaev.trrcrm.ui.permissions.decodePhotoThumbnail
+import com.tagaev.trrcrm.ui.permissions.rememberDocumentFilePicker
 import com.tagaev.trrcrm.ui.permissions.rememberGalleryPhotoPicker
 import com.tagaev.trrcrm.ui.permissions.rememberPhotoLibrarySavePermission
+import com.tagaev.trrcrm.ui.permissions.openExternalDocument
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.Camera
+import compose.icons.feathericons.File
 import compose.icons.feathericons.Image
 import compose.icons.feathericons.X
 import compose.icons.feathericons.Zap
@@ -115,6 +127,8 @@ private val SuccessSnackbarTextColor = Color(0xFF2E7D32)
 private val SuccessSnackbarContainerColor = Color(0xFFE8F5E9)
 
 private const val THUMB_SIZE_DP = 72
+/** Hidden until the next release; keep FilePickTile and picker wiring in this file. */
+private const val SHOW_FILE_PICKER = false
 /** Fallback per-request cap when can-upload has not returned limits yet. */
 private const val MAX_PHOTOS_PER_UPLOAD_FALLBACK = MAX_PHOTOS_PER_UPLOAD_REQUEST
 
@@ -241,7 +255,11 @@ fun DocumentCameraScreen(
         }
     }
 
-    fun addPhotosFromBytes(rawBytesList: List<ByteArray>, fromCamera: Boolean) {
+    fun addPhotosFromBytes(
+        rawBytesList: List<ByteArray>,
+        fromCamera: Boolean,
+        fileNames: List<String?> = emptyList(),
+    ) {
         if (fromCamera) {
             isCapturePending = false
         }
@@ -269,48 +287,72 @@ fun DocumentCameraScreen(
             try {
                 var addedCount = 0
                 var failedCount = 0
-                for (rawBytes in bytesToAdd) {
+                var addedDocuments = 0
+                for ((index, rawBytes) in bytesToAdd.withIndex()) {
                     val rawSize = rawBytes.size
-                    val normalizedResult = runCatching {
-                        withContext(Dispatchers.Default) {
-                            normalizeFixatorPhoto(rawBytes)
+                    val originalName = fileNames.getOrNull(index)
+                    val prepared = if (fromCamera) {
+                        runCatching {
+                            val jpeg = withContext(Dispatchers.Default) {
+                                normalizeFixatorPhoto(rawBytes)
+                            }
+                            jpegUploadPart(jpeg, photos.size)
+                        }
+                    } else {
+                        when (
+                            val classified = classifyImageMediatorFile(
+                                bytes = rawBytes,
+                                originalName = originalName,
+                                fallbackIndex = photos.size,
+                            )
+                        ) {
+                            is ImageMediatorFilePrepareResult.Ok -> Result.success(classified.part)
+                            is ImageMediatorFilePrepareResult.Rejected -> Result.failure(
+                                IllegalArgumentException(imageMediatorFileRejectMessage(classified.reason)),
+                            )
                         }
                     }
-                    val processed = normalizedResult
-                        .onSuccess { normalizedBytes ->
+                    prepared
+                        .onSuccess { part ->
                             val savedEntry = runCatching {
                                 photoStorage.savePendingPhoto(
                                     documentNumber = documentNumber,
                                     documentName = documentName,
-                                    normalizedBytes = normalizedBytes,
+                                    normalizedBytes = part.bytes,
+                                    mimeType = part.mimeType,
                                 )
                             }.getOrElse { error ->
                                 failedCount += 1
                                 CameraFixatorLog.d("photo_save_failed message=${error.message}")
                                 return@onSuccess
                             }
-                            trySaveToPublicGallery(normalizedBytes, savedEntry.fileName)
+                            if (part.kind == ImageMediatorFileKind.Image) {
+                                trySaveToPublicGallery(part.bytes, savedEntry.fileName)
+                            } else {
+                                addedDocuments += 1
+                            }
                             photos.add(
                                 CapturedPhoto(
                                     entry = savedEntry,
-                                    thumbnail = decodePhotoThumbnail(normalizedBytes),
+                                    thumbnail = decodePhotoThumbnail(part.bytes),
                                 ),
                             )
                             addedCount += 1
                             CameraFixatorLog.d(
-                                "photo_added count=${photos.size} size=${normalizedBytes.size} normalized_from=$rawSize",
+                                "photo_added count=${photos.size} size=${part.bytes.size} mime=${part.mimeType} from=$rawSize",
                             )
                         }
                         .onFailure { error ->
                             failedCount += 1
                             val message = when (error) {
                                 is FixatorPhotoNormalizationException -> error.message ?: s("camera_ne_udalos_obrabotat_foto")
+                                is IllegalArgumentException -> error.message ?: s("upload_unsupported_file_type")
                                 else -> s("camera_ne_udalos_obrabotat_foto")
                             }
                             CameraFixatorLog.d("photo_normalize_failed from=$rawSize message=$message")
                             showCameraSnackbar(message, kind = CameraSnackbarKind.Error)
                         }
-                    if (processed.isFailure && addedCount == 0 && failedCount == bytesToAdd.size) {
+                    if (prepared.isFailure && addedCount == 0 && failedCount == bytesToAdd.size) {
                         break
                     }
                 }
@@ -320,6 +362,13 @@ fun DocumentCameraScreen(
                         showCameraSnackbar(s("camera_foto_sdelano"))
                         performCameraHapticFeedback(CameraHapticFeedbackStrength.PhotoCaptured)
                     }
+                    !fromCamera && addedDocuments > 0 && addedCount == addedDocuments && addedCount > 1 -> {
+                        showCameraSnackbar(s("camera_dobavleno_addedcount_faylov", addedCount))
+                    }
+                    !fromCamera && addedDocuments == 1 && addedCount == 1 -> {
+                        showCameraSnackbar(s("camera_fayl_dobavlen"))
+                        performCameraHapticFeedback(CameraHapticFeedbackStrength.PhotoCaptured)
+                    }
                     !fromCamera && addedCount > 1 -> showCameraSnackbar("Добавлено $addedCount фото из галереи")
                     !fromCamera && addedCount == 1 -> {
                         showCameraSnackbar(s("camera_foto_dobavleno_iz_galerei"))
@@ -327,7 +376,7 @@ fun DocumentCameraScreen(
                     }
                     failedCount > 0 && addedCount == 0 -> {
                         if (bytesToAdd.size == 1) {
-                            showCameraSnackbar(s("camera_ne_udalos_dobavit_foto"), kind = CameraSnackbarKind.Error)
+                            // already snacked
                         }
                     }
                 }
@@ -347,6 +396,16 @@ fun DocumentCameraScreen(
         }
     }
 
+    val launchDocumentFilePicker = rememberDocumentFilePicker { pickedFiles ->
+        if (pickedFiles.isNotEmpty()) {
+            addPhotosFromBytes(
+                rawBytesList = pickedFiles.map { it.bytes },
+                fromCamera = false,
+                fileNames = pickedFiles.map { it.fileName },
+            )
+        }
+    }
+
     fun removePhoto(photoId: String) {
         val photo = photos.find { it.id == photoId } ?: return
         scope.launch {
@@ -357,6 +416,27 @@ fun DocumentCameraScreen(
             }
             photos.removeAll { it.id == photoId }
             showCameraSnackbar(s("camera_foto_udaleno"))
+        }
+    }
+
+    fun previewPendingPhoto(photo: CapturedPhoto) {
+        if (photo.thumbnail != null) {
+            previewPhoto = photo
+            return
+        }
+        scope.launch {
+            val opened = runCatching {
+                val bytes = photoStorage.readPendingPhotoBytes(documentNumber, photo.entry)
+                openExternalDocument(photo.entry.fileName, photo.entry.mimeType, bytes)
+            }.onFailure { error ->
+                CameraFixatorLog.d("open_pending_document_failed id=${photo.id} message=${error.message}")
+            }.getOrDefault(false)
+            if (!opened) {
+                showCameraSnackbar(
+                    s("complectation_ne_udalos_otobrazit_foto"),
+                    kind = CameraSnackbarKind.Error,
+                )
+            }
         }
     }
 
@@ -412,6 +492,14 @@ fun DocumentCameraScreen(
                                     photoStorage.readPendingPhotoBytes(documentNumber, entry)
                                 }
                             }
+                            val parts = entries.zip(photoBytes).map { (entry, bytes) ->
+                                ImageMediatorUploadPart(
+                                    bytes = bytes,
+                                    fileName = entry.fileName,
+                                    mimeType = entry.mimeType,
+                                    kind = kindFromMime(entry.mimeType),
+                                )
+                            }
                             val idempotencyKey = pendingUploadIdempotencyKey
                                 ?: ImageMediatorApi.generateIdempotencyKey().also {
                                     pendingUploadIdempotencyKey = it
@@ -419,7 +507,7 @@ fun DocumentCameraScreen(
                             when (
                                 val result = repository.uploadFixatorPhotos(
                                     documentNumber = documentNumber,
-                                    photos = photoBytes,
+                                    photos = parts,
                                     uploadPeriod = uploadPeriod,
                                     documentType = documentType,
                                     idempotencyKey = idempotencyKey,
@@ -582,34 +670,61 @@ fun DocumentCameraScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 8.dp),
             ) {
-                item(key = "gallery_pick") {
-                    val galleryExpanded = photos.isEmpty()
-                    PhotoGalleryPickTile(
-                        expanded = galleryExpanded,
-                        enabled = canAddFromGallery,
-                        modifier = if (galleryExpanded) {
-                            Modifier.fillParentMaxWidth()
-                        } else {
-                            Modifier
-                        },
-                        onClick = {
-                            if (isCameraBusy) return@PhotoGalleryPickTile
-                            val remainingSlots = (sessionMax - photos.size).coerceAtLeast(0)
-                            if (remainingSlots <= 0) {
-                                showCameraSnackbar(
-                                    s("upload_select_at_most_n", sessionMax),
-                                    kind = CameraSnackbarKind.Error,
+                item(key = "pickers") {
+                    val remainingSlots = (sessionMax - photos.size).coerceAtLeast(0)
+                    fun launchPicker(fromGallery: Boolean) {
+                        if (isCameraBusy) return
+                        if (remainingSlots <= 0) {
+                            showCameraSnackbar(
+                                s("upload_select_at_most_n", sessionMax),
+                                kind = CameraSnackbarKind.Error,
+                            )
+                            return
+                        }
+                        if (fromGallery) launchGalleryPicker(remainingSlots)
+                        else if (SHOW_FILE_PICKER) launchDocumentFilePicker(remainingSlots)
+                    }
+                    if (photos.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillParentMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            PhotoGalleryPickTile(
+                                expanded = true,
+                                enabled = canAddFromGallery,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { launchPicker(fromGallery = true) },
+                            )
+                            if (SHOW_FILE_PICKER) {
+                                FilePickTile(
+                                    expanded = true,
+                                    enabled = canAddFromGallery,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { launchPicker(fromGallery = false) },
                                 )
-                                return@PhotoGalleryPickTile
                             }
-                            launchGalleryPicker(remainingSlots)
-                        },
-                    )
+                        }
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PhotoGalleryPickTile(
+                                expanded = false,
+                                enabled = canAddFromGallery,
+                                onClick = { launchPicker(fromGallery = true) },
+                            )
+                            if (SHOW_FILE_PICKER) {
+                                FilePickTile(
+                                    expanded = false,
+                                    enabled = canAddFromGallery,
+                                    onClick = { launchPicker(fromGallery = false) },
+                                )
+                            }
+                        }
+                    }
                 }
                 items(photos, key = { it.id }) { photo ->
                     PhotoThumbnailTile(
                         photo = photo,
-                        onPreview = { previewPhoto = photo },
+                        onPreview = { previewPendingPhoto(photo) },
                         onRemove = { removePhoto(photo.id) },
                     )
                 }
@@ -827,6 +942,47 @@ private fun PhotoGalleryPickTile(
 }
 
 @Composable
+private fun FilePickTile(
+    expanded: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val label = s("camera_dobavit_fayl")
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .then(
+                if (expanded) {
+                    Modifier.fillMaxWidth()
+                } else {
+                    Modifier.size(THUMB_SIZE_DP.dp)
+                },
+            )
+            .animateContentSize(animationSpec = spring()),
+        contentPadding = if (expanded) {
+            PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        } else {
+            PaddingValues(0.dp)
+        },
+    ) {
+        if (expanded) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = label)
+                Icon(FeatherIcons.File, contentDescription = null)
+            }
+        } else {
+            Icon(FeatherIcons.File, contentDescription = label)
+        }
+    }
+}
+
+@Composable
 private fun PhotoAddTile(
     enabled: Boolean,
     onClick: () -> Unit,
@@ -872,7 +1028,40 @@ private fun PhotoThumbnailTile(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant),
-                )
+                ) {
+                    val ext = photo.entry.fileName.substringAfterLast('.', "FILE").uppercase()
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 4.dp, vertical = 18.dp),
+                    ) {
+                        Icon(
+                            FeatherIcons.File,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = ext,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = displayFileStem(photo.entry.fileName, photo.id),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                    )
+                }
             }
         }
 

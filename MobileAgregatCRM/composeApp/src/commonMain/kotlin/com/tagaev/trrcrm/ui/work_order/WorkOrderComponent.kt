@@ -138,14 +138,16 @@ class WorkOrdersComponent(
 
     override fun fullRefresh() {
         appScope.launch {
-            //_workOrders.value = Resource.Loading
-            _workOrders.value = Resource.Success(data = loadedOrders, additionalLoading = true)
-
+            val capturedGeneration = com.tagaev.trrcrm.data.accounts.AccountSessionCaches.listGeneration()
+            loadedOrders.clear()
+            loadedKeys.clear()
+            _workOrders.value = Resource.Loading
 
             _refineState.value = loadRefineState()
             _ncount.value = 0
 
             val result = repository.loadWorkOrders(0, refineState.value)
+            if (!com.tagaev.trrcrm.data.accounts.AccountSessionCaches.isCurrentListGeneration(capturedGeneration)) return@launch
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()

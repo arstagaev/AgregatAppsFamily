@@ -1,5 +1,6 @@
 package com.tagaev.trrcrm.data.fixator
 
+import com.tagaev.trrcrm.domain.sniffedFileExtension
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okio.FileSystem
@@ -12,43 +13,60 @@ class DocumentPhotoCache(
     companion object {
         private const val FIXATOR_DIR = "fixator"
         private const val VIEWER_CACHE_DIR = "viewer-cache"
-        private val SAFE_SEGMENT_REGEX = Regex("^[a-zA-Z0-9_-]+$")
     }
 
     private fun cacheRoot(): Path = storageRoot / FIXATOR_DIR / VIEWER_CACHE_DIR
 
-    private fun cacheFilePath(key: DocumentPhotoCacheKey): Path {
-        val documentType = sanitizeSegment(key.documentType)
-        val documentNumber = sanitizeSegment(key.documentNumber)
-        val imageId = sanitizeSegment(key.imageId)
-        return cacheRoot() / documentType / documentNumber / "$imageId.jpg"
+    private fun documentCacheDir(documentType: String, documentNumber: String): Path {
+        val type = sanitizeSegment(documentType)
+        val number = sanitizeSegment(documentNumber)
+        return cacheRoot() / type / number
+    }
+
+    private fun findCacheFile(dir: Path, imageId: String): Path? {
+        if (!fileSystem.exists(dir)) return null
+        val safeId = sanitizeSegment(imageId)
+        val legacyJpg = dir / "$safeId.jpg"
+        if (fileSystem.exists(legacyJpg)) return legacyJpg
+        return fileSystem.list(dir).firstOrNull { path ->
+            val name = path.name
+            name == safeId || name.startsWith("$safeId.")
+        }
     }
 
     private fun sanitizeSegment(value: String): String {
         val trimmed = value.trim()
         require(trimmed.isNotEmpty()) { "Cache key segment is blank" }
-        require(SAFE_SEGMENT_REGEX.matches(trimmed)) { "Unsafe cache key segment: $trimmed" }
+        require(trimmed.all { it.isLetterOrDigit() || it == '_' || it == '-' }) {
+            "Unsafe cache key segment: $trimmed"
+        }
+        require('/' !in trimmed && '\\' !in trimmed) { "Unsafe cache key segment: $trimmed" }
         return trimmed
     }
 
     suspend fun readBytes(key: DocumentPhotoCacheKey): ByteArray? = withContext(Dispatchers.Default) {
-        val path = cacheFilePath(key)
-        if (!fileSystem.exists(path)) return@withContext null
+        val dir = documentCacheDir(key.documentType, key.documentNumber)
+        val path = findCacheFile(dir, key.imageId) ?: return@withContext null
         runCatching {
             fileSystem.read(path) { readByteArray() }
         }.getOrNull()
     }
 
     suspend fun writeBytes(key: DocumentPhotoCacheKey, bytes: ByteArray) = withContext(Dispatchers.Default) {
-        val path = cacheFilePath(key)
-        fileSystem.createDirectories(path.parent!!)
+        val dir = documentCacheDir(key.documentType, key.documentNumber)
+        fileSystem.createDirectories(dir)
+        val safeId = sanitizeSegment(key.imageId)
+        if (fileSystem.exists(dir)) {
+            fileSystem.list(dir).forEach { path ->
+                val name = path.name
+                if (name == safeId || name.startsWith("$safeId.")) {
+                    runCatching { fileSystem.delete(path) }
+                }
+            }
+        }
+        val ext = sniffedFileExtension(bytes)
+        val path = dir / "$safeId.$ext"
         fileSystem.write(path) { write(bytes) }
-    }
-
-    private fun documentCacheDir(documentType: String, documentNumber: String): Path {
-        val type = sanitizeSegment(documentType)
-        val number = sanitizeSegment(documentNumber)
-        return cacheRoot() / type / number
     }
 
     suspend fun clearDocument(

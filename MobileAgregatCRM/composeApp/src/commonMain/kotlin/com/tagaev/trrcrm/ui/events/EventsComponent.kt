@@ -134,14 +134,16 @@ class EventsComponent(
     override fun fullRefresh() {
         println(">>> fullRefresh")
         appScope.launch {
-            //_workOrders.value = Resource.Loading
-            _events.value = Resource.Success(data = loadedEvents, additionalLoading = true)
-
+            val capturedGeneration = com.tagaev.trrcrm.data.accounts.AccountSessionCaches.listGeneration()
+            loadedEvents.clear()
+            loadedKeys.clear()
+            _events.value = Resource.Loading
 
             _refineState.value = loadRefineState()
             _ncount.value = 0
 
             val result = repository.loadEvents(0, refineState.value)
+            if (!com.tagaev.trrcrm.data.accounts.AccountSessionCaches.isCurrentListGeneration(capturedGeneration)) return@launch
             if (result is Resource.Success) {
 
                 val newItems = result.data ?: emptyList()

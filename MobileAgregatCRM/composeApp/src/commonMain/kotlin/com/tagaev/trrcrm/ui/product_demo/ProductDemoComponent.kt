@@ -11,11 +11,10 @@ import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.friendlyError
 import com.tagaev.trrcrm.data.remote.normalizedErrorCode
 import com.tagaev.trrcrm.models.CatalogProductRequestItem
-import com.tagaev.trrcrm.models.CoreSessionLogoutRequest
+import com.tagaev.trrcrm.data.accounts.AccountSessionStore
+import com.tagaev.trrcrm.push.CoreSessionCoordinator
 import com.tagaev.trrcrm.push.NotificationsUnreadState
-import com.tagaev.trrcrm.push.PushRegistration
 import com.tagaev.trrcrm.push.disablePushDeliveryForLoggedOutUser
-import com.tagaev.trrcrm.pushPlatformId
 import com.tagaev.trrcrm.ui.login.CrmAuthUseCase
 import com.tagaev.trrcrm.utils.SessionPermissions
 import kotlinx.coroutines.CoroutineScope
@@ -77,6 +76,8 @@ class ProductDemoComponent(
     private val appScope: CoroutineScope by inject()
     private val appSettings: AppSettings by inject()
     private val repository: MainRepository by inject()
+    private val accountStore: AccountSessionStore by inject()
+    private val coreSession: CoreSessionCoordinator by inject()
     private var catalogCriteriaJob: Job? = null
 
     private val _uiState = MutableStateFlow(
@@ -306,25 +307,9 @@ class ProductDemoComponent(
     }
 
     override fun logoutProfileUser() {
-        val fullName = appSettings.getStringOrNull(AppSettingsKeys.PERSONAL_DATA).orEmpty().trim()
-        val platform = pushPlatformId()
-        val coreSessionId = appSettings.getStringOrNull(AppSettingsKeys.CORE_SESSION_ID).orEmpty().trim()
-
-        if (coreSessionId.isNotBlank()) {
-            appScope.launch {
-                repository.coreSessionLogout(
-                    CoreSessionLogoutRequest(
-                        sessionId = coreSessionId,
-                        deactivateDeviceToken = true
-                    )
-                )
-            }
-        }
-        if (fullName.isNotBlank()) {
-            PushRegistration.logoutCurrentDevice(
-                fullName = fullName,
-                platform = platform
-            )
+        val isLastAccount = accountStore.accounts().size <= 1
+        appScope.launch {
+            coreSession.logoutActive(deactivateDeviceToken = isLastAccount)
         }
 
         SessionPermissions.clear()

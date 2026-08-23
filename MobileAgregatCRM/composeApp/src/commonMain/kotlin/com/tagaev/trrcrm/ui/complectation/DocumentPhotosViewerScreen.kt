@@ -43,11 +43,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tagaev.trrcrm.data.MainRepository
 import com.tagaev.trrcrm.data.remote.Resource
 import com.tagaev.trrcrm.data.remote.userFacingMessage
+import com.tagaev.trrcrm.domain.displayFileStem
+import com.tagaev.trrcrm.domain.mimeTypeForOpen
+import com.tagaev.trrcrm.domain.preferredStoredFileName
 import com.tagaev.trrcrm.domain.resolvedDocumentNumber
+import com.tagaev.trrcrm.domain.sanitizedOpenFileName
+import com.tagaev.trrcrm.domain.sniffedFileExtension
 import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorImageMeta
@@ -55,8 +62,10 @@ import com.tagaev.trrcrm.ui.common.ZoomableImagePreview
 import com.tagaev.trrcrm.ui.common.rememberBusyActionGate
 import com.tagaev.trrcrm.ui.permissions.CameraFixatorLog
 import com.tagaev.trrcrm.ui.permissions.decodePhotoThumbnailLogged
+import com.tagaev.trrcrm.ui.permissions.openExternalDocument
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
+import compose.icons.feathericons.File
 import compose.icons.feathericons.RefreshCw
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -68,6 +77,7 @@ import org.koin.compose.koinInject
 private sealed interface DocumentPhotoCellState {
     data object Loading : DocumentPhotoCellState
     data class Loaded(val bitmap: ImageBitmap) : DocumentPhotoCellState
+    data class File(val label: String, val mimeType: String, val displayName: String) : DocumentPhotoCellState
     data class Error(val message: String) : DocumentPhotoCellState
 }
 
@@ -123,13 +133,55 @@ fun DocumentPhotosViewerScreen(
                 if (bitmap != null) {
                     cellStates[image.imageId] = DocumentPhotoCellState.Loaded(bitmap)
                 } else {
-                    cellStates[image.imageId] = DocumentPhotoCellState.Error(s("complectation_ne_udalos_otobrazit_foto"))
+                    val mime = mimeTypeForOpen(result.data)
+                    val ext = sniffedFileExtension(result.data)
+                    val rawName = preferredStoredFileName(image.originalFilename, image.storedFilename)
+                    cellStates[image.imageId] = if (ext != "jpg" && ext != "bin") {
+                        DocumentPhotoCellState.File(
+                            label = ext.uppercase(),
+                            mimeType = mime,
+                            displayName = displayFileStem(rawName, image.imageId),
+                        )
+                    } else {
+                        DocumentPhotoCellState.Error(s("complectation_ne_udalos_otobrazit_foto"))
+                    }
                 }
             }
             is Resource.Error -> {
                 CameraFixatorLog.d(
                     "image_download_failed id=${image.imageId} url=${image.contentUrl} reason=http_or_network message=${result.causes}",
                 )
+                cellStates[image.imageId] = DocumentPhotoCellState.Error(
+                    userFacingMessage(
+                        result.causes ?: s("complectation_ne_udalos_zagruzit_fotografii"),
+                        s("complectation_ne_udalos_zagruzit_fotografii"),
+                    ),
+                )
+            }
+            is Resource.Loading -> Unit
+        }
+    }
+
+    suspend fun openDocumentCell(image: ImageMediatorImageMeta) {
+        when (val result = repository.downloadFixatorDocumentImage(
+            documentType = documentType,
+            documentNumber = resolvedNumber,
+            imageId = image.imageId,
+            contentUrl = image.contentUrl,
+        )) {
+            is Resource.Success -> {
+                val mime = mimeTypeForOpen(result.data)
+                val rawName = preferredStoredFileName(image.originalFilename, image.storedFilename)
+                    ?: "${image.imageId}.${sniffedFileExtension(result.data)}"
+                val fileName = sanitizedOpenFileName(rawName, mime)
+                val opened = openExternalDocument(fileName, mime, result.data)
+                if (!opened) {
+                    cellStates[image.imageId] = DocumentPhotoCellState.Error(
+                        s("complectation_ne_udalos_otobrazit_foto"),
+                    )
+                }
+            }
+            is Resource.Error -> {
                 cellStates[image.imageId] = DocumentPhotoCellState.Error(
                     userFacingMessage(
                         result.causes ?: s("complectation_ne_udalos_zagruzit_fotografii"),
@@ -345,6 +397,11 @@ fun DocumentPhotosViewerScreen(
                                         previewBitmap = loaded.bitmap
                                     }
                                 },
+                                onOpenFile = {
+                                    photoActionGate.launch(scope) {
+                                        openDocumentCell(image)
+                                    }
+                                },
                                 onRetry = {
                                     photoActionGate.launch(scope) {
                                         loadImageCell(image)
@@ -371,6 +428,7 @@ private fun DocumentPhotoGridCell(
     state: DocumentPhotoCellState,
     enabled: Boolean,
     onPreview: () -> Unit,
+    onOpenFile: () -> Unit,
     onRetry: () -> Unit,
 ) {
     Box(
@@ -380,11 +438,16 @@ private fun DocumentPhotoGridCell(
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(
-                enabled = enabled && (state is DocumentPhotoCellState.Loaded || state is DocumentPhotoCellState.Error),
+                enabled = enabled && (
+                    state is DocumentPhotoCellState.Loaded ||
+                        state is DocumentPhotoCellState.File ||
+                        state is DocumentPhotoCellState.Error
+                    ),
                 onClick = {
                     when (state) {
                         is DocumentPhotoCellState.Loaded -> onPreview()
                         is DocumentPhotoCellState.Error -> onRetry()
+                        is DocumentPhotoCellState.File -> onOpenFile()
                         DocumentPhotoCellState.Loading -> Unit
                     }
                 },
@@ -402,6 +465,40 @@ private fun DocumentPhotoGridCell(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
+            }
+            is DocumentPhotoCellState.File -> {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 8.dp, vertical = 28.dp),
+                    ) {
+                        Icon(
+                            FeatherIcons.File,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = state.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = state.displayName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                }
             }
             is DocumentPhotoCellState.Error -> {
                 Column(

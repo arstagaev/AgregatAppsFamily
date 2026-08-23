@@ -24,11 +24,15 @@ class FixatorPhotoStorage(
         documentNumber: String,
         documentName: String,
         normalizedBytes: ByteArray,
+        storedFileName: String? = null,
+        mimeType: String = "image/jpeg",
     ): FixatorPendingPhotoEntry = manifestStore.savePendingPhoto(
         root = storageRoot,
         documentNumber = documentNumber,
         documentName = documentName,
         normalizedBytes = normalizedBytes,
+        storedFileName = storedFileName,
+        mimeType = mimeType,
     )
 
     suspend fun listPendingPhotos(documentNumber: String): List<FixatorPendingPhotoEntry> =

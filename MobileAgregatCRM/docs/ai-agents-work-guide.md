@@ -188,3 +188,17 @@ For web distribution:
 - Deployment-sensitive changes are documented when needed.
 - If uncertainty remains, explicitly list risk and a safer follow-up path.
 
+## 13) Multi-account, PIN, and session isolation
+
+Authoritative product notes (do not regress these without an explicit request):
+
+- `docs/multi-account-session.md`
+
+Rules that bite agents:
+
+- Never `nav.pop()` from the account switcher back onto a live document list of the previous user. Leave switcher via the same session restart as account selection (`restartActiveSession()`).
+- Duplicate accounts are unique by **normalized FIO**, not FIO+department. Same **login** reuses a slot.
+- Reject duplicate FIO **before** core bootstrap/heartbeat.
+- CRM list HTTP must use token from `TOKEN_KEY` (`authorizedConfig()`), not a stale in-memory `ApiConfig.token`.
+- Add-account login form must not prefill the current user's login.
+

@@ -33,4 +33,11 @@ class FavoritesStore(
     fun toggle(number: String) {
         if (isFavorite(number)) remove(number) else add(number)
     }
+
+    fun clearAll() {
+        if (queries != null) {
+            queries.deleteAll()
+        }
+        memoryFavorites.clear()
+    }
 }

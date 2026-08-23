@@ -206,13 +206,16 @@ class ComplectationComponent(
     override fun fullRefresh() {
         appScope.launch {
             loadMutex.withLock {
-                //_complectations.value = Resource.Loading
-                _complectations.value = Resource.Success(data = loadedOrders, additionalLoading = true)
+                val capturedGeneration = com.tagaev.trrcrm.data.accounts.AccountSessionCaches.listGeneration()
+                loadedOrders.clear()
+                loadedKeys.clear()
+                _complectations.value = Resource.Loading
 
                 _refineState.value = loadRefineState()
                 _ncount.value = 0
 
                 val result = repository.loadComplectations(0, refineState.value)
+                if (!com.tagaev.trrcrm.data.accounts.AccountSessionCaches.isCurrentListGeneration(capturedGeneration)) return@withLock
                 if (result is Resource.Success) {
                     val newItems = result.data
 

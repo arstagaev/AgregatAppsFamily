@@ -1,5 +1,8 @@
 package com.tagaev.trrcrm.data.remote
 
+import com.tagaev.trrcrm.domain.ImageMediatorFileKind
+import com.tagaev.trrcrm.domain.ImageMediatorUploadPart
+import com.tagaev.trrcrm.domain.jpegUploadPart
 import com.tagaev.trrcrm.models.DocumentUploadPeriod
 import com.tagaev.trrcrm.models.ImageDocumentType
 import com.tagaev.trrcrm.models.ImageMediatorCanUploadResponse
@@ -59,10 +62,12 @@ class ImageMediatorApiContractTest {
     fun `canUpload Complects 0000198950 sends full number year month and contract 1_7`() = runTest {
         var authHeader: String? = null
         var contractHeader: String? = null
+        var idempotencyKey: String? = null
         var requestBody = ""
         val engine = MockEngine { request ->
             authHeader = request.headers[HttpHeaders.Authorization]
             contractHeader = request.headers[ImageMediatorApi.CONTRACT_HEADER]
+            idempotencyKey = request.headers["Idempotency-Key"]
             requestBody = request.body.asRequestText()
             assertEquals(HttpMethod.Post, request.method)
             assertTrue(request.url.encodedPath.endsWith("/api/v1/uploads/can-upload"))
@@ -99,12 +104,13 @@ class ImageMediatorApiContractTest {
         )
         val success = assertIs<Resource.Success<ImageMediatorCanUploadResponse>>(result)
 
-        assertEquals("Bearer test-token", authHeader)
-        assertEquals("1.7", contractHeader)
         assertContains(requestBody, "\"document_number\":\"0000198950\"")
         assertContains(requestBody, "\"document_name\":\"Complects\"")
         assertContains(requestBody, "\"year\":2025")
         assertContains(requestBody, "\"month\":3")
+        assertEquals("Bearer test-token", authHeader)
+        assertEquals("1.7", contractHeader)
+        assertTrue(!idempotencyKey.isNullOrBlank())
         assertTrue(success.data.allowed)
         assertEquals("0000198950", success.data.resolvedDocumentNumber)
         assertEquals(2025, success.data.resolvedYear)
@@ -153,7 +159,7 @@ class ImageMediatorApiContractTest {
         val result = api(engine).uploadPhotos(
             agrToken = "test-token",
             documentNumber = "0000560730",
-            files = listOf(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte())),
+            files = listOf(jpegUploadPart(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()))),
             uploadPeriod = DocumentUploadPeriod(2024, 11),
             documentType = ImageDocumentType.WorkOrder,
             idempotencyKey = "11111111-2222-3333-4444-555555555555",
@@ -291,6 +297,46 @@ class ImageMediatorApiContractTest {
         val success = assertIs<Resource.Success<ImageMediatorImageListResponse>>(result)
         assertEquals("/api/v1/images/img_a83fd912e2c4f719/content", success.data.images.first().contentUrl)
         assertEquals("0000198950", success.data.resolvedDocumentNumber)
+    }
+
+    @Test
+    fun `viewer list parses original_filename and stored_filename`() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """
+                    {
+                      "document_number": "0000198950",
+                      "page": 1,
+                      "page_size": 10,
+                      "total_count": 1,
+                      "total_pages": 1,
+                      "has_next": false,
+                      "has_previous": false,
+                      "images": [
+                        {
+                          "image_id": "img_file",
+                          "content_url": "/api/v1/images/img_file/content",
+                          "size_bytes": 1200,
+                          "original_filename": "Акт.pdf",
+                          "stored_filename": "act.pdf"
+                        }
+                      ]
+                    }
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val result = api(engine).listDocumentImages(
+            agrToken = "token",
+            documentNumber = "0000198950",
+            uploadPeriod = DocumentUploadPeriod(2025, 3),
+            page = 1,
+        )
+        val success = assertIs<Resource.Success<ImageMediatorImageListResponse>>(result)
+        val image = success.data.images.single()
+        assertEquals("Акт.pdf", image.originalFilename)
+        assertEquals("act.pdf", image.storedFilename)
     }
 
     @Test
@@ -440,7 +486,7 @@ class ImageMediatorApiContractTest {
         val result = api(engine).uploadPhotos(
             "bad-token",
             "0000198950",
-            listOf(byteArrayOf(1, 2, 3)),
+            listOf(jpegUploadPart(byteArrayOf(1, 2, 3))),
             DocumentUploadPeriod(2025, 3),
             idempotencyKey = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
         )
@@ -506,6 +552,66 @@ class ImageMediatorApiContractTest {
     }
 
     @Test
+    fun `downloadImageContent 200 html is error and not treated as file`() = runTest {
+        val html = "<!DOCTYPE html><html><body>login</body></html>"
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Get, request.method)
+            assertTrue(request.url.encodedPath.endsWith("/api/v1/images/img_html/content"))
+            respond(
+                content = html,
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "text/html; charset=utf-8"),
+            )
+        }
+
+        val result = api(engine).downloadImageContent(
+            agrToken = "test-token",
+            contentUrl = "/api/v1/images/img_html/content",
+        )
+        val error = assertIs<Resource.Error<ByteArray>>(result)
+        val exception = assertIs<ImageMediatorException>(error.exception)
+        assertEquals(200, exception.statusCode)
+        assertEquals(ImageMediatorApi.UNEXPECTED_HTML_OR_JSON, exception.errorCode)
+        assertContains(error.causes.orEmpty(), "файл")
+    }
+
+    @Test
+    fun `downloadImageContent 200 json body is error even if octet-stream`() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"detail":"not a file"}""",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/octet-stream"),
+            )
+        }
+        val result = api(engine).downloadImageContent(
+            agrToken = "token",
+            contentUrl = "/api/v1/images/img_json/content",
+        )
+        val error = assertIs<Resource.Error<ByteArray>>(result)
+        val exception = assertIs<ImageMediatorException>(error.exception)
+        assertEquals(ImageMediatorApi.UNEXPECTED_HTML_OR_JSON, exception.errorCode)
+    }
+
+    @Test
+    fun `downloadImageContent 200 pdf is success`() = runTest {
+        val pdf = "%PDF-1.4 test-bytes".encodeToByteArray()
+        val engine = MockEngine {
+            respond(
+                content = pdf,
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/pdf"),
+            )
+        }
+        val result = api(engine).downloadImageContent(
+            agrToken = "token",
+            contentUrl = "/api/v1/images/img_pdf/content",
+        )
+        val success = assertIs<Resource.Success<ByteArray>>(result)
+        assertTrue(success.data.contentEquals(pdf))
+    }
+
+    @Test
     fun `WorkOrder document_name on period-aware count and list`() = runTest {
         val seenNames = mutableListOf<String?>()
         val engine = MockEngine { request ->
@@ -542,5 +648,169 @@ class ImageMediatorApiContractTest {
         assertIs<Resource.Success<Int>>(countResult)
         assertIs<Resource.Success<ImageMediatorImageListResponse>>(listResult)
         assertEquals(listOf<String?>("WorkOrder", "WorkOrder"), seenNames)
+    }
+
+    @Test
+    fun `uploadPhotos pdf keeps mime filename not photo_0_jpg`() = runTest {
+        var requestBody = ""
+        val engine = MockEngine { request ->
+            requestBody = request.body.asRequestText()
+            respond(
+                content = """
+                    {
+                      "document_number": "0000198950",
+                      "uploaded_files": [
+                        { "stored_filename": "act.pdf", "mime_type": "application/pdf" }
+                      ]
+                    }
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val pdf = ImageMediatorUploadPart(
+            bytes = "%PDF-1.4 test".encodeToByteArray(),
+            fileName = "act.pdf",
+            mimeType = "application/pdf",
+            kind = ImageMediatorFileKind.Document,
+        )
+        val result = api(engine).uploadPhotos(
+            agrToken = "token",
+            documentNumber = "0000198950",
+            files = listOf(pdf),
+            uploadPeriod = DocumentUploadPeriod(2025, 3),
+            documentType = ImageDocumentType.Event,
+            idempotencyKey = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        )
+        assertIs<Resource.Success<ImageMediatorUploadResponse>>(result)
+        assertContains(requestBody, "application/pdf")
+        assertContains(requestBody, "act.pdf")
+        assertContains(requestBody, "Event")
+        assertTrue("photo_0.jpg" !in requestBody)
+    }
+
+    @Test
+    fun `canUpload sends all canonical document_name values`() = runTest {
+        val seen = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            seen += request.body.asRequestText()
+            respond(
+                content = """{"allowed":true,"document_number":"0000198950","folder_found":true,"limits":{"remaining":5}}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val client = api(engine)
+        val period = DocumentUploadPeriod(2025, 3)
+        ImageDocumentType.entries.forEach { type ->
+            assertIs<Resource.Success<ImageMediatorCanUploadResponse>>(
+                client.canUpload("t", "0000198950", period, type),
+            )
+        }
+        assertEquals(5, seen.size)
+        ImageDocumentType.entries.forEach { type ->
+            assertTrue(seen.any { it.contains("\"document_name\":\"${type.wireName}\"") }, type.wireName)
+        }
+    }
+
+    @Test
+    fun `canUpload reuses Idempotency-Key on 503 retry`() = runTest {
+        val keys = mutableListOf<String?>()
+        var attempts = 0
+        val engine = MockEngine { request ->
+            attempts += 1
+            keys += request.headers["Idempotency-Key"]
+            if (attempts == 1) {
+                respond(
+                    content = """{"detail":"busy"}""",
+                    status = HttpStatusCode.ServiceUnavailable,
+                    headers = headersOf(
+                        HttpHeaders.ContentType to listOf(ContentType.Application.Json.toString()),
+                        HttpHeaders.RetryAfter to listOf("1"),
+                    ),
+                )
+            } else {
+                respond(
+                    content = """{"allowed":true,"document_number":"0000198950","folder_found":true,"limits":{"remaining":4}}""",
+                    status = HttpStatusCode.OK,
+                    headers = jsonHeaders(),
+                )
+            }
+        }
+        assertIs<Resource.Success<ImageMediatorCanUploadResponse>>(
+            api(engine).canUpload("t", "0000198950", DocumentUploadPeriod(2025, 3)),
+        )
+        assertEquals(2, attempts)
+        assertEquals(keys[0], keys[1])
+        assertTrue(!keys[0].isNullOrBlank())
+    }
+
+    @Test
+    fun `429 is not retried`() = runTest {
+        var attempts = 0
+        val engine = MockEngine {
+            attempts += 1
+            respond(
+                content = """{"detail":"rate"}""",
+                status = HttpStatusCode.TooManyRequests,
+                headers = jsonHeaders(),
+            )
+        }
+        val error = assertIs<Resource.Error<ImageMediatorCanUploadResponse>>(
+            api(engine).canUpload("t", "0000198950", DocumentUploadPeriod(2025, 3)),
+        )
+        assertEquals(1, attempts)
+        assertContains(error.causes.orEmpty(), "лимит")
+    }
+
+    @Test
+    fun `409 legacy_document_identity_incomplete is mapped distinctly`() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"detail":{"code":"legacy_document_identity_incomplete"}}""",
+                status = HttpStatusCode.Conflict,
+                headers = jsonHeaders(),
+            )
+        }
+        val error = assertIs<Resource.Error<ImageMediatorCanUploadResponse>>(
+            api(engine).canUpload("t", "0000198950", DocumentUploadPeriod(2025, 3)),
+        )
+        assertContains(error.causes.orEmpty(), "Недостаточно")
+    }
+
+    @Test
+    fun `png upload uses image png mime and filename`() = runTest {
+        var requestBody = ""
+        val engine = MockEngine { request ->
+            requestBody = request.body.asRequestText()
+            respond(
+                content = """{"document_number":"АР0000337","uploaded_files":[{"stored_filename":"scan.png"}]}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val pngHeader = byteArrayOf(
+            0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3,
+        )
+        val result = api(engine).uploadPhotos(
+            "t",
+            "АР0000337",
+            listOf(
+                ImageMediatorUploadPart(
+                    bytes = pngHeader,
+                    fileName = "scan.png",
+                    mimeType = "image/png",
+                    kind = ImageMediatorFileKind.Image,
+                ),
+            ),
+            DocumentUploadPeriod(2023, 8),
+            ImageDocumentType.InnerOrder,
+            idempotencyKey = "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        )
+        assertIs<Resource.Success<ImageMediatorUploadResponse>>(result)
+        assertContains(requestBody, "image/png")
+        assertContains(requestBody, "scan.png")
+        assertContains(requestBody, "InnerOrder")
+        assertContains(requestBody, "АР0000337")
     }
 }
